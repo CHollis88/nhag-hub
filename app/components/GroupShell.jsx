@@ -82,7 +82,10 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
 
   return (
     <div className="min-h-screen flex flex-col bg-paper">
-      <header className="flex justify-between items-center px-4 py-3 bg-navy text-white">
+      <header
+        className="sticky top-0 z-30 flex justify-between items-center px-4 py-3 bg-navy text-white"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+      >
         <div className="flex items-center gap-3">
           <button onClick={onBackToHub} className="text-sm">
             ← Home

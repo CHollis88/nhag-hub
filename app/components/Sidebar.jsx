@@ -21,7 +21,7 @@ export default function Sidebar({ tab, setTab }) {
 
   return (
     <nav
-      className={`hidden md:flex flex-col flex-shrink-0 bg-card border-r border-line py-4 transition-all ${
+      className={`hidden md:flex flex-col flex-shrink-0 bg-card border-r border-line py-4 sticky top-0 h-screen overflow-y-auto transition-all ${
         collapsed ? "w-16" : "w-56"
       }`}
     >

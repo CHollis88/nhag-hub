@@ -205,7 +205,10 @@ function AppShell({ me, refreshMe, onSignOut }) {
   if (bibleOverlay) {
     return (
       <div className="min-h-screen flex flex-col bg-paper">
-        <header className="flex items-center gap-3 px-4 py-3 bg-navy text-white">
+        <header
+          className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-navy text-white"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+        >
           <button onClick={closeBibleOverlay} className="text-sm">
             {activeGroup ? `← Back to ${activeGroup.name}` : "← Back"}
           </button>
@@ -234,7 +237,10 @@ function AppShell({ me, refreshMe, onSignOut }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-paper">
-      <header className="flex justify-between items-center px-4 py-2.5 bg-navy text-white">
+      <header
+        className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-navy text-white"
+        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
+      >
         <div className="flex items-center gap-2.5">
           <img src="/icon-192.png" alt="" className="w-8 h-8 rounded" />
           <strong
