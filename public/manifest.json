@@ -1,0 +1,13 @@
+{
+  "name": "NHAG Church Hub",
+  "short_name": "NHAG Hub",
+  "description": "North Hodge Assembly of God — church-wide hub",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B1A3D",
+  "theme_color": "#16296B",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

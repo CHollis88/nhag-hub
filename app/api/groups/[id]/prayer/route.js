@@ -1,0 +1,67 @@
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { supabaseServer } from "@/lib/supabaseServer";
+import { isActiveGroupMember } from "@/lib/groupAuth";
+import { notifyGroup } from "@/lib/push";
+
+export async function GET(req, { params }) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { id: groupId } = params;
+  if (!(await isActiveGroupMember(user, groupId))) {
+    return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
+  }
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("group_prayer")
+    .select("id, body, is_anonymous, created_by, created_at, users(display_name)")
+    .eq("group_id", groupId)
+    .order("created_at", { ascending: false });
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Strip the submitter's name server-side for anonymous requests, so it
+  // never even reaches the client -- not just hidden in the UI.
+  const sanitized = data.map((p) => ({
+    ...p,
+    users: p.is_anonymous ? null : p.users,
+    created_by: p.is_anonymous ? null : p.created_by,
+  }));
+
+  return NextResponse.json({ prayer: sanitized });
+}
+
+// Unlike News/Events, any active member can submit a prayer request --
+// per the permission matrix, this is the one piece of content Members
+// create themselves.
+export async function POST(req, { params }) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { id: groupId } = params;
+  if (!(await isActiveGroupMember(user, groupId))) {
+    return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
+  }
+
+  const { body, is_anonymous } = await req.json();
+  if (!body?.trim()) {
+    return NextResponse.json({ error: "Prayer request can't be empty." }, { status: 400 });
+  }
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("group_prayer")
+    .insert({ group_id: groupId, body: body.trim(), is_anonymous: Boolean(is_anonymous), created_by: user.id })
+    .select("id, body, is_anonymous, created_at")
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Deliberately generic -- a prayer request's content shouldn't show up
+  // in a lock-screen notification banner, even for a non-anonymous one.
+  notifyGroup(groupId, { title: "New Prayer Request", body: "Tap to view.", url: "/" }).catch(() => {});
+
+  return NextResponse.json({ prayer: data });
+}

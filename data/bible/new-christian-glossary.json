@@ -1,0 +1,237 @@
+[
+  {
+    "term": "Sin",
+    "category": "Core gospel terms",
+    "definition": "Anything that goes against God's ways — the things we do, think, or say that fall short of how He asks us to live. Everyone sins; it's what separates people from God."
+  },
+  {
+    "term": "Grace",
+    "category": "Core gospel terms",
+    "definition": "God's kindness toward us that we didn't earn and don't deserve. It's the reason He offers forgiveness and a relationship with Him, not because we were good enough, but because He loves us."
+  },
+  {
+    "term": "Faith",
+    "category": "Core gospel terms",
+    "definition": "Trusting God and believing what He says is true, even when we can't see or fully understand it. It's less about having zero doubts and more about choosing to rely on Him."
+  },
+  {
+    "term": "Repentance",
+    "category": "Core gospel terms",
+    "definition": "Turning away from sin and turning toward God — an honest change of heart and direction, not just feeling sorry."
+  },
+  {
+    "term": "Salvation",
+    "category": "Core gospel terms",
+    "definition": "Being rescued from the penalty of sin and given new life through Jesus. It's a free gift, received by faith, not something earned by good behavior."
+  },
+  {
+    "term": "Gospel",
+    "category": "Core gospel terms",
+    "definition": "Literally \"good news\" — the message that Jesus died for our sins and rose again, and that anyone who trusts in Him can be forgiven and have a relationship with God."
+  },
+  {
+    "term": "Redemption",
+    "category": "Core gospel terms",
+    "definition": "Being bought back or rescued. Jesus \"redeemed\" us by paying the price for our sin through His death, freeing us from it."
+  },
+  {
+    "term": "Justification",
+    "category": "Core gospel terms",
+    "definition": "Being declared right with God — not guilty — because of what Jesus did, not because of anything we did ourselves."
+  },
+  {
+    "term": "Sanctification",
+    "category": "Core gospel terms",
+    "definition": "The lifelong process of becoming more like Jesus after becoming a Christian. It's growth, not a one-time event."
+  },
+  {
+    "term": "Born Again",
+    "category": "Core gospel terms",
+    "definition": "A phrase Jesus used to describe the fresh start that happens when someone trusts Him — a spiritual new beginning, like being born a second time."
+  },
+  {
+    "term": "Atonement",
+    "category": "Core gospel terms",
+    "definition": "The way Jesus' death made things right between God and us, covering the debt sin created."
+  },
+  {
+    "term": "Mercy",
+    "category": "Core gospel terms",
+    "definition": "Not receiving the punishment we deserve. Where grace is getting good we didn't earn, mercy is not getting the bad we did earn."
+  },
+  {
+    "term": "Trinity",
+    "category": "God & Jesus",
+    "definition": "The belief that God is one God who exists as three persons — Father, Son (Jesus), and Holy Spirit. It's a mystery more than a math problem, but central to Christian belief about who God is."
+  },
+  {
+    "term": "Messiah / Christ",
+    "category": "God & Jesus",
+    "definition": "\"Messiah\" (Hebrew) and \"Christ\" (Greek) both mean \"anointed one\" — the promised rescuer God's people had been waiting for. Christians believe Jesus is that promised Messiah."
+  },
+  {
+    "term": "Son of God",
+    "category": "God & Jesus",
+    "definition": "A title showing Jesus' unique relationship with God the Father — fully God, not just a good teacher or prophet."
+  },
+  {
+    "term": "Holy Spirit",
+    "category": "God & Jesus",
+    "definition": "The third person of the Trinity — God's presence living in and working through believers today, guiding, comforting, and empowering them."
+  },
+  {
+    "term": "Lord",
+    "category": "God & Jesus",
+    "definition": "A title of authority and ownership. Calling Jesus \"Lord\" means recognizing Him as in charge of your life, not just believing facts about Him."
+  },
+  {
+    "term": "Righteousness",
+    "category": "God & Jesus",
+    "definition": "Being right and good in God's eyes. On our own we fall short of it, but through faith in Jesus, His righteousness is credited to us."
+  },
+  {
+    "term": "Holy / Holiness",
+    "category": "God & Jesus",
+    "definition": "Set apart, pure, without sin. God is holy in His very nature; Christians are called to grow in holiness as they follow Him."
+  },
+  {
+    "term": "Church (Ekklesia)",
+    "category": "Church life & practice",
+    "definition": "The Greek word behind \"church\" simply means \"gathering\" or \"assembly.\" It refers both to a local group of believers meeting together and to all Christians everywhere, across time."
+  },
+  {
+    "term": "Baptism",
+    "category": "Church life & practice",
+    "definition": "Being immersed in water as a public sign that someone has trusted Jesus and is starting a new life. It doesn't save a person — it shows, outwardly, what's already happened inside."
+  },
+  {
+    "term": "Communion / Lord's Supper",
+    "category": "Church life & practice",
+    "definition": "Sharing bread and juice or wine together, remembering Jesus' death on our behalf, following what He asked His followers to do in His memory."
+  },
+  {
+    "term": "Worship",
+    "category": "Church life & practice",
+    "definition": "Giving God honor and praise — through singing, prayer, giving, or simply how we live. It's a response to who God is, not just a music style."
+  },
+  {
+    "term": "Fellowship",
+    "category": "Church life & practice",
+    "definition": "Genuine relationship and community among Christians — doing life together, not just attending the same building."
+  },
+  {
+    "term": "Tithe",
+    "category": "Church life & practice",
+    "definition": "Giving a portion (traditionally ten percent) of what you earn back to God, usually through your local church, as an act of trust and worship."
+  },
+  {
+    "term": "Testimony",
+    "category": "Church life & practice",
+    "definition": "A personal story of how God has worked in someone's life — often specifically how they came to faith."
+  },
+  {
+    "term": "Prayer",
+    "category": "Church life & practice",
+    "definition": "Talking with God — bringing Him your thanks, requests, struggles, and questions. It's meant to be a real conversation, not a formula."
+  },
+  {
+    "term": "Intercession",
+    "category": "Church life & practice",
+    "definition": "Praying on behalf of someone else — standing in the gap for another person's needs before God."
+  },
+  {
+    "term": "Consecration",
+    "category": "Church life & practice",
+    "definition": "Setting something or someone apart for God's purposes — dedicating your life, time, or possessions to Him."
+  },
+  {
+    "term": "Gifts of the Spirit",
+    "category": "Spirit-filled life",
+    "definition": "Special abilities the Holy Spirit gives believers to serve others and build up the church — things like teaching, encouragement, healing, or speaking in tongues."
+  },
+  {
+    "term": "Fruit of the Spirit",
+    "category": "Spirit-filled life",
+    "definition": "The character qualities the Holy Spirit grows in a believer's life over time — love, joy, peace, patience, kindness, goodness, faithfulness, gentleness, and self-control (Galatians 5:22-23)."
+  },
+  {
+    "term": "Anointing",
+    "category": "Spirit-filled life",
+    "definition": "A special empowering presence of the Holy Spirit for a specific purpose or calling — sometimes described as God's power resting on someone for a task."
+  },
+  {
+    "term": "Backslide",
+    "category": "Spirit-filled life",
+    "definition": "Drifting away from a close walk with God after having once been close to Him — a common experience many believers face and can return from."
+  },
+  {
+    "term": "Pastor / Shepherd",
+    "category": "Church roles",
+    "definition": "A leader who cares for and guides a church community, teaching and looking after its people the way a shepherd cares for sheep."
+  },
+  {
+    "term": "Elder",
+    "category": "Church roles",
+    "definition": "A mature, respected leader who helps oversee and guide a local church, often as part of a leadership team."
+  },
+  {
+    "term": "Deacon",
+    "category": "Church roles",
+    "definition": "Someone who serves the practical needs of a church community, freeing up other leaders to focus on teaching and prayer."
+  },
+  {
+    "term": "Apostle",
+    "category": "Church roles",
+    "definition": "Originally one of the people Jesus personally sent out to establish the early church; today sometimes used for someone with a similar pioneering, church-planting calling."
+  },
+  {
+    "term": "Prophet",
+    "category": "Church roles",
+    "definition": "Someone who speaks a message from God to His people — historically often calling people back to faithfulness or pointing toward what's ahead."
+  },
+  {
+    "term": "Evangelist",
+    "category": "Church roles",
+    "definition": "Someone gifted and focused on sharing the gospel with people who don't yet know Jesus."
+  },
+  {
+    "term": "Disciple",
+    "category": "Church roles",
+    "definition": "A follower and student of Jesus — someone learning to live like Him and following His teaching, not just admiring Him from a distance."
+  },
+  {
+    "term": "Kingdom of God",
+    "category": "Bigger picture",
+    "definition": "God's rule and reign — wherever His will is being done. Jesus taught that this Kingdom is both here now, in the lives of believers, and still coming in fullness in the future."
+  },
+  {
+    "term": "Covenant",
+    "category": "Bigger picture",
+    "definition": "A binding promise or agreement between God and His people. The Bible is often described as the story of God's covenants — old and new — with humanity."
+  },
+  {
+    "term": "Eternal Life",
+    "category": "Bigger picture",
+    "definition": "Life with God that never ends, starting the moment someone trusts Jesus and continuing forever — not just a reward that begins after death."
+  },
+  {
+    "term": "Second Coming",
+    "category": "Bigger picture",
+    "definition": "The Christian belief that Jesus will physically return to earth one day to fully establish His Kingdom and make all things right."
+  },
+  {
+    "term": "Judgment",
+    "category": "Bigger picture",
+    "definition": "The belief that everyone will one day be accountable to God for their lives — for Christians, this is tied to hope and confidence, not fear, because of what Jesus already did."
+  },
+  {
+    "term": "Rapture",
+    "category": "Bigger picture",
+    "definition": "The catching up of believers — those who have died in Christ and those still living — to meet Jesus at His return, described in 1 Thessalonians 4:16-17. It is part of the larger hope of Christ's second coming, not a separate event on its own."
+  },
+  {
+    "term": "Trustee",
+    "category": "Church roles",
+    "definition": "Someone entrusted with overseeing a church's property, finances, or legal matters on behalf of the congregation — a practical leadership role focused on stewardship rather than teaching or pastoral care."
+  }
+]

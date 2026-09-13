@@ -1,0 +1,43 @@
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
+import { supabaseServer } from "@/lib/supabaseServer";
+
+// Journal entries are private and only ever looked up by the signed-in
+// user's own session. No leader view exists for this data anywhere in
+// the app, by design -- same as the Young Adults app it came from.
+
+export async function GET(req) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("journal_entries")
+    .select("day, text")
+    .eq("user_id", user.id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const byDay = {};
+  for (const row of data) byDay[row.day] = row.text;
+  return NextResponse.json({ journal: byDay });
+}
+
+export async function POST(req) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { day, text } = await req.json();
+  if (day == null) {
+    return NextResponse.json({ error: "day is required." }, { status: 400 });
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase.from("journal_entries").upsert(
+    { user_id: user.id, day, text: text || "", updated_at: new Date().toISOString() },
+    { onConflict: "user_id,day" }
+  );
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

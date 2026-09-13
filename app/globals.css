@@ -1,0 +1,164 @@
+@import url("https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600&family=Atkinson+Hyperlegible:wght@400;700&family=EB+Garamond:wght@400;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-paper: 246 241 230;
+  --color-card: 255 253 249;
+  --color-ink: 43 38 32;
+  --color-inksoft: 107 93 74;
+  --color-inkfaint: 138 124 99;
+  --color-line: 222 210 184;
+  --color-linesoft: 237 228 206;
+  --color-accent: 140 58 43;
+  --color-sage: 95 122 93;
+}
+
+.dark {
+  --color-paper: 30 25 20;
+  --color-card: 40 33 27;
+  --color-ink: 240 232 219;
+  --color-inksoft: 201 187 165;
+  --color-inkfaint: 156 141 118;
+  --color-line: 70 59 48;
+  --color-linesoft: 55 46 38;
+  --color-accent: 214 90 70;
+  --color-sage: 133 168 130;
+}
+
+/* Auto-assigned Bible verse tag colors (see lib/tagColor.js). Each has a
+   light-mode pairing (light tint background, dark saturated text) and a
+   dark-mode pairing (dark tint background, light saturated text), so
+   contrast stays readable regardless of theme. */
+.tag-color-0 { background: rgba(245, 213, 71, 0.18); color: #8a6d00; }
+.tag-color-1 { background: rgba(143, 199, 154, 0.20); color: #2f6b3d; }
+.tag-color-2 { background: rgba(143, 184, 222, 0.22); color: #2a5788; }
+.tag-color-3 { background: rgba(232, 166, 193, 0.20); color: #9c3f66; }
+.tag-color-4 { background: rgba(179, 157, 219, 0.22); color: #5c3fa3; }
+.tag-color-5 { background: rgba(240, 168, 104, 0.22); color: #a15c10; }
+.tag-color-6 { background: rgba(126, 200, 192, 0.22); color: #1e6e64; }
+
+.dark .tag-color-0 { background: rgba(245, 213, 71, 0.16); color: #f0d347; }
+.dark .tag-color-1 { background: rgba(143, 199, 154, 0.18); color: #a4d6ac; }
+.dark .tag-color-2 { background: rgba(143, 184, 222, 0.20); color: #aecdec; }
+.dark .tag-color-3 { background: rgba(232, 166, 193, 0.18); color: #edb9d0; }
+.dark .tag-color-4 { background: rgba(179, 157, 219, 0.20); color: #cbbcee; }
+.dark .tag-color-5 { background: rgba(240, 168, 104, 0.20); color: #f3c191; }
+.dark .tag-color-6 { background: rgba(126, 200, 192, 0.20); color: #a6ddd6; }
+
+/* Solid (non-tinted) variant, used for the active/selected state of a tag
+   filter chip -- same hue family, full-strength background with white text. */
+.tag-color-0-solid { background: #d9ba2f; color: #2b1f00; }
+.tag-color-1-solid { background: #5fa06e; color: #fff; }
+.tag-color-2-solid { background: #5088c2; color: #fff; }
+.tag-color-3-solid { background: #cf7a9c; color: #fff; }
+.tag-color-4-solid { background: #8a6fd0; color: #fff; }
+.tag-color-5-solid { background: #d68a45; color: #fff; }
+.tag-color-6-solid { background: #4aa89e; color: #fff; }
+
+/* Color-only variant (no background), for small bare icons like the inline
+   tag marker next to a verse number, where a tinted box would look odd. */
+.tag-color-0-icon { color: #8a6d00; }
+.tag-color-1-icon { color: #2f6b3d; }
+.tag-color-2-icon { color: #2a5788; }
+.tag-color-3-icon { color: #9c3f66; }
+.tag-color-4-icon { color: #5c3fa3; }
+.tag-color-5-icon { color: #a15c10; }
+.tag-color-6-icon { color: #1e6e64; }
+
+.dark .tag-color-0-icon { color: #f0d347; }
+.dark .tag-color-1-icon { color: #a4d6ac; }
+.dark .tag-color-2-icon { color: #aecdec; }
+.dark .tag-color-3-icon { color: #edb9d0; }
+.dark .tag-color-4-icon { color: #cbbcee; }
+.dark .tag-color-5-icon { color: #f3c191; }
+.dark .tag-color-6-icon { color: #a6ddd6; }
+
+* {
+  box-sizing: border-box;
+}
+
+/* Text size preference (Settings > Text Size). Since Tailwind's text-sm,
+   text-base, etc. are all relative to the root font-size, adjusting this
+   one value scales reading text consistently everywhere it's used. */
+html.text-scale-xs {
+  font-size: 13px;
+}
+html.text-scale-sm {
+  font-size: 15px;
+}
+html.text-scale-lg {
+  font-size: 19px;
+}
+html.text-scale-xl {
+  font-size: 22px;
+}
+html.text-scale-xxl {
+  font-size: 26px;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: rgb(var(--color-paper));
+  color: rgb(var(--color-ink));
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.font-serif {
+  font-family: "Source Serif 4", Georgia, serif;
+}
+
+.font-bible-sans {
+  font-family: "Inter", system-ui, sans-serif;
+}
+.font-bible-serif {
+  font-family: "Source Serif 4", Georgia, serif;
+}
+.font-bible-dyslexic {
+  font-family: "Atkinson Hyperlegible", Arial, sans-serif;
+  letter-spacing: 0.01em;
+}
+.font-bible-classic {
+  font-family: "EB Garamond", Georgia, "Times New Roman", serif;
+}
+
+@layer components {
+  .sp-card {
+    @apply bg-card border border-line rounded-2xl p-4;
+  }
+  .sp-input {
+    @apply w-full border border-line rounded-lg px-3 py-2.5 text-sm bg-card text-ink;
+  }
+  .sp-input:focus {
+    @apply outline-none ring-2;
+    --tw-ring-color: rgb(var(--color-accent) / 0.25);
+    border-color: rgb(var(--color-accent));
+  }
+  .sp-textarea {
+    @apply sp-input resize-none;
+  }
+  .sp-btn-primary {
+    @apply bg-accent text-white rounded-lg px-4 py-2.5 text-sm font-medium;
+  }
+  .sp-btn-sage {
+    @apply bg-sage text-white rounded-lg px-4 py-2.5 text-sm font-medium;
+  }
+  .sp-btn-secondary {
+    @apply border border-line text-inksoft rounded-lg px-4 py-2.5 text-sm bg-transparent;
+  }
+  .sp-btn-pill {
+    @apply inline-flex items-center gap-1.5 bg-accent text-white rounded-full px-3.5 py-1.5 text-sm;
+  }
+  .sp-pill-outline {
+    @apply inline-flex items-center gap-1.5 text-xs rounded-full px-3 py-1.5 border border-line bg-paper text-inksoft;
+  }
+  .sp-pill-outline.active {
+    @apply bg-sage/15 text-sage border-transparent;
+  }
+}
