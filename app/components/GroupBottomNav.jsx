@@ -15,13 +15,11 @@ export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 // inside a sub-app shows only that sub-app's tabs. Getting back to
 // News/Events/Hub/Bible means leaving the group via "Back to Hub."
 //
-// extraTabs lets a specific group's features bolt on more tabs (each with
-// its own icon) without touching this component's own logic -- e.g. Choir
-// adds Songs/Setlists on top of the same News/Events/Prayer/Roster every
-// group gets for free. Roster is always last, after any feature-specific
-// extras, per the project's decision.
-export default function GroupBottomNav({ tab, setTab, extraTabs = [] }) {
-  const tabs = [...BASE_TABS, ...extraTabs, ROSTER_TAB];
+// prependTabs lead the nav (e.g. Today/Plan/Journal for a reading-plan
+// group); appendTabs follow the shared set but come before Roster (e.g.
+// Songs/Setlists for Choir). Roster is always last.
+export default function GroupBottomNav({ tab, setTab, prependTabs = [], appendTabs = [] }) {
+  const tabs = [...prependTabs, ...BASE_TABS, ...appendTabs, ROSTER_TAB];
   return (
     <nav className="md:hidden sticky bottom-0 z-30 bg-card border-t border-line px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] overflow-x-auto">
       <div className="flex justify-between min-w-max gap-1">

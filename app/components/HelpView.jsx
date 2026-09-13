@@ -13,7 +13,7 @@ const FAQS = [
   },
   {
     q: "What happens when I tap \"Launch\" on a ministry?",
-    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: Choir gets a Song library and Setlists, and reading-plan groups (like Young Adults) get a daily Reading Plan and private Journal. Tap \"← Home\" at the top to leave and go back.",
+    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: Choir gets a Song library and Setlists, and reading-plan groups (like Young Adults) get Today, Plan, and Journal as their own tabs, leading the list. Tap \"← Home\" at the top to leave and go back.",
   },
   {
     q: "Who can post News or Events in a ministry?",

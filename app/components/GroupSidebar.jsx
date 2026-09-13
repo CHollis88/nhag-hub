@@ -12,12 +12,14 @@ export const BASE_TABS = [
 export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 
 // Desktop counterpart to GroupBottomNav -- same tabs (including any
-// feature-specific extras like Songs/Setlists), just a collapsible
-// sidebar instead of a bottom bar once there's screen width to spare.
-// Roster is always last, after any feature-specific extras.
-export default function GroupSidebar({ tab, setTab, extraTabs = [] }) {
+// feature-specific extras), just a collapsible sidebar instead of a
+// bottom bar once there's screen width to spare. prependTabs lead the
+// nav (e.g. Today/Plan/Journal); appendTabs follow the shared set but
+// come before Roster (e.g. Songs/Setlists for Choir). Roster is always
+// last.
+export default function GroupSidebar({ tab, setTab, prependTabs = [], appendTabs = [] }) {
   const [collapsed, setCollapsed] = useState(false);
-  const tabs = [...BASE_TABS, ...extraTabs, ROSTER_TAB];
+  const tabs = [...prependTabs, ...BASE_TABS, ...appendTabs, ROSTER_TAB];
 
   return (
     <nav
