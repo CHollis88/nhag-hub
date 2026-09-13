@@ -85,95 +85,65 @@ export default function SettingsView({ onClose, onOpenHelp }) {
   };
 
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(0,0,0,0.4)",
-        display: "flex",
-        alignItems: "flex-end",
-        zIndex: 50,
-      }}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 bg-black/40 flex items-end z-50" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "#fff",
-          borderRadius: "16px 16px 0 0",
-          width: "100%",
-          maxHeight: "85vh",
-          overflowY: "auto",
-          padding: 24,
-        }}
+        className="bg-card rounded-t-2xl w-full max-h-[85vh] overflow-y-auto p-6"
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h2 style={{ margin: 0 }}>Settings</h2>
-          <button onClick={onClose} style={{ border: "none", background: "none", fontSize: 20 }}>×</button>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="font-serif text-xl text-ink m-0">Settings</h2>
+          <button onClick={onClose} className="text-2xl text-inkfaint leading-none">×</button>
         </div>
 
-        <h3>Theme</h3>
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Theme</p>
+        <div className="flex gap-2 mb-5">
           {THEMES.map((t) => (
             <button
               key={t.id}
               onClick={() => chooseTheme(t.id)}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: theme === t.id ? "2px solid #16296B" : "1px solid #ccc",
-                background: theme === t.id ? "#16296B" : "#fff",
-                color: theme === t.id ? "#fff" : "#333",
-              }}
+              className={theme === t.id ? "sp-pill-outline active" : "sp-pill-outline"}
             >
               {t.label}
             </button>
           ))}
         </div>
 
-        <h3>Text Size</h3>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Text Size</p>
+        <div className="flex gap-1.5 flex-wrap mb-5">
           {TEXT_SIZES.map((t) => (
             <button
               key={t.id}
               onClick={() => chooseTextSize(t.id)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 8,
-                fontSize: 13,
-                border: textSize === t.id ? "2px solid #16296B" : "1px solid #ccc",
-                background: textSize === t.id ? "#16296B" : "#fff",
-                color: textSize === t.id ? "#fff" : "#333",
-              }}
+              className={textSize === t.id ? "sp-pill-outline active" : "sp-pill-outline"}
             >
               {t.label}
             </button>
           ))}
         </div>
 
-        <h3>Desktop Layout</h3>
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Desktop Layout</p>
+        <label className="flex items-center gap-2.5 mb-5 text-sm text-inksoft">
           <input type="checkbox" checked={desktopLayout} onChange={toggleDesktopLayout} />
           Use wide desktop layout on larger screens
         </label>
 
-        <h3>Notifications</h3>
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Notifications</p>
+        <label className="flex items-center gap-2.5 mb-1.5 text-sm text-inksoft">
           <input type="checkbox" checked={pushSubscribed} onChange={togglePush} disabled={pushBusy} />
           Enable push notifications on this device
         </label>
-        <p style={{ fontSize: 12, color: "#666", marginTop: 0, marginBottom: 16 }}>
+        <p className="text-xs text-inkfaint mt-0 mb-4">
           Turn this on once per device (phone, laptop, etc.) to receive anything below.
         </p>
 
         {prefs && (
           <>
-            <label style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+            <label className="flex items-center gap-2.5 mb-1.5 text-sm text-inksoft">
               <input type="checkbox" checked={prefs.global} onChange={(e) => setGlobalPref(e.target.checked)} />
               Church-wide News &amp; Events
             </label>
             {prefs.groups?.map((g) => (
-              <label key={g.group_id} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <label key={g.group_id} className="flex items-center gap-2.5 mb-1.5 text-sm text-inksoft">
                 <input type="checkbox" checked={g.enabled} onChange={(e) => setGroupPref(g.group_id, e.target.checked)} />
                 {g.name}
               </label>
@@ -181,7 +151,7 @@ export default function SettingsView({ onClose, onOpenHelp }) {
           </>
         )}
 
-        <button onClick={onOpenHelp} style={{ marginTop: 20, padding: "8px 16px" }}>
+        <button onClick={onOpenHelp} className="sp-btn-secondary mt-5">
           Help / FAQ
         </button>
       </div>

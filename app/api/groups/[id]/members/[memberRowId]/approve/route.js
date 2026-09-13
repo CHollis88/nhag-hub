@@ -9,7 +9,7 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
   }
 
-  const { id: groupId, memberRowId } = params;
+  const { id: groupId, memberRowId } = await params;
   const allowed = await canManageGroup(user, groupId);
   if (!allowed) {
     return NextResponse.json(

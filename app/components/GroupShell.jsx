@@ -38,36 +38,24 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
   const extraTabs = features.flatMap((f) => FEATURE_TABS[f] || []);
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <header
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          padding: "12px 16px",
-          background: "#16296B",
-          color: "#fff",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button
-            onClick={onBackToHub}
-            style={{ background: "none", border: "none", color: "#fff", fontSize: 16, cursor: "pointer" }}
-          >
+    <div className="min-h-screen flex flex-col bg-paper">
+      <header className="flex justify-between items-center px-4 py-3 bg-navy text-white">
+        <div className="flex items-center gap-3">
+          <button onClick={onBackToHub} className="text-sm">
             ← Hub
           </button>
-          <strong>{group.name}</strong>
+          <strong className="font-serif">{group.name}</strong>
         </div>
         <button
           onClick={() => setSettingsOpen(true)}
           aria-label="Settings"
-          style={{ background: "none", border: "1px solid #fff", color: "#fff", borderRadius: 4, padding: "4px 8px", fontSize: 12 }}
+          className="border border-white/40 rounded px-2 py-1 text-xs"
         >
           ⚙
         </button>
       </header>
 
-      <main style={{ flex: 1 }}>
+      <main className="flex-1">
         {tab === "news" && <GroupNewsTab groupId={group.id} canManage={canManage} />}
         {tab === "events" && <GroupEventsTab groupId={group.id} canManage={canManage} />}
         {tab === "prayer" && (

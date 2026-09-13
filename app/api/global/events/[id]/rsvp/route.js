@@ -5,6 +5,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 const VALID_STATUSES = ["yes", "no", "maybe"];
 
 export async function GET(req, { params }) {
+  params = await params;
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
@@ -20,6 +21,7 @@ export async function GET(req, { params }) {
 }
 
 export async function POST(req, { params }) {
+  params = await params;
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 

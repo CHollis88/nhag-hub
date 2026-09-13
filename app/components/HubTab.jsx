@@ -58,85 +58,71 @@ export default function HubTab({ me, refreshMe, onOpenGroup }) {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Hub</h2>
+    <div className="px-5 pt-4 pb-6">
+      <h2 className="font-serif text-2xl text-ink mb-4">Hub</h2>
 
-      <h3>Your ministries</h3>
+      <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Your ministries</p>
       {myMemberships.length === 0 && (
-        <p style={{ color: "#666" }}>You're not in any ministries yet — browse below to request joining one.</p>
+        <p className="text-sm text-inkfaint mb-2">You're not in any ministries yet — browse below to request joining one.</p>
       )}
-      {myMemberships.map((m) => (
-        <div
-          key={m.group_id}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            background: "#fff",
-            borderRadius: 8,
-            padding: 16,
-            marginBottom: 8,
-          }}
-        >
-          <div>
-            <strong>{m.group?.name}</strong>
-            <div style={{ fontSize: 13, color: "#666" }}>
-              {m.role === "leader" ? "Ministry Leader" : "Member"}
+      <div className="space-y-2 mb-2">
+        {myMemberships.map((m) => (
+          <div key={m.group_id} className="sp-card flex justify-between items-center">
+            <div>
+              <p className="font-medium text-ink">{m.group?.name}</p>
+              <p className="text-xs text-inkfaint">{m.role === "leader" ? "Ministry Leader" : "Member"}</p>
             </div>
+            <button
+              onClick={() => onOpenGroup(m.group_id, m.group?.name, m.role, m.group?.features)}
+              className="sp-btn-pill"
+            >
+              Launch
+            </button>
           </div>
-          <button onClick={() => onOpenGroup(m.group_id, m.group?.name, m.role, m.group?.features)}>Launch</button>
-        </div>
-      ))}
+        ))}
+      </div>
       {me.memberships.some((m) => m.status === "pending") && (
-        <p style={{ color: "#666", fontSize: 13 }}>
+        <p className="text-xs text-inkfaint mb-4">
           {me.memberships.filter((m) => m.status === "pending").map((m) => m.group?.name).join(", ")}{" "}
           — request pending approval.
         </p>
       )}
 
-      <h3 style={{ marginTop: 24 }}>Browse all ministries</h3>
-      <ul style={{ listStyle: "none", padding: 0 }}>
+      <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Browse all ministries</p>
+      <div className="space-y-2">
         {groups
           .filter((g) => !myGroupIds.has(g.id))
           .map((g) => (
-            <li
-              key={g.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                background: "#fff",
-                borderRadius: 8,
-                padding: "12px 16px",
-                marginBottom: 8,
-              }}
-            >
-              <span>
-                {g.name} {g.type && <span style={{ color: "#999" }}>({g.type})</span>}
+            <div key={g.id} className="sp-card flex justify-between items-center">
+              <span className="text-sm text-ink">
+                {g.name} {g.type && <span className="text-inkfaint">({g.type})</span>}
               </span>
-              <button onClick={() => requestJoin(g.id)}>Request to join</button>
-            </li>
+              <button onClick={() => requestJoin(g.id)} className="sp-btn-secondary text-xs py-1.5 px-3">
+                Request to join
+              </button>
+            </div>
           ))}
-      </ul>
+      </div>
 
       {me.user.is_church_admin && (
         <>
-          <h3 style={{ marginTop: 24 }}>Create a ministry</h3>
-          <form onSubmit={createGroup} style={{ padding: 16, background: "#fff", borderRadius: 8 }}>
+          <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Create a ministry</p>
+          <form onSubmit={createGroup} className="sp-card">
             <input
               value={newGroupName}
               onChange={(e) => setNewGroupName(e.target.value)}
               placeholder="Ministry name (e.g. Wednesday Night, Security Team)"
               required
-              style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+              className="sp-input mb-2"
             />
             <input
               value={newGroupType}
               onChange={(e) => setNewGroupType(e.target.value)}
               placeholder="Type / category label (optional, just for display)"
-              style={{ width: "100%", padding: 8, marginBottom: 12, boxSizing: "border-box" }}
+              className="sp-input mb-3"
             />
-            <p style={{ fontSize: 13, color: "#666", marginBottom: 6 }}>Optional modules:</p>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, fontSize: 13 }}>
+            <p className="text-xs text-inkfaint mb-2">Optional modules:</p>
+            <label className="flex items-center gap-2 mb-1.5 text-sm text-inksoft">
               <input
                 type="checkbox"
                 checked={newGroupFeatures.includes("songs_setlists")}
@@ -144,7 +130,7 @@ export default function HubTab({ me, refreshMe, onOpenGroup }) {
               />
               Song library + Setlists (Choir-style groups)
             </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, fontSize: 13 }}>
+            <label className="flex items-center gap-2 mb-4 text-sm text-inksoft">
               <input
                 type="checkbox"
                 checked={newGroupFeatures.includes("reading_plan_journal")}
@@ -152,12 +138,12 @@ export default function HubTab({ me, refreshMe, onOpenGroup }) {
               />
               Reading Plan + Journal (Young Adults-style groups)
             </label>
-            <button type="submit">Create</button>
+            <button type="submit" className="sp-btn-primary">Create</button>
           </form>
         </>
       )}
 
-      {message && <p style={{ marginTop: 12 }}>{message}</p>}
+      {message && <p className="text-sm text-inksoft mt-3">{message}</p>}
     </div>
   );
 }

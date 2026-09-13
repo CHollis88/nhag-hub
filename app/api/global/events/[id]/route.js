@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 
 export async function DELETE(req, { params }) {
+  params = await params;
   const user = await getCurrentUser(req);
   if (!user?.is_church_admin) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });

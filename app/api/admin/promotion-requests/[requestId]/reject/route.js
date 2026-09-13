@@ -8,7 +8,7 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { requestId } = params;
+  const { requestId } = await params;
   const supabase = supabaseServer();
 
   const { data, error } = await supabase

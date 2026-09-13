@@ -61,22 +61,19 @@ const FAQS = [
 function FaqItem({ item }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ borderBottom: "1px solid #eee", padding: "12px 0" }}>
-      <button
-        onClick={() => setOpen(!open)}
-        style={{ width: "100%", textAlign: "left", background: "none", border: "none", fontWeight: 600, fontSize: 15 }}
-      >
+    <div className="border-b border-linesoft py-3">
+      <button onClick={() => setOpen(!open)} className="w-full text-left font-semibold text-[15px] text-ink">
         {item.q}
       </button>
       {open && (
-        <div style={{ marginTop: 8, fontSize: 14, color: "#444" }}>
+        <div className="mt-2 text-sm text-inksoft">
           {item.a && <p>{item.a}</p>}
           {item.sections?.map((s) => (
-            <div key={s.platform} style={{ marginBottom: 10 }}>
-              <strong>{s.platform}</strong>
-              <ul style={{ marginTop: 4 }}>
+            <div key={s.platform} className="mb-2.5">
+              <strong className="text-ink">{s.platform}</strong>
+              <ul className="mt-1 list-disc pl-5">
                 {s.steps.map((step, i) => (
-                  <li key={i} style={{ marginBottom: 4 }}>{step}</li>
+                  <li key={i} className="mb-1">{step}</li>
                 ))}
               </ul>
             </div>
@@ -89,17 +86,14 @@ function FaqItem({ item }) {
 
 export default function HelpView({ onClose }) {
   return (
-    <div
-      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "flex-end", zIndex: 60 }}
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 bg-black/40 flex items-end z-[60]" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: "#fff", borderRadius: "16px 16px 0 0", width: "100%", maxHeight: "85vh", overflowY: "auto", padding: 24 }}
+        className="bg-card rounded-t-2xl w-full max-h-[85vh] overflow-y-auto p-6"
       >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <h2 style={{ margin: 0 }}>Help &amp; FAQ</h2>
-          <button onClick={onClose} style={{ border: "none", background: "none", fontSize: 20 }}>×</button>
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="font-serif text-xl text-ink m-0">Help &amp; FAQ</h2>
+          <button onClick={onClose} className="text-2xl text-inkfaint leading-none">×</button>
         </div>
         {FAQS.map((item, i) => (
           <FaqItem key={i} item={item} />

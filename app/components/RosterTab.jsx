@@ -52,9 +52,6 @@ export default function RosterTab({ groupId, myRole }) {
     load();
   };
 
-  // Two-step: look the username up first so we can add them straight in
-  // as an active member (per the project's decision — a leader adding
-  // someone directly skips the join-request/approval step entirely).
   const addByUsername = async (e) => {
     e.preventDefault();
     setMessage("");
@@ -81,82 +78,62 @@ export default function RosterTab({ groupId, myRole }) {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Roster</h2>
+    <div className="px-5 pt-4 pb-6">
+      <h2 className="font-serif text-2xl text-ink mb-4">Roster</h2>
 
       {canManage && pending?.length > 0 && (
         <>
-          <h3>Pending requests</h3>
-          {pending.map((p) => (
-            <div
-              key={p.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                background: "#fff",
-                borderRadius: 8,
-                padding: 12,
-                marginBottom: 8,
-              }}
-            >
-              <span>{p.users?.display_name} (@{p.users?.username})</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => approve(p.id)}>Approve</button>
-                <button onClick={() => reject(p.id)}>Reject</button>
+          <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Pending requests</p>
+          <div className="space-y-2 mb-4">
+            {pending.map((p) => (
+              <div key={p.id} className="sp-card flex justify-between items-center">
+                <span className="text-sm text-ink">{p.users?.display_name} (@{p.users?.username})</span>
+                <div className="flex gap-2">
+                  <button onClick={() => approve(p.id)} className="sp-btn-sage text-xs py-1.5 px-3">Approve</button>
+                  <button onClick={() => reject(p.id)} className="sp-btn-secondary text-xs py-1.5 px-3">Reject</button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </>
       )}
 
-      <h3 style={{ marginTop: canManage && pending?.length > 0 ? 24 : 0 }}>Members</h3>
-      {active === null && <p>Loading…</p>}
-      {active?.map((m) => (
-        <div
-          key={m.id}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            background: "#fff",
-            borderRadius: 8,
-            padding: 12,
-            marginBottom: 8,
-          }}
-        >
-          <span>
-            {m.users?.display_name} (@{m.users?.username}){" "}
-            <span style={{ color: "#999", fontSize: 13 }}>
-              {m.role === "leader" ? "· Leader" : ""}
+      <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Members</p>
+      {active === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      <div className="space-y-2">
+        {active?.map((m) => (
+          <div key={m.id} className="sp-card flex justify-between items-center">
+            <span className="text-sm text-ink">
+              {m.users?.display_name} (@{m.users?.username}){" "}
+              {m.role === "leader" && <span className="text-inkfaint text-xs">· Leader</span>}
             </span>
-          </span>
-          {canManage && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => promote(m.id, m.role)} style={{ fontSize: 12 }}>
-                {m.role === "leader" ? "Make member" : "Make leader"}
-              </button>
-              <button onClick={() => removeMember(m.id)} style={{ fontSize: 12 }}>
-                Remove
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
+            {canManage && (
+              <div className="flex gap-2">
+                <button onClick={() => promote(m.id, m.role)} className="text-xs text-accent underline">
+                  {m.role === "leader" ? "Make member" : "Make leader"}
+                </button>
+                <button onClick={() => removeMember(m.id)} className="text-xs text-inkfaint underline">
+                  Remove
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
 
       {canManage && (
         <>
-          <h3 style={{ marginTop: 24 }}>Add someone</h3>
-          <form onSubmit={addByUsername} style={{ display: "flex", gap: 8 }}>
+          <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Add someone</p>
+          <form onSubmit={addByUsername} className="flex gap-2">
             <input
               value={addUsername}
               onChange={(e) => setAddUsername(e.target.value)}
               placeholder="username"
-              style={{ flex: 1, padding: 8 }}
+              className="sp-input"
             />
-            <button type="submit">Add</button>
+            <button type="submit" className="sp-btn-secondary px-4">Add</button>
           </form>
-          {message && <p style={{ color: "#666", fontSize: 13 }}>{message}</p>}
+          {message && <p className="text-sm text-inkfaint mt-2">{message}</p>}
         </>
       )}
     </div>

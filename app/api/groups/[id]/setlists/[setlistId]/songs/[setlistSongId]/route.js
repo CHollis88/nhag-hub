@@ -12,7 +12,7 @@ export async function PATCH(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId, setlistSongId } = params;
+  const { id: groupId, setlistSongId } = await params;
   if (!(await canManageGroup(user, groupId))) {
     return NextResponse.json(
       { error: "Only this group's leaders or a Church Admin can edit setlists." },
@@ -44,7 +44,7 @@ export async function DELETE(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId, setlistSongId } = params;
+  const { id: groupId, setlistSongId } = await params;
   if (!(await canManageGroup(user, groupId))) {
     return NextResponse.json(
       { error: "Only this group's leaders or a Church Admin can edit setlists." },

@@ -37,46 +37,46 @@ export default function GroupPrayerTab({ groupId, canManage, currentUserId }) {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Prayer Requests</h2>
+    <div className="px-5 pt-4 pb-6">
+      <h2 className="font-serif text-2xl text-ink mb-4">Prayer Requests</h2>
 
-      {/* Any active member can submit -- unlike News/Events, this isn't
-          leader-gated. */}
-      <form onSubmit={submit} style={{ marginBottom: 24, padding: 16, background: "#fff", borderRadius: 8 }}>
+      <form onSubmit={submit} className="sp-card mb-4">
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="Share a prayer request…"
           required
           rows={3}
-          style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+          className="sp-textarea mb-2"
         />
-        <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontSize: 13 }}>
+        <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
           <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} />
           Submit anonymously
         </label>
-        <button type="submit">Submit</button>
+        <button type="submit" className="sp-btn-primary">Submit</button>
       </form>
 
-      {prayer === null && <p>Loading…</p>}
-      {prayer?.length === 0 && <p style={{ color: "#666" }}>No prayer requests yet.</p>}
-      {prayer?.map((p) => {
-        const isOwner = p.created_by === currentUserId;
-        return (
-          <div key={p.id} style={{ background: "#fff", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-            <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap" }}>{p.body}</p>
-            <p style={{ margin: 0, fontSize: 12, color: "#999" }}>
-              {p.is_anonymous ? "Anonymous" : p.users?.display_name} ·{" "}
-              {new Date(p.created_at).toLocaleDateString()}
-            </p>
-            {(isOwner || canManage) && (
-              <button onClick={() => remove(p.id)} style={{ marginTop: 8, fontSize: 12 }}>
-                Remove
-              </button>
-            )}
-          </div>
-        );
-      })}
+      {prayer === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {prayer?.length === 0 && <p className="text-sm text-inkfaint">No prayer requests yet.</p>}
+      <div className="space-y-2">
+        {prayer?.map((p) => {
+          const isOwner = p.created_by === currentUserId;
+          return (
+            <div key={p.id} className="sp-card">
+              <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{p.body}</p>
+              <p className="text-xs text-inkfaint">
+                {p.is_anonymous ? "Anonymous" : p.users?.display_name} ·{" "}
+                {new Date(p.created_at).toLocaleDateString()}
+              </p>
+              {(isOwner || canManage) && (
+                <button onClick={() => remove(p.id)} className="text-xs text-inkfaint mt-2 underline">
+                  Remove
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

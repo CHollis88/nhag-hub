@@ -12,7 +12,7 @@ export async function GET(req, { params }) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
   }
 
-  const { id: groupId } = params;
+  const { id: groupId } = await params;
   const canManage = await canManageGroup(user, groupId);
   const isMember = canManage || (await isActiveGroupMember(user, groupId));
 
@@ -54,7 +54,7 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
   }
 
-  const { id: groupId } = params;
+  const { id: groupId } = await params;
   const allowed = await canManageGroup(user, groupId);
   if (!allowed) {
     return NextResponse.json(

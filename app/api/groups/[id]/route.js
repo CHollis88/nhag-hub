@@ -10,7 +10,7 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { id } = params;
+  const { id } = await params;
   const { name, type, features } = await req.json();
 
   const updates = { updated_at: new Date().toISOString() };
@@ -49,7 +49,7 @@ export async function DELETE(req, { params }) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { id } = params;
+  const { id } = await params;
   const supabase = supabaseServer();
   const { error } = await supabase.from("groups").delete().eq("id", id);
 

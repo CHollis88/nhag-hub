@@ -13,29 +13,16 @@ const TABS = [
 // Sermons yet (deferred to a later phase).
 export default function BottomNav({ tab, setTab }) {
   return (
-    <nav
-      style={{
-        position: "sticky",
-        bottom: 0,
-        display: "flex",
-        borderTop: "1px solid #ddd",
-        background: "#fff",
-      }}
-    >
+    <nav className="sticky bottom-0 flex border-t border-line bg-card">
       {TABS.map((t) => (
         <button
           key={t.key}
           onClick={() => setTab(t.key)}
-          style={{
-            flex: 1,
-            padding: "14px 0",
-            border: "none",
-            background: "none",
-            fontSize: 14,
-            fontWeight: tab === t.key ? 700 : 400,
-            color: tab === t.key ? "#16296B" : "#888",
-            borderTop: tab === t.key ? "2px solid #16296B" : "2px solid transparent",
-          }}
+          className={`flex-1 py-3.5 text-sm border-t-2 ${
+            tab === t.key
+              ? "font-semibold text-accent border-accent"
+              : "text-inkfaint border-transparent"
+          }`}
         >
           {t.label}
         </button>

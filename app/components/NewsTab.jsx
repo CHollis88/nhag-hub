@@ -27,21 +27,27 @@ function PromotionQueue() {
   if (!requests?.length) return null;
 
   return (
-    <div style={{ marginBottom: 24, padding: 16, background: "#fff8e1", borderRadius: 8 }}>
-      <h3 style={{ marginTop: 0 }}>Pending promotion requests</h3>
-      {requests.map((r) => (
-        <div key={r.id} style={{ background: "#fff", borderRadius: 8, padding: 12, marginBottom: 8 }}>
-          <p style={{ margin: "0 0 4px", fontSize: 13, color: "#666" }}>
-            From <strong>{r.groups?.name}</strong>, requested by {r.users?.display_name}
-          </p>
-          <h4 style={{ margin: "0 0 4px" }}>{r.news?.title}</h4>
-          <p style={{ margin: "0 0 8px" }}>{r.news?.body}</p>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => approve(r.id)}>Approve — push to church-wide</button>
-            <button onClick={() => reject(r.id)}>Reject</button>
+    <div className="sp-card mb-4" style={{ background: "rgb(var(--color-accent) / 0.06)" }}>
+      <h3 className="font-serif text-lg text-ink mt-0 mb-2">Pending promotion requests</h3>
+      <div className="space-y-2">
+        {requests.map((r) => (
+          <div key={r.id} className="sp-card">
+            <p className="text-xs text-inkfaint mb-1">
+              From <strong className="text-ink">{r.groups?.name}</strong>, requested by {r.users?.display_name}
+            </p>
+            <h4 className="font-medium text-ink mb-1">{r.news?.title}</h4>
+            <p className="text-sm text-inksoft mb-2">{r.news?.body}</p>
+            <div className="flex gap-2">
+              <button onClick={() => approve(r.id)} className="sp-btn-sage text-xs py-1.5 px-3">
+                Approve — push to church-wide
+              </button>
+              <button onClick={() => reject(r.id)} className="sp-btn-secondary text-xs py-1.5 px-3">
+                Reject
+              </button>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
@@ -86,19 +92,19 @@ export default function NewsTab({ isAdmin }) {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Church News</h2>
+    <div className="px-5 pt-4 pb-6">
+      <h2 className="font-serif text-2xl text-ink mb-4">Church News</h2>
 
       {isAdmin && <PromotionQueue />}
 
       {isAdmin && (
-        <form onSubmit={submit} style={{ marginBottom: 24, padding: 16, background: "#fff", borderRadius: 8 }}>
+        <form onSubmit={submit} className="sp-card mb-4">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
             required
-            style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+            className="sp-input mb-2"
           />
           <textarea
             value={body}
@@ -106,30 +112,32 @@ export default function NewsTab({ isAdmin }) {
             placeholder="What's the announcement?"
             required
             rows={3}
-            style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+            className="sp-textarea mb-2"
           />
-          <button type="submit">Post to everyone</button>
-          {error && <p style={{ color: "crimson" }}>{error}</p>}
+          <button type="submit" className="sp-btn-primary">Post to everyone</button>
+          {error && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{error}</p>}
         </form>
       )}
 
-      {news === null && <p>Loading…</p>}
-      {news?.length === 0 && <p style={{ color: "#666" }}>No announcements yet.</p>}
-      {news?.map((n) => (
-        <div key={n.id} style={{ background: "#fff", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-          <h3 style={{ margin: "0 0 4px" }}>{n.title}</h3>
-          <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap" }}>{n.body}</p>
-          <p style={{ margin: 0, fontSize: 12, color: "#999" }}>
-            {new Date(n.created_at).toLocaleDateString()}
-            {n.users?.display_name && ` · ${n.users.display_name}`}
-          </p>
-          {isAdmin && (
-            <button onClick={() => remove(n.id)} style={{ marginTop: 8, fontSize: 12 }}>
-              Delete
-            </button>
-          )}
-        </div>
-      ))}
+      {news === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {news?.length === 0 && <p className="text-sm text-inkfaint">No announcements yet.</p>}
+      <div className="space-y-2">
+        {news?.map((n) => (
+          <div key={n.id} className="sp-card">
+            <h3 className="font-medium text-ink mb-1">{n.title}</h3>
+            <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
+            <p className="text-xs text-inkfaint">
+              {new Date(n.created_at).toLocaleDateString()}
+              {n.users?.display_name && ` · ${n.users.display_name}`}
+            </p>
+            {isAdmin && (
+              <button onClick={() => remove(n.id)} className="text-xs text-inkfaint mt-2 underline">
+                Delete
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

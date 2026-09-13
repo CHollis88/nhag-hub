@@ -9,7 +9,7 @@ export async function DELETE(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId, prayerId } = params;
+  const { id: groupId, prayerId } = await params;
   const supabase = supabaseServer();
 
   const { data: prayer, error: fetchError } = await supabase

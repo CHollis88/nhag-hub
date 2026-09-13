@@ -9,38 +9,31 @@ function RsvpControl({ event, onRsvp, expanded, onToggleExpanded, rsvpList }) {
     { key: "no", label: "No" },
   ];
   return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="mt-2">
+      <div className="flex gap-1.5 items-center flex-wrap">
         {buttons.map((b) => (
           <button
             key={b.key}
             onClick={() => onRsvp(event.id, b.key)}
-            style={{
-              fontSize: 12,
-              padding: "4px 10px",
-              borderRadius: 999,
-              border: event.my_rsvp === b.key ? "1px solid #16296B" : "1px solid #ccc",
-              background: event.my_rsvp === b.key ? "#16296B" : "#fff",
-              color: event.my_rsvp === b.key ? "#fff" : "#333",
-            }}
+            className={event.my_rsvp === b.key ? "sp-pill-outline active" : "sp-pill-outline"}
           >
             {b.label}
           </button>
         ))}
-        <span style={{ fontSize: 12, color: "#666" }}>
+        <span className="text-xs text-inkfaint">
           {event.rsvp_summary?.yes || 0} yes · {event.rsvp_summary?.maybe || 0} maybe · {event.rsvp_summary?.no || 0} no
         </span>
-        <button onClick={() => onToggleExpanded(event.id)} style={{ fontSize: 12 }}>
+        <button onClick={() => onToggleExpanded(event.id)} className="text-xs text-accent underline">
           {expanded ? "Hide list" : "Who's coming?"}
         </button>
       </div>
       {expanded && (
-        <div style={{ marginTop: 8, fontSize: 13 }}>
-          {rsvpList === null && <span style={{ color: "#666" }}>Loading…</span>}
-          {rsvpList?.length === 0 && <span style={{ color: "#666" }}>No responses yet.</span>}
+        <div className="mt-2 text-sm text-inksoft space-y-0.5">
+          {rsvpList === null && <span className="text-inkfaint">Loading…</span>}
+          {rsvpList?.length === 0 && <span className="text-inkfaint">No responses yet.</span>}
           {rsvpList?.map((r, i) => (
             <div key={i}>
-              {r.users?.display_name} — <strong>{r.status}</strong>
+              {r.users?.display_name} — <strong className="text-ink">{r.status}</strong>
             </div>
           ))}
         </div>
@@ -121,63 +114,65 @@ export default function EventsTab({ isAdmin }) {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Church Events</h2>
+    <div className="px-5 pt-4 pb-6">
+      <h2 className="font-serif text-2xl text-ink mb-4">Church Events</h2>
 
       {isAdmin && (
-        <form onSubmit={submit} style={{ marginBottom: 24, padding: 16, background: "#fff", borderRadius: 8 }}>
+        <form onSubmit={submit} className="sp-card mb-4">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Event title"
             required
-            style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+            className="sp-input mb-2"
           />
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={{ flex: 1, padding: 8 }} />
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ flex: 1, padding: 8 }} />
+          <div className="flex gap-2 mb-2">
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="sp-input flex-1" />
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="sp-input flex-1" />
           </div>
           <input
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             placeholder="Location (optional)"
-            style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+            className="sp-input mb-2"
           />
-          <button type="submit">Add event</button>
-          {error && <p style={{ color: "crimson" }}>{error}</p>}
+          <button type="submit" className="sp-btn-primary">Add event</button>
+          {error && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{error}</p>}
         </form>
       )}
 
-      {events === null && <p>Loading…</p>}
-      {events?.length === 0 && <p style={{ color: "#666" }}>No upcoming events.</p>}
-      {events?.map((ev) => (
-        <div key={ev.id} style={{ background: "#fff", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-          <h3 style={{ margin: "0 0 4px" }}>{ev.title}</h3>
-          <p style={{ margin: 0, color: "#666" }}>
-            {new Date(ev.event_date + "T00:00:00").toLocaleDateString(undefined, {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            })}
-            {ev.event_time && ` · ${ev.event_time}`}
-          </p>
-          {ev.location && <p style={{ margin: "4px 0 0", color: "#666" }}>{ev.location}</p>}
+      {events === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {events?.length === 0 && <p className="text-sm text-inkfaint">No upcoming events.</p>}
+      <div className="space-y-2">
+        {events?.map((ev) => (
+          <div key={ev.id} className="sp-card">
+            <h3 className="font-medium text-ink mb-1">{ev.title}</h3>
+            <p className="text-sm text-inksoft">
+              {new Date(ev.event_date + "T00:00:00").toLocaleDateString(undefined, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              })}
+              {ev.event_time && ` · ${ev.event_time}`}
+            </p>
+            {ev.location && <p className="text-sm text-inksoft mt-1">{ev.location}</p>}
 
-          <RsvpControl
-            event={ev}
-            onRsvp={rsvp}
-            expanded={expandedId === ev.id}
-            onToggleExpanded={toggleExpanded}
-            rsvpList={rsvpLists[ev.id]}
-          />
+            <RsvpControl
+              event={ev}
+              onRsvp={rsvp}
+              expanded={expandedId === ev.id}
+              onToggleExpanded={toggleExpanded}
+              rsvpList={rsvpLists[ev.id]}
+            />
 
-          {isAdmin && (
-            <button onClick={() => remove(ev.id)} style={{ marginTop: 8, fontSize: 12 }}>
-              Delete
-            </button>
-          )}
-        </div>
-      ))}
+            {isAdmin && (
+              <button onClick={() => remove(ev.id)} className="text-xs text-inkfaint mt-2 underline">
+                Delete
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

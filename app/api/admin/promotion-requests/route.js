@@ -11,7 +11,7 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data: requests, error } = await supabase
     .from("group_promotion_requests")
-    .select("id, group_id, requested_by, source_type, source_id, status, created_at, groups(name), users(display_name)")
+    .select("id, group_id, requested_by, source_type, source_id, status, created_at, groups(name), users!requested_by(display_name)")
     .eq("status", "pending")
     .order("created_at", { ascending: true });
 

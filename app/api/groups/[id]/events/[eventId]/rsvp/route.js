@@ -12,7 +12,7 @@ export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId, eventId } = params;
+  const { id: groupId, eventId } = await params;
   if (!(await isActiveGroupMember(user, groupId))) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }
@@ -34,7 +34,7 @@ export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId, eventId } = params;
+  const { id: groupId, eventId } = await params;
   if (!(await isActiveGroupMember(user, groupId))) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }

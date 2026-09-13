@@ -49,59 +49,61 @@ export default function SongsTab({ groupId, canManage }) {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Song Library</h2>
+    <div className="px-5 pt-4 pb-6">
+      <h2 className="font-serif text-2xl text-ink mb-4">Song Library</h2>
 
       {canManage && (
         <>
-          <button onClick={() => setShowForm(!showForm)} style={{ marginBottom: 16 }}>
+          <button onClick={() => setShowForm(!showForm)} className="sp-btn-secondary mb-4">
             {showForm ? "Cancel" : "+ Add a song"}
           </button>
 
           {showForm && (
-            <form onSubmit={submit} style={{ marginBottom: 24, padding: 16, background: "#fff", borderRadius: 8 }}>
+            <form onSubmit={submit} className="sp-card mb-4">
               <input
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder="Song title"
                 required
-                style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+                className="sp-input mb-2"
               />
               <input
                 value={form.composer}
                 onChange={(e) => setForm({ ...form, composer: e.target.value })}
                 placeholder="Composer (optional)"
-                style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+                className="sp-input mb-2"
               />
-              <p style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+              <p className="text-xs text-inkfaint mb-2">
                 Add lyrics/chords/part links after creating the song, by editing it.
               </p>
-              <button type="submit">Save song</button>
+              <button type="submit" className="sp-btn-primary">Save song</button>
             </form>
           )}
         </>
       )}
 
-      {songs === null && <p>Loading…</p>}
-      {songs?.length === 0 && <p style={{ color: "#666" }}>No songs in the library yet.</p>}
-      {songs?.map((s) => (
-        <div key={s.id} style={{ background: "#fff", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-          <h3 style={{ margin: "0 0 4px" }}>{s.title}</h3>
-          {s.composer && <p style={{ margin: "0 0 8px", color: "#666" }}>{s.composer}</p>}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {LINK_FIELDS.filter((f) => s[f.key]).map((f) => (
-              <a key={f.key} href={s[f.key]} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
-                {f.label}
-              </a>
-            ))}
+      {songs === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {songs?.length === 0 && <p className="text-sm text-inkfaint">No songs in the library yet.</p>}
+      <div className="space-y-2">
+        {songs?.map((s) => (
+          <div key={s.id} className="sp-card">
+            <h3 className="font-medium text-ink mb-1">{s.title}</h3>
+            {s.composer && <p className="text-sm text-inksoft mb-2">{s.composer}</p>}
+            <div className="flex flex-wrap gap-2">
+              {LINK_FIELDS.filter((f) => s[f.key]).map((f) => (
+                <a key={f.key} href={s[f.key]} target="_blank" rel="noreferrer" className="text-xs text-accent underline">
+                  {f.label}
+                </a>
+              ))}
+            </div>
+            {canManage && (
+              <button onClick={() => remove(s.id)} className="text-xs text-inkfaint mt-2 underline">
+                Delete
+              </button>
+            )}
           </div>
-          {canManage && (
-            <button onClick={() => remove(s.id)} style={{ marginTop: 8, fontSize: 12 }}>
-              Delete
-            </button>
-          )}
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

@@ -29,20 +29,20 @@ function ReplyThread({ groupId, newsId }) {
   };
 
   return (
-    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #eee" }}>
+    <div className="mt-3 pt-3 border-t border-linesoft">
       {replies?.map((r) => (
-        <div key={r.id} style={{ fontSize: 13, marginBottom: 6 }}>
-          <strong>{r.users?.display_name}:</strong> {r.body}
+        <div key={r.id} className="text-sm text-inksoft mb-1.5">
+          <strong className="text-ink">{r.users?.display_name}:</strong> {r.body}
         </div>
       ))}
-      <form onSubmit={submit} style={{ display: "flex", gap: 6, marginTop: 8 }}>
+      <form onSubmit={submit} className="flex gap-1.5 mt-2">
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Reply…"
-          style={{ flex: 1, padding: 6, fontSize: 13 }}
+          className="sp-input text-sm py-1.5"
         />
-        <button type="submit" style={{ fontSize: 13 }}>Send</button>
+        <button type="submit" className="sp-btn-secondary text-sm py-1.5 px-3">Send</button>
       </form>
     </div>
   );
@@ -92,17 +92,17 @@ export default function GroupNewsTab({ groupId, canManage }) {
   };
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Group News</h2>
+    <div className="px-5 pt-4 pb-6">
+      <h2 className="font-serif text-2xl text-ink mb-4">Group News</h2>
 
       {canManage && (
-        <form onSubmit={submit} style={{ marginBottom: 24, padding: 16, background: "#fff", borderRadius: 8 }}>
+        <form onSubmit={submit} className="sp-card mb-4">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
             required
-            style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+            className="sp-input mb-2"
           />
           <textarea
             value={body}
@@ -110,44 +110,46 @@ export default function GroupNewsTab({ groupId, canManage }) {
             placeholder="What's the news?"
             required
             rows={3}
-            style={{ width: "100%", padding: 8, marginBottom: 8, boxSizing: "border-box" }}
+            className="sp-textarea mb-2"
           />
-          <button type="submit">Post to group</button>
+          <button type="submit" className="sp-btn-primary">Post to group</button>
         </form>
       )}
 
-      {news === null && <p>Loading…</p>}
-      {news?.length === 0 && <p style={{ color: "#666" }}>No news yet.</p>}
-      {news?.map((n) => (
-        <div key={n.id} style={{ background: "#fff", borderRadius: 8, padding: 16, marginBottom: 12 }}>
-          <h3 style={{ margin: "0 0 4px" }}>{n.title}</h3>
-          <p style={{ margin: "0 0 8px", whiteSpace: "pre-wrap" }}>{n.body}</p>
-          <p style={{ margin: 0, fontSize: 12, color: "#999" }}>
-            {new Date(n.created_at).toLocaleDateString()}
-            {n.users?.display_name && ` · ${n.users.display_name}`}
-          </p>
+      {news === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {news?.length === 0 && <p className="text-sm text-inkfaint">No news yet.</p>}
+      <div className="space-y-2">
+        {news?.map((n) => (
+          <div key={n.id} className="sp-card">
+            <h3 className="font-medium text-ink mb-1">{n.title}</h3>
+            <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
+            <p className="text-xs text-inkfaint">
+              {new Date(n.created_at).toLocaleDateString()}
+              {n.users?.display_name && ` · ${n.users.display_name}`}
+            </p>
 
-          <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
-            <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} style={{ fontSize: 12 }}>
-              {openThread === n.id ? "Hide replies" : "Replies"}
-            </button>
-            {canManage && (
-              <>
-                <button onClick={() => requestPromotion(n.id)} style={{ fontSize: 12 }}>
-                  Request promote to church-wide
-                </button>
-                <button onClick={() => remove(n.id)} style={{ fontSize: 12 }}>
-                  Delete
-                </button>
-              </>
-            )}
+            <div className="flex gap-3 mt-2">
+              <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} className="text-xs text-accent underline">
+                {openThread === n.id ? "Hide replies" : "Replies"}
+              </button>
+              {canManage && (
+                <>
+                  <button onClick={() => requestPromotion(n.id)} className="text-xs text-accent underline">
+                    Request promote to church-wide
+                  </button>
+                  <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
+                    Delete
+                  </button>
+                </>
+              )}
+            </div>
+
+            {openThread === n.id && <ReplyThread groupId={groupId} newsId={n.id} />}
           </div>
+        ))}
+      </div>
 
-          {openThread === n.id && <ReplyThread groupId={groupId} newsId={n.id} />}
-        </div>
-      ))}
-
-      {message && <p style={{ color: "#666", fontSize: 13 }}>{message}</p>}
+      {message && <p className="text-sm text-inksoft mt-3">{message}</p>}
     </div>
   );
 }
