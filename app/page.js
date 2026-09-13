@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import BottomNav from "./components/BottomNav";
-import HubTab from "./components/HubTab";
+import Sidebar from "./components/Sidebar";
+import HomeTab from "./components/HomeTab";
 import NewsTab from "./components/NewsTab";
 import EventsTab from "./components/EventsTab";
 import BibleTab from "./components/BibleTab";
@@ -26,10 +27,9 @@ function AuthCard({ children }) {
   );
 }
 
-function SignInScreen({ authError }) {
+function EmailLinkForm({ onSent }) {
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState(authError || "");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async (e) => {
@@ -44,7 +44,7 @@ function SignInScreen({ authError }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
-      setSent(true);
+      onSent(email);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -52,13 +52,64 @@ function SignInScreen({ authError }) {
     }
   };
 
-  if (sent) {
+  return (
+    <form onSubmit={submit}>
+      <input
+        type="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="you@example.com"
+        className="sp-input mb-3"
+      />
+      <button type="submit" disabled={loading} className="sp-btn-primary w-full">
+        {loading ? "Sending…" : "Send me a sign-in link"}
+      </button>
+      {error && <p className="text-sm mt-3 text-red-600 dark:text-red-400">{error}</p>}
+    </form>
+  );
+}
+
+// PIN is the primary, day-to-day sign-in -- it works identically in any
+// browser context, including an already-installed iOS home-screen app,
+// where a magic link cannot reach (Safari and an installed PWA have
+// separate, isolated storage on iOS, by Apple's design). Email is only
+// ever offered as the secondary path: first-time setup, or recovering a
+// forgotten PIN.
+function SignInScreen({ authError }) {
+  const [mode, setMode] = useState("pin"); // "pin" | "email"
+  const [username, setUsername] = useState("");
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState(authError || "");
+  const [loading, setLoading] = useState(false);
+  const [emailSentTo, setEmailSentTo] = useState(null);
+
+  const submitPin = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/pin-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, pin }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      window.location.href = "/";
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  if (emailSentTo) {
     return (
       <AuthCard>
         <h2 className="font-serif text-xl text-ink mb-2">Check your email</h2>
         <p className="text-sm text-inksoft">
-          We sent a sign-in link to <strong className="text-ink">{email}</strong>. Click it to
-          continue — it expires in 15 minutes.
+          We sent a sign-in link to <strong className="text-ink">{emailSentTo}</strong>. Click it
+          to continue — it expires in 15 minutes.
         </p>
       </AuthCard>
     );
@@ -68,21 +119,46 @@ function SignInScreen({ authError }) {
     <AuthCard>
       <h2 className="font-serif text-xl text-ink mb-0.5">North Hodge Assembly of God</h2>
       <p className="text-inkfaint text-sm mt-0 mb-4">Church Hub</p>
-      <p className="text-sm text-inksoft mb-4">Enter your email to sign in or create an account.</p>
-      <form onSubmit={submit}>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          className="sp-input mb-3"
-        />
-        <button type="submit" disabled={loading} className="sp-btn-primary w-full">
-          {loading ? "Sending…" : "Send me a sign-in link"}
-        </button>
-      </form>
-      {error && <p className="text-sm mt-3 text-red-600 dark:text-red-400">{error}</p>}
+
+      {mode === "pin" ? (
+        <>
+          <form onSubmit={submitPin}>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username"
+              autoCapitalize="none"
+              required
+              className="sp-input mb-3"
+            />
+            <input
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              placeholder="PIN"
+              inputMode="numeric"
+              required
+              className="sp-input mb-3"
+            />
+            <button type="submit" disabled={loading} className="sp-btn-primary w-full">
+              {loading ? "Signing in…" : "Sign In"}
+            </button>
+          </form>
+          {error && <p className="text-sm mt-3 text-red-600 dark:text-red-400">{error}</p>}
+          <button onClick={() => { setMode("email"); setError(""); }} className="text-xs text-accent underline mt-4">
+            First time here, or forgot your PIN?
+          </button>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-inksoft mb-4">
+            Enter your email — we'll send a link to sign in and set (or reset) your PIN.
+          </p>
+          <EmailLinkForm onSent={setEmailSentTo} />
+          <button onClick={() => { setMode("pin"); setError(""); }} className="text-xs text-accent underline mt-4">
+            ← Back to PIN sign-in
+          </button>
+        </>
+      )}
     </AuthCard>
   );
 }
@@ -144,7 +220,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
       <header className="flex justify-between items-center px-4 py-2.5 bg-navy text-white">
         <div className="flex items-center gap-2.5">
           <img src="/favicon.png" alt="" className="w-7 h-7 rounded" />
-          <strong className="font-serif">NHAG Church Hub</strong>
+          <strong className="font-serif">North Hodge Assembly of God</strong>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs hidden sm:inline">{me.user.display_name}</span>
@@ -161,12 +237,15 @@ function AppShell({ me, refreshMe, onSignOut }) {
         </div>
       </header>
 
-      <main className="flex-1">
-        {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
-        {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
-        {tab === "hub" && <HubTab me={me} refreshMe={refreshMe} onOpenGroup={openGroup} />}
-        {tab === "bible" && <BibleTab deviceId={me.user.id} />}
-      </main>
+      <div className="flex flex-1 min-h-0">
+        <Sidebar tab={tab} setTab={setTab} />
+        <main className="flex-1 overflow-y-auto">
+          {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
+          {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
+          {tab === "hub" && <HomeTab me={me} refreshMe={refreshMe} onOpenGroup={openGroup} onGoToTab={setTab} />}
+          {tab === "bible" && <BibleTab deviceId={me.user.id} />}
+        </main>
+      </div>
 
       <BottomNav tab={tab} setTab={setTab} />
 

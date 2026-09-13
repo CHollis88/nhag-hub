@@ -26,6 +26,9 @@ export default function SettingsView({ onClose, onOpenHelp }) {
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [prefs, setPrefs] = useState(null);
+  const [newPin, setNewPin] = useState("");
+  const [confirmNewPin, setConfirmNewPin] = useState("");
+  const [pinMessage, setPinMessage] = useState("");
 
   useEffect(() => {
     setTheme(getStoredPreference());
@@ -82,6 +85,28 @@ export default function SettingsView({ onClose, onOpenHelp }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ scope: "group", group_id: groupId, enabled }),
     });
+  };
+
+  const changePin = async (e) => {
+    e.preventDefault();
+    setPinMessage("");
+    if (newPin !== confirmNewPin) {
+      setPinMessage("PINs don't match.");
+      return;
+    }
+    const res = await fetch("/api/auth/reset-pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: newPin }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setPinMessage(data.error);
+      return;
+    }
+    setNewPin("");
+    setConfirmNewPin("");
+    setPinMessage("PIN updated.");
   };
 
   return (
@@ -151,7 +176,27 @@ export default function SettingsView({ onClose, onOpenHelp }) {
           </>
         )}
 
-        <button onClick={onOpenHelp} className="sp-btn-secondary mt-5">
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Change PIN</p>
+        <form onSubmit={changePin} className="mb-5">
+          <input
+            value={newPin}
+            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
+            placeholder="New PIN (4–8 digits)"
+            inputMode="numeric"
+            className="sp-input mb-2"
+          />
+          <input
+            value={confirmNewPin}
+            onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ""))}
+            placeholder="Confirm new PIN"
+            inputMode="numeric"
+            className="sp-input mb-2"
+          />
+          <button type="submit" className="sp-btn-secondary">Update PIN</button>
+          {pinMessage && <p className="text-sm text-inksoft mt-2">{pinMessage}</p>}
+        </form>
+
+        <button onClick={onOpenHelp} className="sp-btn-secondary mt-1">
           Help / FAQ
         </button>
       </div>

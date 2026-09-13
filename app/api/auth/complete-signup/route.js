@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { hashPin } from "@/lib/pin";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+const PIN_RE = /^\d{4,8}$/;
 
 export async function POST(req) {
   const user = await getCurrentUser(req);
@@ -10,7 +12,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
   }
 
-  const { username, display_name } = await req.json();
+  const { username, display_name, pin } = await req.json();
   const normalizedUsername = (username || "").trim().toLowerCase();
   const trimmedDisplayName = (display_name || "").trim();
 
@@ -23,6 +25,12 @@ export async function POST(req) {
   if (!trimmedDisplayName) {
     return NextResponse.json({ error: "Display name is required." }, { status: 400 });
   }
+  // A PIN is required at setup time, not an optional add-later step --
+  // per the project's decision, PIN is the primary day-to-day sign-in
+  // method; magic link is only for this initial setup and later recovery.
+  if (!PIN_RE.test(pin || "")) {
+    return NextResponse.json({ error: "PIN must be 4–8 digits." }, { status: 400 });
+  }
 
   const supabase = supabaseServer();
   const { error } = await supabase
@@ -30,6 +38,7 @@ export async function POST(req) {
     .update({
       username: normalizedUsername,
       display_name: trimmedDisplayName,
+      pin_hash: hashPin(pin),
       updated_at: new Date().toISOString(),
     })
     .eq("id", user.id);

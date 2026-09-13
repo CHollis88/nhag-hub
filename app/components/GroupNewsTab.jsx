@@ -48,8 +48,21 @@ function ReplyThread({ groupId, newsId }) {
   );
 }
 
+const KIND_LABELS = {
+  announcement: null, // no badge -- the plain, default case
+  class: { text: "Class", className: "bg-sage/15 text-sage" },
+  discuss: { text: "Discuss", className: "bg-navy/10 text-navy dark:bg-blue-400/15 dark:text-blue-300" },
+};
+
+const FORM_COPY = {
+  announcement: { title: "Title", body: "What's the news?" },
+  class: { title: "Class title (e.g. this week's topic)", body: "Drop your notes from class here" },
+  discuss: { title: "Discussion title (e.g. a passage)", body: "Questions for the group to discuss" },
+};
+
 export default function GroupNewsTab({ groupId, canManage }) {
   const [news, setNews] = useState(null);
+  const [formKind, setFormKind] = useState(null); // null | "announcement" | "class" | "discuss"
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [openThread, setOpenThread] = useState(null);
@@ -70,11 +83,12 @@ export default function GroupNewsTab({ groupId, canManage }) {
     const res = await fetch(`/api/groups/${groupId}/news`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body }),
+      body: JSON.stringify({ title, body, kind: formKind }),
     });
     if (res.ok) {
       setTitle("");
       setBody("");
+      setFormKind(null);
       load();
     }
   };
@@ -91,62 +105,96 @@ export default function GroupNewsTab({ groupId, canManage }) {
     setMessage(res.ok ? "Sent to Church Admin for approval." : data.error);
   };
 
+  const copy = formKind ? FORM_COPY[formKind] : null;
+
   return (
     <div className="px-5 pt-4 pb-6">
-      <h2 className="font-serif text-2xl text-ink mb-4">Group News</h2>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h2 className="font-serif text-2xl text-ink">Group News</h2>
+        {canManage && (
+          <div className="flex gap-2 flex-wrap">
+            <button onClick={() => setFormKind("class")} className="sp-btn-pill bg-sage">
+              Class
+            </button>
+            <button onClick={() => setFormKind("discuss")} className="sp-btn-pill bg-navy">
+              Discuss
+            </button>
+            <button onClick={() => setFormKind("announcement")} className="sp-btn-pill">
+              Post
+            </button>
+          </div>
+        )}
+      </div>
 
-      {canManage && (
+      {formKind && (
         <form onSubmit={submit} className="sp-card mb-4">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title"
+            placeholder={copy.title}
             required
             className="sp-input mb-2"
           />
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="What's the news?"
+            placeholder={copy.body}
             required
-            rows={3}
+            rows={formKind === "class" ? 6 : 3}
             className="sp-textarea mb-2"
           />
-          <button type="submit" className="sp-btn-primary">Post to group</button>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setFormKind(null)} className="sp-btn-secondary flex-1">Cancel</button>
+            <button type="submit" className="sp-btn-primary flex-1">Post</button>
+          </div>
         </form>
       )}
 
       {news === null && <p className="text-sm text-inkfaint">Loading…</p>}
       {news?.length === 0 && <p className="text-sm text-inkfaint">No news yet.</p>}
       <div className="space-y-2">
-        {news?.map((n) => (
-          <div key={n.id} className="sp-card">
-            <h3 className="font-medium text-ink mb-1">{n.title}</h3>
-            <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
-            <p className="text-xs text-inkfaint">
-              {new Date(n.created_at).toLocaleDateString()}
-              {n.users?.display_name && ` · ${n.users.display_name}`}
-            </p>
+        {news?.map((n) => {
+          const badge = KIND_LABELS[n.kind];
+          return (
+            <div key={n.id} className="sp-card">
+              <div className="flex items-center gap-2 mb-1">
+                {badge && (
+                  <span className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${badge.className}`}>
+                    {badge.text}
+                  </span>
+                )}
+                <h3 className="font-medium text-ink">{n.title}</h3>
+              </div>
+              <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
+              <p className="text-xs text-inkfaint">
+                {new Date(n.created_at).toLocaleDateString()}
+                {n.users?.display_name && ` · ${n.users.display_name}`}
+              </p>
 
-            <div className="flex gap-3 mt-2">
-              <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} className="text-xs text-accent underline">
-                {openThread === n.id ? "Hide replies" : "Replies"}
-              </button>
-              {canManage && (
-                <>
-                  <button onClick={() => requestPromotion(n.id)} className="text-xs text-accent underline">
-                    Request promote to church-wide
+              <div className="flex gap-3 mt-2">
+                {n.kind === "discuss" && (
+                  <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} className="text-xs text-accent underline">
+                    {openThread === n.id ? "Hide replies" : "Replies"}
                   </button>
-                  <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
-                    Delete
-                  </button>
-                </>
-              )}
+                )}
+                {canManage && (
+                  <>
+                    {n.kind !== "class" && (
+                      <button onClick={() => requestPromotion(n.id)} className="text-xs text-accent underline">
+                        Request promote to church-wide
+                      </button>
+                    )}
+                    <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {n.kind === "discuss" && openThread === n.id && <ReplyThread groupId={groupId} newsId={n.id} />}
             </div>
-
-            {openThread === n.id && <ReplyThread groupId={groupId} newsId={n.id} />}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {message && <p className="text-sm text-inksoft mt-3">{message}</p>}

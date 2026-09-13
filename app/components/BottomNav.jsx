@@ -1,10 +1,10 @@
 "use client";
 
 const TABS = [
+  { key: "hub", label: "Home" },
+  { key: "bible", label: "Bible" },
   { key: "news", label: "News" },
   { key: "events", label: "Events" },
-  { key: "hub", label: "Hub" },
-  { key: "bible", label: "Bible" },
 ];
 
 // The universal bottom nav. Only ever renders these four tabs, per the
@@ -13,7 +13,7 @@ const TABS = [
 // Sermons yet (deferred to a later phase).
 export default function BottomNav({ tab, setTab }) {
   return (
-    <nav className="sticky bottom-0 flex border-t border-line bg-card">
+    <nav className="md:hidden sticky bottom-0 flex border-t border-line bg-card">
       {TABS.map((t) => (
         <button
           key={t.key}

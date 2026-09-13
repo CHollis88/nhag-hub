@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup } from "@/lib/groupAuth";
+import { notifyAdmins } from "@/lib/push";
 
 // Leader (or admin) requests that a group News post get pushed to the
 // church-wide Home feed. This does NOT post it globally itself -- it just
@@ -24,7 +25,7 @@ export async function POST(req, { params }) {
 
   const { data: news, error: newsError } = await supabase
     .from("group_news")
-    .select("id")
+    .select("id, title, groups(name)")
     .eq("id", newsId)
     .eq("group_id", groupId)
     .maybeSingle();
@@ -58,5 +59,12 @@ export async function POST(req, { params }) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  notifyAdmins({
+    title: "Promotion Request",
+    body: `${news.groups?.name || "A ministry"} wants to promote "${news.title}" to church-wide.`,
+    url: "/",
+  }).catch(() => {});
+
   return NextResponse.json({ request: data });
 }

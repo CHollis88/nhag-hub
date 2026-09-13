@@ -15,7 +15,7 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data: memberships, error } = await supabase
     .from("group_members")
-    .select("group_id, role, status, groups(id, name, type, features)")
+    .select("group_id, role, status, groups(id, name, type, features, image_url, tile_color)")
     .eq("user_id", user.id);
 
   if (error) {

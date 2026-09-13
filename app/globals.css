@@ -5,27 +5,27 @@
 @tailwind utilities;
 
 :root {
-  --color-paper: 246 241 230;
-  --color-card: 255 253 249;
-  --color-ink: 43 38 32;
-  --color-inksoft: 107 93 74;
-  --color-inkfaint: 138 124 99;
-  --color-line: 222 210 184;
-  --color-linesoft: 237 228 206;
-  --color-accent: 140 58 43;
-  --color-sage: 95 122 93;
+  --color-paper: 244 244 246;
+  --color-card: 255 255 255;
+  --color-ink: 30 30 33;
+  --color-inksoft: 90 90 96;
+  --color-inkfaint: 140 140 146;
+  --color-line: 219 219 224;
+  --color-linesoft: 234 234 238;
+  --color-accent: 196 30 40;
+  --color-sage: 76 128 88;
 }
 
 .dark {
-  --color-paper: 30 25 20;
-  --color-card: 40 33 27;
-  --color-ink: 240 232 219;
-  --color-inksoft: 201 187 165;
-  --color-inkfaint: 156 141 118;
-  --color-line: 70 59 48;
-  --color-linesoft: 55 46 38;
-  --color-accent: 214 90 70;
-  --color-sage: 133 168 130;
+  --color-paper: 22 22 24;
+  --color-card: 33 33 37;
+  --color-ink: 236 236 238;
+  --color-inksoft: 188 188 194;
+  --color-inkfaint: 146 146 152;
+  --color-line: 60 60 66;
+  --color-linesoft: 46 46 51;
+  --color-accent: 226 64 72;
+  --color-sage: 110 168 122;
 }
 
 /* Auto-assigned Bible verse tag colors (see lib/tagColor.js). Each has a

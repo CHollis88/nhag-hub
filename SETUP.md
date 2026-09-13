@@ -42,6 +42,9 @@ Once Phase 4 is done and choir members are using the Hub instead, you can delete
 7. New query again → open `supabase/migration_005_event_rsvps.sql`, copy, paste, **Run**.
 8. New query again → open `supabase/migration_006_reading_plan_journal.sql`, copy, paste, **Run**.
 9. New query again → open `supabase/migration_007_push_notifications.sql`, copy, paste, **Run**.
+10. New query again → open `supabase/migration_008_pin_login.sql`, copy, paste, **Run**.
+11. New query again → open `supabase/migration_009_group_icons.sql`, copy, paste, **Run**.
+12. New query again → open `supabase/migration_010_news_categories.sql`, copy, paste, **Run**.
 
 That's every table the app needs.
 

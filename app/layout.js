@@ -2,7 +2,7 @@ import "./globals.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 export const metadata = {
-  title: "NHAG Church Hub",
+  title: "NHAG",
   description: "North Hodge Assembly of God — church-wide hub",
   icons: {
     icon: "/favicon.png",

@@ -18,7 +18,7 @@ const BASE_TABS = [
 export default function GroupBottomNav({ tab, setTab, extraTabs = [] }) {
   const tabs = [...BASE_TABS, ...extraTabs];
   return (
-    <nav className="sticky bottom-0 flex border-t border-line bg-card overflow-x-auto">
+    <nav className="md:hidden sticky bottom-0 flex border-t border-line bg-card overflow-x-auto">
       {tabs.map((t) => (
         <button
           key={t.key}

@@ -1,6 +1,88 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+
+function AppearancePanel({ groupId }) {
+  const [group, setGroup] = useState(null);
+  const [color, setColor] = useState("#8B1E2F");
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState("");
+  const fileInputRef = useRef(null);
+
+  const load = useCallback(async () => {
+    const res = await fetch(`/api/groups/${groupId}`);
+    const data = await res.json();
+    if (res.ok) {
+      setGroup(data.group);
+      setColor(data.group.tile_color || "#8B1E2F");
+    }
+  }, [groupId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const saveColor = async (newColor) => {
+    setColor(newColor);
+    await fetch(`/api/groups/${groupId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tile_color: newColor }),
+    });
+  };
+
+  const uploadIcon = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setMessage("");
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`/api/groups/${groupId}/icon`, { method: "POST", body: formData });
+    const data = await res.json();
+    setUploading(false);
+    if (!res.ok) {
+      setMessage(data.error);
+      return;
+    }
+    load();
+  };
+
+  if (!group) return null;
+
+  return (
+    <div className="sp-card mb-4">
+      <p className="text-xs uppercase tracking-wide text-inkfaint mb-3">Ministry appearance</p>
+      <div className="flex items-center gap-4">
+        {group.image_url ? (
+          <img src={group.image_url} alt="" className="w-16 h-16 rounded-xl object-cover" />
+        ) : (
+          <div
+            className="w-16 h-16 rounded-xl flex items-center justify-center text-white font-serif text-2xl"
+            style={{ background: color }}
+          >
+            {group.name?.[0]?.toUpperCase() || "?"}
+          </div>
+        )}
+        <div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="sp-btn-secondary text-xs py-1.5 px-3 mb-2"
+          >
+            {uploading ? "Uploading…" : "Change icon"}
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadIcon} className="hidden" />
+          <label className="flex items-center gap-2 text-sm text-inksoft">
+            Tile color:
+            <input type="color" value={color} onChange={(e) => saveColor(e.target.value)} className="w-9 h-7 rounded border border-line" />
+          </label>
+        </div>
+      </div>
+      {message && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{message}</p>}
+    </div>
+  );
+}
 
 // Unlike News/Events/Prayer (Phase 3), Roster is fully real here — it's
 // just a UI on top of the group_members data and API routes that already
@@ -80,6 +162,8 @@ export default function RosterTab({ groupId, myRole }) {
   return (
     <div className="px-5 pt-4 pb-6">
       <h2 className="font-serif text-2xl text-ink mb-4">Roster</h2>
+
+      {canManage && <AppearancePanel groupId={groupId} />}
 
       {canManage && pending?.length > 0 && (
         <>

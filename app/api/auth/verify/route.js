@@ -48,7 +48,13 @@ export async function GET(req) {
 
   const sessionToken = await createSession(user.id);
 
-  const destination = user.username ? "/" : "/setup";
+  // New account (no username yet) -> first-time setup, which now also
+  // collects the initial PIN. Existing account -> this magic link was
+  // used for recovery (forgot PIN), so land on the PIN reset screen
+  // rather than straight into the app -- per the project's decision,
+  // magic link is for setup and recovery only, never an ongoing
+  // alternative to signing in with a PIN.
+  const destination = user.username ? "/reset-pin" : "/setup";
   const response = NextResponse.redirect(`${baseUrl}${destination}`);
   response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
     httpOnly: true,

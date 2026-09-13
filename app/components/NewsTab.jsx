@@ -56,6 +56,7 @@ export default function NewsTab({ isAdmin }) {
   const [news, setNews] = useState(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [category, setCategory] = useState("announcement");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -74,7 +75,7 @@ export default function NewsTab({ isAdmin }) {
     const res = await fetch("/api/global/news", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body }),
+      body: JSON.stringify({ title, body, category }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -83,6 +84,7 @@ export default function NewsTab({ isAdmin }) {
     }
     setTitle("");
     setBody("");
+    setCategory("announcement");
     load();
   };
 
@@ -99,6 +101,22 @@ export default function NewsTab({ isAdmin }) {
 
       {isAdmin && (
         <form onSubmit={submit} className="sp-card mb-4">
+          <div className="flex gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => setCategory("announcement")}
+              className={category === "announcement" ? "sp-pill-outline active" : "sp-pill-outline"}
+            >
+              Announcement
+            </button>
+            <button
+              type="button"
+              onClick={() => setCategory("pastor_message")}
+              className={category === "pastor_message" ? "sp-pill-outline active" : "sp-pill-outline"}
+            >
+              Message from the Pastor
+            </button>
+          </div>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -109,7 +127,7 @@ export default function NewsTab({ isAdmin }) {
           <textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="What's the announcement?"
+            placeholder="What's the news?"
             required
             rows={3}
             className="sp-textarea mb-2"
@@ -124,7 +142,14 @@ export default function NewsTab({ isAdmin }) {
       <div className="space-y-2">
         {news?.map((n) => (
           <div key={n.id} className="sp-card">
-            <h3 className="font-medium text-ink mb-1">{n.title}</h3>
+            <div className="flex items-center gap-2 mb-1">
+              {n.category === "pastor_message" && (
+                <span className="text-[10px] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
+                  Pastor's Message
+                </span>
+              )}
+              <h3 className="font-medium text-ink">{n.title}</h3>
+            </div>
             <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
             <p className="text-xs text-inkfaint">
               {new Date(n.created_at).toLocaleDateString()}

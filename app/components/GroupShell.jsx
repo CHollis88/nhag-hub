@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import GroupBottomNav from "./GroupBottomNav";
+import GroupSidebar from "./GroupSidebar";
 import GroupNewsTab from "./GroupNewsTab";
 import GroupEventsTab from "./GroupEventsTab";
 import GroupPrayerTab from "./GroupPrayerTab";
@@ -55,23 +56,26 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
         </button>
       </header>
 
-      <main className="flex-1">
-        {tab === "news" && <GroupNewsTab groupId={group.id} canManage={canManage} />}
-        {tab === "events" && <GroupEventsTab groupId={group.id} canManage={canManage} />}
-        {tab === "prayer" && (
-          <GroupPrayerTab groupId={group.id} canManage={canManage} currentUserId={currentUserId} />
-        )}
-        {tab === "roster" && <RosterTab groupId={group.id} myRole={effectiveRole} />}
-        {features.includes("songs_setlists") && tab === "songs" && (
-          <SongsTab groupId={group.id} canManage={canManage} />
-        )}
-        {features.includes("songs_setlists") && tab === "setlists" && (
-          <SetlistsTab groupId={group.id} canManage={canManage} />
-        )}
-        {features.includes("reading_plan_journal") && tab === "reading_plan" && (
-          <ReadingPlanTab onOpenBiblePassage={onOpenBiblePassage} />
-        )}
-      </main>
+      <div className="flex flex-1 min-h-0">
+        <GroupSidebar tab={tab} setTab={setTab} extraTabs={extraTabs} />
+        <main className="flex-1 overflow-y-auto">
+          {tab === "news" && <GroupNewsTab groupId={group.id} canManage={canManage} />}
+          {tab === "events" && <GroupEventsTab groupId={group.id} canManage={canManage} />}
+          {tab === "prayer" && (
+            <GroupPrayerTab groupId={group.id} canManage={canManage} currentUserId={currentUserId} />
+          )}
+          {tab === "roster" && <RosterTab groupId={group.id} myRole={effectiveRole} />}
+          {features.includes("songs_setlists") && tab === "songs" && (
+            <SongsTab groupId={group.id} canManage={canManage} />
+          )}
+          {features.includes("songs_setlists") && tab === "setlists" && (
+            <SetlistsTab groupId={group.id} canManage={canManage} />
+          )}
+          {features.includes("reading_plan_journal") && tab === "reading_plan" && (
+            <ReadingPlanTab onOpenBiblePassage={onOpenBiblePassage} />
+          )}
+        </main>
+      </div>
 
       <GroupBottomNav tab={tab} setTab={setTab} extraTabs={extraTabs} />
 

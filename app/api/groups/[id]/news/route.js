@@ -4,6 +4,8 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroup } from "@/lib/push";
 
+const VALID_KINDS = ["announcement", "class", "discuss"];
+
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -16,7 +18,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("group_news")
-    .select("id, title, body, created_at, users(display_name)")
+    .select("id, title, body, kind, created_at, users(display_name)")
     .eq("group_id", groupId)
     .order("created_at", { ascending: false });
 
@@ -25,7 +27,10 @@ export async function GET(req, { params }) {
 }
 
 // Leader (own group) or admin only -- per the permission matrix, Members
-// cannot create News/Events, only reply to them.
+// cannot create News/Events, only reply to them (and only to 'discuss'
+// posts specifically -- see the replies route). kind mirrors the Young
+// Adults app's Announcement/Class/Discuss pattern, applied here via the
+// same generic module every ministry shares.
 export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -38,21 +43,23 @@ export async function POST(req, { params }) {
     );
   }
 
-  const { title, body } = await req.json();
+  const { title, body, kind } = await req.json();
   if (!title?.trim() || !body?.trim()) {
     return NextResponse.json({ error: "title and body are required." }, { status: 400 });
   }
+  const finalKind = kind && VALID_KINDS.includes(kind) ? kind : "announcement";
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("group_news")
-    .insert({ group_id: groupId, title: title.trim(), body: body.trim(), created_by: user.id })
-    .select("id, title, body, created_at")
+    .insert({ group_id: groupId, title: title.trim(), body: body.trim(), kind: finalKind, created_by: user.id })
+    .select("id, title, body, kind, created_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  notifyGroup(groupId, { title: "Group News", body: title.trim(), url: "/" }).catch(() => {});
+  const kindLabel = finalKind === "class" ? "Class Notes" : finalKind === "discuss" ? "Discussion" : "Group News";
+  notifyGroup(groupId, { title: kindLabel, body: title.trim(), url: "/" }).catch(() => {});
 
   return NextResponse.json({ news: data });
 }
