@@ -22,7 +22,7 @@ export default function GroupBottomNav({ tab, setTab, prependTabs = [], appendTa
   const tabs = [...prependTabs, ...BASE_TABS, ...appendTabs, ROSTER_TAB];
   return (
     <nav className="md:hidden sticky bottom-0 z-30 bg-card border-t border-line px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] overflow-x-auto">
-      <div className="flex justify-between min-w-max gap-1">
+      <div className="flex justify-between gap-1">
         {tabs.map(({ key, label, icon: Icon }) => {
           const active = tab === key;
           return (
