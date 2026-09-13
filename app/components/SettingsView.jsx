@@ -20,33 +20,44 @@ const TEXT_SIZES = [
   { id: "xxl", label: "Largest" },
 ];
 
-export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, onOpenAdminToolbox, isAdmin }) {
+export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, isAdmin, adminModeOn: controlledAdminModeOn, onToggleAdminMode }) {
   const [theme, setTheme] = useState("system");
   const [textSize, setTextSize] = useState("md");
   const [desktopLayout, setDesktopLayoutState] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [prefs, setPrefs] = useState(null);
-  const [adminModeOn, setAdminModeOn] = useState(true);
+  const [localAdminModeOn, setLocalAdminModeOn] = useState(true);
   const [newPin, setNewPin] = useState("");
   const [confirmNewPin, setConfirmNewPin] = useState("");
   const [pinMessage, setPinMessage] = useState("");
+
+  // Controlled (from AppShell, which also shows a header emblem that
+  // needs to stay in sync) if onToggleAdminMode is passed; otherwise
+  // self-managed (from inside a group's own Settings, which has no
+  // emblem to keep in sync with).
+  const isControlled = onToggleAdminMode !== undefined;
+  const adminModeOn = isControlled ? controlledAdminModeOn : localAdminModeOn;
 
   useEffect(() => {
     setTheme(getStoredPreference());
     setTextSize(getStoredTextSize());
     setDesktopLayoutState(getDesktopMode());
     setPushSubscribed(isSubscribedToPush());
-    if (isAdmin) setAdminModeOn(isAdminModeOn());
+    if (isAdmin && !isControlled) setLocalAdminModeOn(isAdminModeOn());
     fetch("/api/notifications/preferences")
       .then((r) => r.json())
       .then(setPrefs);
-  }, [isAdmin]);
+  }, [isAdmin, isControlled]);
 
   const toggleAdminMode = () => {
-    const next = !adminModeOn;
+    if (isControlled) {
+      onToggleAdminMode();
+      return;
+    }
+    const next = !localAdminModeOn;
     setAdminMode(next);
-    setAdminModeOn(next);
+    setLocalAdminModeOn(next);
   };
 
   const chooseTheme = (id) => {
@@ -212,16 +223,12 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, o
               <input type="checkbox" checked={adminModeOn} onChange={toggleAdminMode} />
               Show admin tools
             </label>
-            <p className="text-xs text-inkfaint mt-0 mb-4">
+            <p className="text-xs text-inkfaint mt-0 mb-5">
               This is just a personal display preference — it never changes your actual admin
-              access, only whether the extra controls show up in your own view. Turning it back on
-              doesn't need your PIN, since nothing was ever actually revoked.
+              access, only whether the extra controls show up in your own view (including the
+              toolbox emblem in the header). Turning it back on doesn't need your PIN, since
+              nothing was ever actually revoked.
             </p>
-            {adminModeOn && onOpenAdminToolbox && (
-              <button onClick={onOpenAdminToolbox} className="sp-btn-secondary mb-5">
-                🧰 Open Admin Toolbox
-              </button>
-            )}
           </>
         )}
 

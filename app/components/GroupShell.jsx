@@ -31,7 +31,7 @@ const FEATURE_TABS = {
 // for free; optional modules (Songs/Setlists, Reading Plan/Journal) are
 // bolted on per-group via `features`, not tied to a fixed "type".
 export default function GroupShell({ group, myRole, currentUserId, onBackToHub, onOpenBiblePassage }) {
-  const [tab, setTab] = useState("roster");
+  const [tab, setTab] = useState("news");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
@@ -63,7 +63,9 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
       <div className="flex flex-1 min-h-0">
         <GroupSidebar tab={tab} setTab={setTab} extraTabs={extraTabs} />
         <main className="flex-1 overflow-y-auto">
-          {tab === "news" && <GroupNewsTab groupId={group.id} canManage={canManage} />}
+          {tab === "news" && (
+            <GroupNewsTab groupId={group.id} canManage={canManage} showClassOption={!features.includes("songs_setlists")} />
+          )}
           {tab === "events" && <GroupEventsTab groupId={group.id} canManage={canManage} />}
           {tab === "prayer" && (
             <GroupPrayerTab groupId={group.id} canManage={canManage} currentUserId={currentUserId} />

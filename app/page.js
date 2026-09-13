@@ -13,6 +13,7 @@ import SettingsView from "./components/SettingsView";
 import HelpView from "./components/HelpView";
 import AttributionView from "./components/AttributionView";
 import AdminToolboxView from "./components/AdminToolboxView";
+import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 
 function AuthCard({ children }) {
   return (
@@ -171,6 +172,18 @@ function AppShell({ me, refreshMe, onSignOut }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
   const [adminToolboxOpen, setAdminToolboxOpen] = useState(false);
+  const [adminModeOn, setAdminModeOnState] = useState(true);
+  const isAdmin = me.user.is_church_admin;
+
+  useEffect(() => {
+    if (isAdmin) setAdminModeOnState(isAdminModeOn());
+  }, [isAdmin]);
+
+  const toggleAdminMode = () => {
+    const next = !adminModeOn;
+    setAdminMode(next);
+    setAdminModeOnState(next);
+  };
   const [activeGroup, setActiveGroup] = useState(null); // { id, name, role, features } | null
   const [bibleOverlay, setBibleOverlay] = useState(null); // { book, chapter } | null
 
@@ -223,11 +236,30 @@ function AppShell({ me, refreshMe, onSignOut }) {
     <div className="min-h-screen flex flex-col bg-paper">
       <header className="flex justify-between items-center px-4 py-2.5 bg-navy text-white">
         <div className="flex items-center gap-2.5">
-          <img src="/icon-192.png" alt="" className="w-7 h-7 rounded" />
-          <strong className="font-serif">North Hodge Assembly of God</strong>
+          <img src="/icon-192.png" alt="" className="w-8 h-8 rounded" />
+          <strong
+            className="font-serif tracking-wide"
+            style={{
+              color: "#fff",
+              textShadow:
+                "-1px -1px 0 #C41E28, 1px -1px 0 #C41E28, -1px 1px 0 #C41E28, 1px 1px 0 #C41E28, 2px 2px 3px rgba(0,0,0,0.7)",
+            }}
+          >
+            North Hodge Assembly of God
+          </strong>
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs hidden sm:inline">{me.user.display_name}</span>
+          {isAdmin && adminModeOn && (
+            <button
+              onClick={() => setAdminToolboxOpen(true)}
+              aria-label="Admin Toolbox"
+              title="Admin Toolbox"
+              className="border border-white/40 rounded px-2 py-1 text-xs"
+            >
+              🧰
+            </button>
+          )}
           <button
             onClick={() => setSettingsOpen(true)}
             aria-label="Settings"
@@ -264,6 +296,8 @@ function AppShell({ me, refreshMe, onSignOut }) {
       {settingsOpen && (
         <SettingsView
           isAdmin={me.user.is_church_admin}
+          adminModeOn={adminModeOn}
+          onToggleAdminMode={toggleAdminMode}
           onClose={() => setSettingsOpen(false)}
           onOpenHelp={() => {
             setSettingsOpen(false);
@@ -272,10 +306,6 @@ function AppShell({ me, refreshMe, onSignOut }) {
           onOpenAttribution={() => {
             setSettingsOpen(false);
             setAttributionOpen(true);
-          }}
-          onOpenAdminToolbox={() => {
-            setSettingsOpen(false);
-            setAdminToolboxOpen(true);
           }}
         />
       )}

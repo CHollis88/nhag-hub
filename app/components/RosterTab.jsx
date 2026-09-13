@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 function AppearancePanel({ groupId, onRenamed }) {
   const [group, setGroup] = useState(null);
   const [name, setName] = useState("");
+  const [type, setType] = useState("");
   const [color, setColor] = useState("#8B1E2F");
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -16,6 +17,7 @@ function AppearancePanel({ groupId, onRenamed }) {
     if (res.ok) {
       setGroup(data.group);
       setName(data.group.name);
+      setType(data.group.type || "");
       setColor(data.group.tile_color || "#8B1E2F");
     }
   }, [groupId]);
@@ -33,23 +35,23 @@ function AppearancePanel({ groupId, onRenamed }) {
     });
   };
 
-  const saveName = async (e) => {
+  const saveNameAndType = async (e) => {
     e.preventDefault();
     setMessage("");
-    const trimmed = name.trim();
-    if (!trimmed) return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
     const res = await fetch(`/api/groups/${groupId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: trimmed }),
+      body: JSON.stringify({ name: trimmedName, type: type.trim() }),
     });
     const data = await res.json();
     if (!res.ok) {
       setMessage(data.error);
       return;
     }
-    setMessage("Renamed.");
-    onRenamed?.(trimmed);
+    setMessage("Saved.");
+    onRenamed?.(trimmedName);
   };
 
   const uploadIcon = async (e) => {
@@ -100,14 +102,20 @@ function AppearancePanel({ groupId, onRenamed }) {
           </label>
         </div>
       </div>
-      <form onSubmit={saveName} className="flex gap-2">
+      <form onSubmit={saveNameAndType} className="space-y-2">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Ministry name"
-          className="sp-input flex-1"
+          className="sp-input"
         />
-        <button type="submit" className="sp-btn-secondary px-4">Rename</button>
+        <input
+          value={type}
+          onChange={(e) => setType(e.target.value)}
+          placeholder="Type / category label (optional)"
+          className="sp-input"
+        />
+        <button type="submit" className="sp-btn-secondary">Save</button>
       </form>
       {message && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{message}</p>}
     </div>

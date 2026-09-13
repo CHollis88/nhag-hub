@@ -7,15 +7,17 @@ export const BASE_TABS = [
   { key: "news", label: "News", icon: Megaphone },
   { key: "events", label: "Events", icon: CalendarDays },
   { key: "prayer", label: "Prayer", icon: Heart },
-  { key: "roster", label: "Roster", icon: Users },
 ];
+
+export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 
 // Desktop counterpart to GroupBottomNav -- same tabs (including any
 // feature-specific extras like Songs/Setlists), just a collapsible
 // sidebar instead of a bottom bar once there's screen width to spare.
+// Roster is always last, after any feature-specific extras.
 export default function GroupSidebar({ tab, setTab, extraTabs = [] }) {
   const [collapsed, setCollapsed] = useState(false);
-  const tabs = [...BASE_TABS, ...extraTabs];
+  const tabs = [...BASE_TABS, ...extraTabs, ROSTER_TAB];
 
   return (
     <nav

@@ -9,7 +9,6 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
   const [groups, setGroups] = useState([]);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupType, setNewGroupType] = useState("");
-  const [newGroupFeatures, setNewGroupFeatures] = useState([]);
   const [newGroupColor, setNewGroupColor] = useState("#8B1E2F");
   const [message, setMessage] = useState("");
   const [pendingCounts, setPendingCounts] = useState({});
@@ -39,17 +38,13 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
     if (groups.length) loadPendingCounts(groups);
   }, [groups, loadPendingCounts]);
 
-  const toggleFeature = (key) => {
-    setNewGroupFeatures((prev) => (prev.includes(key) ? prev.filter((f) => f !== key) : [...prev, key]));
-  };
-
   const createGroup = async (e) => {
     e.preventDefault();
     setMessage("");
     const res = await fetch("/api/groups", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newGroupName, type: newGroupType, features: newGroupFeatures, tile_color: newGroupColor }),
+      body: JSON.stringify({ name: newGroupName, type: newGroupType, tile_color: newGroupColor }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -58,7 +53,6 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
     }
     setNewGroupName("");
     setNewGroupType("");
-    setNewGroupFeatures([]);
     loadGroups();
   };
 
@@ -115,23 +109,6 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
               onChange={(e) => setNewGroupColor(e.target.value)}
               className="w-10 h-8 rounded border border-line"
             />
-          </label>
-          <p className="text-xs text-inkfaint mb-2">Optional modules:</p>
-          <label className="flex items-center gap-2 mb-1.5 text-sm text-inksoft">
-            <input
-              type="checkbox"
-              checked={newGroupFeatures.includes("songs_setlists")}
-              onChange={() => toggleFeature("songs_setlists")}
-            />
-            Song library + Setlists (Choir-style groups)
-          </label>
-          <label className="flex items-center gap-2 mb-4 text-sm text-inksoft">
-            <input
-              type="checkbox"
-              checked={newGroupFeatures.includes("reading_plan_journal")}
-              onChange={() => toggleFeature("reading_plan_journal")}
-            />
-            Reading Plan + Journal (Young Adults-style groups)
           </label>
           <button type="submit" className="sp-btn-primary">Create</button>
         </form>

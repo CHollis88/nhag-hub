@@ -60,7 +60,7 @@ const FORM_COPY = {
   discuss: { title: "Discussion title (e.g. a passage)", body: "Questions for the group to discuss" },
 };
 
-export default function GroupNewsTab({ groupId, canManage }) {
+export default function GroupNewsTab({ groupId, canManage, showClassOption = true }) {
   const [news, setNews] = useState(null);
   const [formKind, setFormKind] = useState(null); // null | "announcement" | "class" | "discuss"
   const [title, setTitle] = useState("");
@@ -113,9 +113,11 @@ export default function GroupNewsTab({ groupId, canManage }) {
         <h2 className="font-serif text-2xl text-ink">Group News</h2>
         {canManage && (
           <div className="flex gap-2 flex-wrap">
-            <button onClick={() => setFormKind("class")} className="sp-btn-pill bg-sage">
-              Class
-            </button>
+            {showClassOption && (
+              <button onClick={() => setFormKind("class")} className="sp-btn-pill bg-sage">
+                Class
+              </button>
+            )}
             <button onClick={() => setFormKind("discuss")} className="sp-btn-pill bg-navy">
               Discuss
             </button>

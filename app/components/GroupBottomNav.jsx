@@ -6,8 +6,9 @@ export const BASE_TABS = [
   { key: "news", label: "News", icon: Megaphone },
   { key: "events", label: "Events", icon: CalendarDays },
   { key: "prayer", label: "Prayer", icon: Heart },
-  { key: "roster", label: "Roster", icon: Users },
 ];
+
+export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 
 // Shown ONLY while inside a group (Choir, a Sunday School class). Replaces
 // the universal BottomNav entirely -- per the project's decision, being
@@ -17,9 +18,10 @@ export const BASE_TABS = [
 // extraTabs lets a specific group's features bolt on more tabs (each with
 // its own icon) without touching this component's own logic -- e.g. Choir
 // adds Songs/Setlists on top of the same News/Events/Prayer/Roster every
-// group gets for free.
+// group gets for free. Roster is always last, after any feature-specific
+// extras, per the project's decision.
 export default function GroupBottomNav({ tab, setTab, extraTabs = [] }) {
-  const tabs = [...BASE_TABS, ...extraTabs];
+  const tabs = [...BASE_TABS, ...extraTabs, ROSTER_TAB];
   return (
     <nav className="md:hidden sticky bottom-0 z-30 bg-card border-t border-line px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] overflow-x-auto">
       <div className="flex justify-between min-w-max gap-1">

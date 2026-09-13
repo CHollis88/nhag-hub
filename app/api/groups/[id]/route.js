@@ -41,9 +41,10 @@ export async function PATCH(req, { params }) {
 
   const updates = { updated_at: new Date().toISOString() };
 
-  // Renaming a ministry is delegated to its own leader too, per the
-  // project's decision -- unlike type/features (below), a name change
-  // doesn't affect how the ministry behaves, just what it's called.
+  // Renaming a ministry -- and its type/category label -- is delegated to
+  // its own leader too, per the project's decision. features stays
+  // admin-only below, since toggling a whole module on/off is a bigger
+  // deal than a display label.
   if (name !== undefined) {
     if (!(await canManageGroup(user, id))) {
       return NextResponse.json(
@@ -54,18 +55,24 @@ export async function PATCH(req, { params }) {
     if (!name.trim()) return NextResponse.json({ error: "name cannot be empty." }, { status: 400 });
     updates.name = name.trim();
   }
+  if (type !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can change its type label." },
+        { status: 403 }
+      );
+    }
+    updates.type = type.trim();
+  }
 
-  // type/features stay admin-only -- these affect the whole app's
-  // ministry list and which modules are enabled, not just this group's
-  // own look or label.
-  if (type !== undefined || features !== undefined) {
+  // features stays admin-only -- enabling/disabling a whole module
+  // (Songs/Setlists, Reading Plan/Journal) affects what the ministry can
+  // do, not just its label, so it's kept a step above name/type/color.
+  if (features !== undefined) {
     if (!user.is_church_admin) {
       return NextResponse.json({ error: "Church Admin access required for that change." }, { status: 403 });
     }
-    if (type !== undefined) updates.type = type.trim();
-    if (features !== undefined) {
-      updates.features = Array.isArray(features) ? features.filter((f) => VALID_FEATURES.includes(f)) : [];
-    }
+    updates.features = Array.isArray(features) ? features.filter((f) => VALID_FEATURES.includes(f)) : [];
   }
 
   // Tile color is cosmetic to this one ministry -- its own leader can set

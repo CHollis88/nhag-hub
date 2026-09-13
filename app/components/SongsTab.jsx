@@ -1,109 +1,167 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, Plus, Music, FileText, Guitar, FileMusic, Mic2, Trash2, Pencil, ExternalLink } from "lucide-react";
+import SongForm from "./SongForm";
 
-const LINK_FIELDS = [
-  { key: "lyrics_url", label: "Lyrics" },
-  { key: "chords_url", label: "Chords" },
-  { key: "sheet_music_url", label: "Sheet Music" },
-  { key: "soprano_url", label: "Soprano" },
-  { key: "alto_url", label: "Alto" },
-  { key: "tenor_url", label: "Tenor" },
-  { key: "bass_url", label: "Bass" },
-  { key: "full_mix_url", label: "Full Mix" },
+const LINK_BUTTONS = [
+  ["lyrics_url", "Lyrics", FileText],
+  ["chords_url", "Chords", Guitar],
+  ["sheet_music_url", "Sheet Music", FileMusic],
+  ["soprano_url", "Soprano", Mic2],
+  ["alto_url", "Alto", Mic2],
+  ["tenor_url", "Tenor", Mic2],
+  ["bass_url", "Bass", Mic2],
+  ["full_mix_url", "Full Mix", Mic2],
 ];
 
-export default function SongsTab({ groupId, canManage }) {
-  const [songs, setSongs] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ title: "", composer: "" });
+function SongRow({ groupId, song, canManage, onUpdated }) {
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
 
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/songs`);
-    const data = await res.json();
-    if (res.ok) setSongs(data.songs);
-  }, [groupId]);
+  const availableLinks = LINK_BUTTONS.filter(([key]) => song[key]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    const res = await fetch(`/api/groups/${groupId}/songs`, {
-      method: "POST",
+  const saveEdit = async (fields) => {
+    await fetch(`/api/groups/${groupId}/songs/${song.id}`, {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(fields),
     });
-    if (res.ok) {
-      setForm({ title: "", composer: "" });
-      setShowForm(false);
-      load();
-    }
+    setEditing(false);
+    onUpdated();
   };
 
-  const remove = async (id) => {
+  const remove = async () => {
     if (!confirm("Delete this song? It will also be removed from any setlists it's in.")) return;
-    await fetch(`/api/groups/${groupId}/songs/${id}`, { method: "DELETE" });
-    load();
+    await fetch(`/api/groups/${groupId}/songs/${song.id}`, { method: "DELETE" });
+    onUpdated();
   };
+
+  if (editing) {
+    return <SongForm initial={song} onCancel={() => setEditing(false)} onSave={saveEdit} />;
+  }
 
   return (
-    <div className="px-5 pt-4 pb-6">
-      <h2 className="font-serif text-2xl text-ink mb-4">Song Library</h2>
+    <div className="border border-line rounded-xl overflow-hidden bg-card">
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-3 text-left">
+        <div className="min-w-0">
+          <p className="font-serif text-base text-ink truncate">{song.title}</p>
+          {song.composer && <p className="text-xs text-inkfaint truncate">{song.composer}</p>}
+        </div>
+      </button>
 
-      {canManage && (
-        <>
-          <button onClick={() => setShowForm(!showForm)} className="sp-btn-secondary mb-4">
-            {showForm ? "Cancel" : "+ Add a song"}
-          </button>
-
-          {showForm && (
-            <form onSubmit={submit} className="sp-card mb-4">
-              <input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="Song title"
-                required
-                className="sp-input mb-2"
-              />
-              <input
-                value={form.composer}
-                onChange={(e) => setForm({ ...form, composer: e.target.value })}
-                placeholder="Composer (optional)"
-                className="sp-input mb-2"
-              />
-              <p className="text-xs text-inkfaint mb-2">
-                Add lyrics/chords/part links after creating the song, by editing it.
-              </p>
-              <button type="submit" className="sp-btn-primary">Save song</button>
-            </form>
-          )}
-        </>
-      )}
-
-      {songs === null && <p className="text-sm text-inkfaint">Loading…</p>}
-      {songs?.length === 0 && <p className="text-sm text-inkfaint">No songs in the library yet.</p>}
-      <div className="space-y-2">
-        {songs?.map((s) => (
-          <div key={s.id} className="sp-card">
-            <h3 className="font-medium text-ink mb-1">{s.title}</h3>
-            {s.composer && <p className="text-sm text-inksoft mb-2">{s.composer}</p>}
-            <div className="flex flex-wrap gap-2">
-              {LINK_FIELDS.filter((f) => s[f.key]).map((f) => (
-                <a key={f.key} href={s[f.key]} target="_blank" rel="noreferrer" className="text-xs text-accent underline">
-                  {f.label}
+      {open && (
+        <div className="border-t border-linesoft px-4 py-3">
+          {availableLinks.length > 0 ? (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {availableLinks.map(([key, label, Icon]) => (
+                <a
+                  key={key}
+                  href={song[key]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs bg-accent/8 text-accent rounded-full px-3 py-1.5"
+                >
+                  <Icon size={12} /> {label} <ExternalLink size={10} />
                 </a>
               ))}
             </div>
-            {canManage && (
-              <button onClick={() => remove(s.id)} className="text-xs text-inkfaint mt-2 underline">
-                Delete
+          ) : (
+            <p className="text-xs text-inkfaint mb-2">Nothing linked yet for this song.</p>
+          )}
+
+          {song.notes && <p className="text-sm text-inksoft mb-2">{song.notes}</p>}
+
+          {canManage && (
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setEditing(true)} className="text-xs text-inkfaint flex items-center gap-1">
+                <Pencil size={12} /> Edit
               </button>
-            )}
-          </div>
+              <button onClick={remove} className="text-xs text-inkfaint flex items-center gap-1">
+                <Trash2 size={12} /> Delete
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function SongsTab({ groupId, canManage }) {
+  const [songs, setSongs] = useState(null);
+  const [query, setQuery] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const load = async () => {
+    const res = await fetch(`/api/groups/${groupId}/songs`);
+    const data = await res.json();
+    if (res.ok) setSongs(data.songs);
+  };
+
+  useEffect(() => {
+    load();
+  }, [groupId]);
+
+  const filtered = useMemo(() => {
+    if (!songs) return [];
+    if (!query.trim()) return songs;
+    const q = query.toLowerCase();
+    return songs.filter(
+      (s) => s.title.toLowerCase().includes(q) || (s.composer && s.composer.toLowerCase().includes(q))
+    );
+  }, [songs, query]);
+
+  const create = async (fields) => {
+    await fetch(`/api/groups/${groupId}/songs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fields),
+    });
+    setShowForm(false);
+    load();
+  };
+
+  if (songs === null) return <div className="px-5 pt-4"><p className="text-sm text-inkfaint">Loading…</p></div>;
+
+  return (
+    <div className="px-5 pt-4 pb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-serif text-xl text-ink">Songs</h2>
+        {canManage && (
+          <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
+            <Plus size={14} /> Add
+          </button>
+        )}
+      </div>
+
+      <div className="relative mb-4">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by title or composer..."
+          className="sp-input pl-9"
+        />
+      </div>
+
+      {showForm && <SongForm onCancel={() => setShowForm(false)} onSave={create} />}
+
+      {filtered.length === 0 && !showForm && (
+        <p className="text-sm text-inkfaint text-center py-6">
+          {query ? "No songs match that search." : "No songs yet."}
+        </p>
+      )}
+
+      <div className="space-y-2">
+        {filtered.map((song) => (
+          <SongRow key={song.id} groupId={groupId} song={song} canManage={canManage} onUpdated={load} />
         ))}
       </div>
+
+      {!query && songs.length > 0 && (
+        <p className="text-[0.6875rem] text-inkfaint text-center mt-4">{songs.length} songs in the library</p>
+      )}
     </div>
   );
 }

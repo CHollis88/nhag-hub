@@ -25,6 +25,7 @@ function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin }) {
         )}
         <div className="flex-1 min-w-0">
           <p className="font-serif text-base text-ink truncate">{group.name}</p>
+          {group.type && <p className="text-xs text-inkfaint truncate">{group.type}</p>}
           {leaders?.length > 0 && (
             <p className="text-xs text-inkfaint truncate">
               {leaders.length === 1 ? "Leader: " : "Leaders: "}
