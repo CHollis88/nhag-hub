@@ -81,7 +81,7 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
   }, [hasReadingPlan]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-paper">
+    <div className="h-screen flex flex-col bg-paper overflow-hidden">
       <header
         className="sticky top-0 z-30 flex justify-between items-center px-4 py-3 bg-navy text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}

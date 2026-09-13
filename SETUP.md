@@ -73,7 +73,7 @@ That's every table the app needs.
    ```
    Since you already have a Resend account and key, use `EMAIL_PROVIDER=resend` and paste your key as `RESEND_API_KEY`. This file (`.env.local`) is already excluded by `.gitignore`, so it never gets committed if you push this to GitHub.
 
-   ⚠️ Important Resend limitation until you verify a sending domain: Resend will only actually deliver mail to the email address your Resend account itself is registered under — everyone else's magic link send will silently fail. Fine for testing as yourself; before real members use this, verify a domain in Resend's dashboard (Domains → Add Domain) and set `EMAIL_FROM` to an address on it (e.g. `North Hodge Assembly of God <hub@mail.nhag.org>`).
+   ⚠️ Important Resend limitation until you verify a sending domain: Resend will only actually deliver mail to the email address your Resend account itself is registered under — everyone else's magic link send will silently fail. Fine for testing as yourself; before real members use this, verify a domain in Resend's dashboard (Domains → Add Domain) and set `EMAIL_FROM` to an address on it (e.g. `North Hodge Assembly of God <noreply@mail.nhag.org>`).
 
    If you'd rather not deal with email yet, `EMAIL_PROVIDER=none` still works — magic links print to your terminal instead of sending.
 

@@ -1,4 +1,4 @@
-// Service worker for "NHAG Church Hub" PWA.
+// Service worker for the NHAG PWA.
 // Handles: push notifications, notification click routing, and a light
 // offline cache for the app shell so it still opens with no connection.
 
@@ -63,13 +63,13 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data.json();
   } catch {
-    payload = { title: "NHAG Church Hub", body: event.data.text() };
+    payload = { title: "NHAG", body: event.data.text() };
   }
 
   const { title, body, url } = payload;
 
   event.waitUntil(
-    self.registration.showNotification(title || "NHAG Church Hub", {
+    self.registration.showNotification(title || "NHAG", {
       body: body || "",
       icon: "/icon-192.png",
       badge: "/icon-192.png",

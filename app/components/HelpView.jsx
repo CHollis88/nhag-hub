@@ -4,12 +4,16 @@ import { useState } from "react";
 
 const FAQS = [
   {
+    q: "How do I sign in?",
+    a: "Type your username and PIN right on the sign-in screen — that's the normal way in, every time, on any device. The first time you ever use the app, or if you forget your PIN, tap \"First time here, or forgot your PIN?\" to get an email link instead, which either sets you up or lets you set a new PIN.",
+  },
+  {
     q: "What do the tabs at the bottom do?",
-    a: "News and Events show church-wide announcements and events that any Church Admin has posted. Home is where you go to see the ministries (Choir, Sunday School classes, and anything else) you're part of, and to browse and request joining others. Bible is the full study suite — read any book or chapter, look up commentary, cross-references, and more.",
+    a: "Home is where you see the ministries (Choir, Sunday School classes, and anything else) you're part of, and browse or request joining others. Bible is the full study suite. News and Events show church-wide announcements and events that any Church Admin has posted.",
   },
   {
     q: "How do I join a ministry?",
-    a: "From the Home tab, browse the list under \"All ministries\" and tap \"Request to join.\" That group's leader (or a Church Admin) will need to approve it before you're fully in — you'll see \"pending approval\" until then.",
+    a: "From the Home tab, browse the list under \"Other ministries\" and tap \"Join.\" That group's leader (or a Church Admin) will need to approve it before you're fully in — you'll see \"pending approval\" until then.",
   },
   {
     q: "What happens when I tap \"Launch\" on a ministry?",
@@ -17,7 +21,7 @@ const FAQS = [
   },
   {
     q: "Who can post News or Events in a ministry?",
-    a: "Only that ministry's leaders, or a Church Admin. Everyone in the ministry can reply to News and Event posts, though.",
+    a: "Only that ministry's leaders, or a Church Admin. Inside a ministry, News comes in three flavors: a plain Post, Class notes, or a Discuss post — only Discuss posts can be replied to by everyone in the group.",
   },
   {
     q: "Can I submit a prayer request?",
@@ -25,7 +29,15 @@ const FAQS = [
   },
   {
     q: "What does \"Request to promote to church-wide\" do?",
-    a: "It's a way for a ministry leader to ask a Church Admin to share one of their News posts on the church-wide News feed, so the whole church sees it — not just that ministry. The admin has to approve it first.",
+    a: "It's a way for a ministry leader to ask a Church Admin to share one of their News posts on the church-wide News feed, so the whole church sees it — not just that ministry. The admin has to approve it first, and gets a notification when the request comes in.",
+  },
+  {
+    q: "What's the Directory?",
+    a: "A church-wide list of every ministry and its leaders, reachable from Home. Tap any ministry to see who leads it. If you're a member of that ministry, you'll also see its full roster; ministries you're not part of only show their leaders, to keep membership lists private to the people actually in them.",
+  },
+  {
+    q: "Can a ministry change its own name, icon, or color?",
+    a: "Yes — a ministry's own leaders (or a Church Admin) can rename it, change its type/category label, upload an icon, and pick its tile color, all from inside that ministry's Roster tab.",
   },
   {
     q: "How does the Bible tab work?",
@@ -54,7 +66,15 @@ const FAQS = [
   },
   {
     q: "How do notifications work?",
-    a: "You can turn on push notifications for your device in Settings, then choose what you want to hear about: church-wide News & Events, and separately for each ministry you're in. If a ministry has a daily Reading Plan, you'll also get a 9am reminder for it if notifications are on for that ministry.",
+    a: "You can turn on push notifications for your device in Settings, then choose what you want to hear about: church-wide News & Events, and separately for each ministry you're in. If a ministry has Today/Plan/Journal, you'll also get a 9am reading reminder if notifications are on for that ministry.",
+  },
+  {
+    q: "Can I make the text bigger?",
+    a: "Yes — Settings has a Text Size option with six sizes. Ministry tiles on Home automatically adjust how many fit per row based on your text size and screen width, so things never feel cramped.",
+  },
+  {
+    q: "I'm a Church Admin — where's the Admin Toolbox?",
+    a: "Tap the toolbox icon in the header (only Admins see it). From there you can create ministries, manage or delete any ministry, and promote or remove other people's admin access. You can also hide the toolbox icon and toggle from your own view in Settings if you'd rather not see it day-to-day — that's just a personal display choice and never actually changes your access.",
   },
 ];
 

@@ -67,7 +67,11 @@ export default function SetlistForm({ initial, allSongs, onCancel, onSave }) {
       </div>
 
       <div>
-        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Songs</p>
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-1">Songs</p>
+        <p className="text-xs text-inkfaint mb-2">
+          The small box next to each song is optional — use it for the key it's sung in, who's
+          leading it, or any other quick note.
+        </p>
         {entries.map((entry, idx) => (
           <div key={idx} className="flex items-center gap-2 mb-1.5">
             <span className="text-xs text-inkfaint w-5 flex-shrink-0">{idx + 1}.</span>

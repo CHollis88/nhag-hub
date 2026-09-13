@@ -13,6 +13,7 @@ import SettingsView from "./components/SettingsView";
 import HelpView from "./components/HelpView";
 import AttributionView from "./components/AttributionView";
 import AdminToolboxView from "./components/AdminToolboxView";
+import DirectoryView from "./components/DirectoryView";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 
 function AuthCard({ children }) {
@@ -121,7 +122,7 @@ function SignInScreen({ authError }) {
   return (
     <AuthCard>
       <h2 className="font-serif text-xl text-ink mb-0.5">North Hodge Assembly of God</h2>
-      <p className="text-inkfaint text-sm mt-0 mb-4">Church Hub</p>
+      <p className="text-inkfaint text-sm mt-0 mb-4">Sign in to continue</p>
 
       {mode === "pin" ? (
         <>
@@ -172,6 +173,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
   const [helpOpen, setHelpOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
   const [adminToolboxOpen, setAdminToolboxOpen] = useState(false);
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [adminModeOn, setAdminModeOnState] = useState(true);
   const isAdmin = me.user.is_church_admin;
 
@@ -236,7 +238,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-paper">
+    <div className="h-screen flex flex-col bg-paper overflow-hidden">
       <header
         className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-navy text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
@@ -291,6 +293,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
               onOpenGroup={openGroup}
               onGoToTab={setTab}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenDirectory={() => setDirectoryOpen(true)}
             />
           )}
           {tab === "bible" && <BibleTab deviceId={me.user.id} />}
@@ -320,6 +323,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
       {adminToolboxOpen && (
         <AdminToolboxView onClose={() => setAdminToolboxOpen(false)} onOpenGroup={openGroup} />
       )}
+      {directoryOpen && <DirectoryView me={me} onClose={() => setDirectoryOpen(false)} />}
     </div>
   );
 }

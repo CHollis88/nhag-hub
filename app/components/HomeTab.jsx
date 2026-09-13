@@ -10,37 +10,38 @@ function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin }) {
   const bg = group.tile_color || DEFAULT_TILE_COLOR;
 
   return (
-    <div className="sp-card p-0 overflow-hidden">
-      <div className="h-2" style={{ background: bg }} />
-      <div className="p-4 flex items-center gap-3">
+    <div className="sp-card p-0 overflow-hidden flex flex-col h-full">
+      <div className="h-2 flex-shrink-0" style={{ background: bg }} />
+      <div className="p-4 flex flex-col items-center text-center flex-1">
         {group.image_url ? (
-          <img src={group.image_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+          <img src={group.image_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0 mb-2" />
         ) : (
           <div
-            className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-serif text-xl"
+            className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-serif text-xl mb-2"
             style={{ background: bg }}
           >
             {group.name?.[0]?.toUpperCase() || "?"}
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <p className="font-serif text-base text-ink truncate">{group.name}</p>
-          {group.type && <p className="text-xs text-inkfaint truncate">{group.type}</p>}
-          {leaders?.length > 0 && (
-            <p className="text-xs text-inkfaint truncate">
-              {leaders.length === 1 ? "Leader: " : "Leaders: "}
-              {leaders.join(", ")}
-            </p>
-          )}
-          {isMember && <p className="text-xs text-inkfaint">{myRole === "leader" ? "Ministry Leader" : "Member"}</p>}
-        </div>
-        {isMember ? (
-          <button onClick={onLaunch} className="sp-btn-pill flex-shrink-0">Launch</button>
-        ) : (
-          <button onClick={onRequestJoin} className="sp-btn-secondary text-xs py-1.5 px-3 flex-shrink-0">
-            Join
-          </button>
+        <p className="font-serif text-base text-ink leading-snug break-words">{group.name}</p>
+        {group.type && <p className="text-xs text-inkfaint break-words mt-0.5">{group.type}</p>}
+        {leaders?.length > 0 && (
+          <p className="text-xs text-inkfaint break-words mt-0.5">
+            {leaders.length === 1 ? "Leader: " : "Leaders: "}
+            {leaders.join(", ")}
+          </p>
         )}
+        {isMember && <p className="text-xs text-inkfaint mt-0.5">{myRole === "leader" ? "Ministry Leader" : "Member"}</p>}
+
+        <div className="mt-auto pt-3 w-full">
+          {isMember ? (
+            <button onClick={onLaunch} className="sp-btn-pill w-full">Launch</button>
+          ) : (
+            <button onClick={onRequestJoin} className="sp-btn-secondary text-xs py-1.5 w-full">
+              Join
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -114,7 +115,7 @@ function AnnouncementsPreview({ onSeeAll }) {
 // announcements, then shows every ministry as a tile (icon, tile color,
 // leader names) -- yours to Launch into, others to request joining.
 // Everything admin-only lives in the separate Admin Toolbox below.
-export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenSettings }) {
+export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenSettings, onOpenDirectory }) {
   const [groups, setGroups] = useState([]);
   const [message, setMessage] = useState("");
 
@@ -153,11 +154,14 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
       <UpcomingEventsPreview onSeeAll={() => onGoToTab("events")} />
       <AnnouncementsPreview onSeeAll={() => onGoToTab("news")} />
 
-      <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Your ministries</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs uppercase tracking-wide text-inkfaint">Your ministries</p>
+        <button onClick={onOpenDirectory} className="text-xs text-accent underline">Directory</button>
+      </div>
       {myGroups.length === 0 && (
         <p className="text-sm text-inkfaint mb-2">You're not in any ministries yet — request to join one below.</p>
       )}
-      <div className="space-y-2 mb-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 mb-2">
         {myGroups.map((g) => (
           <MinistryTile
             key={g.id}
@@ -178,7 +182,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
       {otherGroups.length > 0 && (
         <>
           <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Other ministries</p>
-          <div className="space-y-2">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3">
             {otherGroups.map((g) => (
               <MinistryTile
                 key={g.id}

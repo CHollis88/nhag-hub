@@ -6,6 +6,32 @@ import { useEffect, useState, useCallback } from "react";
 // Home -- per the project's decision, admin-only controls shouldn't
 // permanently take up space on the screen everyone sees every day.
 export default function AdminToolboxView({ onClose, onOpenGroup }) {
+  const [users, setUsers] = useState([]);
+
+  const loadUsers = useCallback(async () => {
+    const res = await fetch("/api/admin/users");
+    const data = await res.json();
+    if (res.ok) setUsers(data.users);
+  }, []);
+
+  useEffect(() => {
+    loadUsers();
+  }, [loadUsers]);
+
+  const toggleAdmin = async (targetUser) => {
+    const res = await fetch(`/api/admin/users/${targetUser.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_church_admin: !targetUser.is_church_admin }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(data.error);
+      return;
+    }
+    loadUsers();
+  };
+
   const [groups, setGroups] = useState([]);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupType, setNewGroupType] = useState("");
@@ -139,6 +165,26 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
         </div>
 
         {message && <p className="text-sm text-inksoft mt-3">{message}</p>}
+
+        <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Admins</p>
+        <p className="text-xs text-inkfaint mb-2">
+          Only promote people you trust — admins can manage every ministry and everyone's account.
+        </p>
+        <div className="space-y-2">
+          {users.map((u) => (
+            <div key={u.id} className="sp-card flex justify-between items-center">
+              <span className="text-sm text-ink">
+                {u.display_name} <span className="text-inkfaint">(@{u.username})</span>
+              </span>
+              <button
+                onClick={() => toggleAdmin(u)}
+                className={u.is_church_admin ? "sp-btn-secondary text-xs py-1.5 px-3" : "sp-btn-sage text-xs py-1.5 px-3"}
+              >
+                {u.is_church_admin ? "Remove admin" : "Make admin"}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

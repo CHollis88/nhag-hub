@@ -1,7 +1,7 @@
 {
-  "name": "NHAG Church Hub",
-  "short_name": "NHAG Hub",
-  "description": "North Hodge Assembly of God — church-wide hub",
+  "name": "NHAG",
+  "short_name": "NHAG",
+  "description": "North Hodge Assembly of God — church app",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0B1A3D",
