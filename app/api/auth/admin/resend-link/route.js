@@ -27,8 +27,17 @@ export async function POST(req) {
 
   const token = await issueMagicLink(targetUser.email);
   const baseUrl = process.env.APP_URL || req.nextUrl.origin;
-  const link = `${baseUrl}/auth/verify?token=${token}`;
-  await sendMagicLinkEmail(targetUser.email, link);
+  const link = `${baseUrl}/api/auth/verify?token=${token}`;
+
+  try {
+    await sendMagicLinkEmail(targetUser.email, link);
+  } catch (err) {
+    console.error("resend-link failed:", err);
+    return NextResponse.json(
+      { error: `Couldn't send the sign-in link: ${err.message}` },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

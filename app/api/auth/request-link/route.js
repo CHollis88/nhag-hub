@@ -11,12 +11,28 @@ export async function POST(req) {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
-  const token = await issueMagicLink(normalizedEmail);
 
-  const baseUrl = process.env.APP_URL || req.nextUrl.origin;
-  const link = `${baseUrl}/auth/verify?token=${token}`;
+  try {
+    const token = await issueMagicLink(normalizedEmail);
 
-  await sendMagicLinkEmail(normalizedEmail, link);
+    const baseUrl = process.env.APP_URL || req.nextUrl.origin;
+    const link = `${baseUrl}/api/auth/verify?token=${token}`;
+
+    await sendMagicLinkEmail(normalizedEmail, link);
+  } catch (err) {
+    // Previously this could throw uncaught -- e.g. a missing
+    // RESEND_API_KEY or a rejected Resend API call -- which crashed the
+    // route with no JSON body at all, showing up client-side as a
+    // confusing "Unexpected end of JSON input" instead of the real
+    // problem. Surfacing the actual message here makes future
+    // misconfiguration (bad key, wrong provider setting) diagnosable
+    // from the browser instead of requiring a trip to server logs.
+    console.error("request-link failed:", err);
+    return NextResponse.json(
+      { error: `Couldn't send the sign-in link: ${err.message}` },
+      { status: 500 }
+    );
+  }
 
   // Always return success regardless of whether this email has an existing
   // account — the link itself handles both signup and login, so there's no
