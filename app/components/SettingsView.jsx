@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getStoredPreference, applyTheme, getStoredTextSize, applyTextSize } from "@/lib/theme";
 import { getDesktopMode, setDesktopMode } from "@/lib/desktopMode";
 import { isSubscribedToPush, subscribeToPush, unsubscribeFromPush } from "@/lib/pushClient";
+import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 
 const THEMES = [
   { id: "light", label: "Light" },
@@ -19,13 +20,14 @@ const TEXT_SIZES = [
   { id: "xxl", label: "Largest" },
 ];
 
-export default function SettingsView({ onClose, onOpenHelp }) {
+export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, onOpenAdminToolbox, isAdmin }) {
   const [theme, setTheme] = useState("system");
   const [textSize, setTextSize] = useState("md");
   const [desktopLayout, setDesktopLayoutState] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [prefs, setPrefs] = useState(null);
+  const [adminModeOn, setAdminModeOn] = useState(true);
   const [newPin, setNewPin] = useState("");
   const [confirmNewPin, setConfirmNewPin] = useState("");
   const [pinMessage, setPinMessage] = useState("");
@@ -35,10 +37,17 @@ export default function SettingsView({ onClose, onOpenHelp }) {
     setTextSize(getStoredTextSize());
     setDesktopLayoutState(getDesktopMode());
     setPushSubscribed(isSubscribedToPush());
+    if (isAdmin) setAdminModeOn(isAdminModeOn());
     fetch("/api/notifications/preferences")
       .then((r) => r.json())
       .then(setPrefs);
-  }, []);
+  }, [isAdmin]);
+
+  const toggleAdminMode = () => {
+    const next = !adminModeOn;
+    setAdminMode(next);
+    setAdminModeOn(next);
+  };
 
   const chooseTheme = (id) => {
     setTheme(id);
@@ -196,9 +205,34 @@ export default function SettingsView({ onClose, onOpenHelp }) {
           {pinMessage && <p className="text-sm text-inksoft mt-2">{pinMessage}</p>}
         </form>
 
-        <button onClick={onOpenHelp} className="sp-btn-secondary mt-1">
-          Help / FAQ
-        </button>
+        {isAdmin && (
+          <>
+            <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Admin</p>
+            <label className="flex items-center gap-2.5 mb-3 text-sm text-inksoft">
+              <input type="checkbox" checked={adminModeOn} onChange={toggleAdminMode} />
+              Show admin tools
+            </label>
+            <p className="text-xs text-inkfaint mt-0 mb-4">
+              This is just a personal display preference — it never changes your actual admin
+              access, only whether the extra controls show up in your own view. Turning it back on
+              doesn't need your PIN, since nothing was ever actually revoked.
+            </p>
+            {adminModeOn && onOpenAdminToolbox && (
+              <button onClick={onOpenAdminToolbox} className="sp-btn-secondary mb-5">
+                🧰 Open Admin Toolbox
+              </button>
+            )}
+          </>
+        )}
+
+        <div>
+          <button onClick={onOpenHelp} className="sp-btn-secondary mt-1 mr-2">
+            Help / FAQ
+          </button>
+          <button onClick={onOpenAttribution} className="sp-btn-secondary mt-1">
+            Sources &amp; Attribution
+          </button>
+        </div>
       </div>
     </div>
   );

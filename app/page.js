@@ -11,6 +11,8 @@ import BibleTab from "./components/BibleTab";
 import GroupShell from "./components/GroupShell";
 import SettingsView from "./components/SettingsView";
 import HelpView from "./components/HelpView";
+import AttributionView from "./components/AttributionView";
+import AdminToolboxView from "./components/AdminToolboxView";
 
 function AuthCard({ children }) {
   return (
@@ -167,6 +169,8 @@ function AppShell({ me, refreshMe, onSignOut }) {
   const [tab, setTab] = useState("hub");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [attributionOpen, setAttributionOpen] = useState(false);
+  const [adminToolboxOpen, setAdminToolboxOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState(null); // { id, name, role, features } | null
   const [bibleOverlay, setBibleOverlay] = useState(null); // { book, chapter } | null
 
@@ -219,7 +223,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
     <div className="min-h-screen flex flex-col bg-paper">
       <header className="flex justify-between items-center px-4 py-2.5 bg-navy text-white">
         <div className="flex items-center gap-2.5">
-          <img src="/favicon.png" alt="" className="w-7 h-7 rounded" />
+          <img src="/icon-192.png" alt="" className="w-7 h-7 rounded" />
           <strong className="font-serif">North Hodge Assembly of God</strong>
         </div>
         <div className="flex items-center gap-3">
@@ -242,7 +246,15 @@ function AppShell({ me, refreshMe, onSignOut }) {
         <main className="flex-1 overflow-y-auto">
           {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
           {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
-          {tab === "hub" && <HomeTab me={me} refreshMe={refreshMe} onOpenGroup={openGroup} onGoToTab={setTab} />}
+          {tab === "hub" && (
+            <HomeTab
+              me={me}
+              refreshMe={refreshMe}
+              onOpenGroup={openGroup}
+              onGoToTab={setTab}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
+          )}
           {tab === "bible" && <BibleTab deviceId={me.user.id} />}
         </main>
       </div>
@@ -251,14 +263,27 @@ function AppShell({ me, refreshMe, onSignOut }) {
 
       {settingsOpen && (
         <SettingsView
+          isAdmin={me.user.is_church_admin}
           onClose={() => setSettingsOpen(false)}
           onOpenHelp={() => {
             setSettingsOpen(false);
             setHelpOpen(true);
           }}
+          onOpenAttribution={() => {
+            setSettingsOpen(false);
+            setAttributionOpen(true);
+          }}
+          onOpenAdminToolbox={() => {
+            setSettingsOpen(false);
+            setAdminToolboxOpen(true);
+          }}
         />
       )}
       {helpOpen && <HelpView onClose={() => setHelpOpen(false)} />}
+      {attributionOpen && <AttributionView onClose={() => setAttributionOpen(false)} />}
+      {adminToolboxOpen && (
+        <AdminToolboxView onClose={() => setAdminToolboxOpen(false)} onOpenGroup={openGroup} />
+      )}
     </div>
   );
 }

@@ -81,7 +81,7 @@ export default function JournalTab({ dayNum, setDayNum, journal, setJournal }) {
         </div>
       </div>
 
-      <p className="text-[11px] text-inkfaint mb-4">Your journal is private — only you can see it.</p>
+      <p className="text-[0.6875rem] text-inkfaint mb-4">Your journal is private — only you can see it.</p>
 
       {pastEntries.length > 0 && (
         <>
@@ -95,7 +95,7 @@ export default function JournalTab({ dayNum, setDayNum, journal, setJournal }) {
                   onClick={() => setDayNum(d)}
                   className="sp-card text-left w-full"
                 >
-                  <p className="text-[11px] text-inkfaint font-semibold mb-1">
+                  <p className="text-[0.6875rem] text-inkfaint font-semibold mb-1">
                     Day {d}
                     {e && e.main ? ` · ${e.main}` : ""}
                   </p>

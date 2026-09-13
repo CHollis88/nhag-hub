@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 
-function AppearancePanel({ groupId }) {
+function AppearancePanel({ groupId, onRenamed }) {
   const [group, setGroup] = useState(null);
+  const [name, setName] = useState("");
   const [color, setColor] = useState("#8B1E2F");
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -14,6 +15,7 @@ function AppearancePanel({ groupId }) {
     const data = await res.json();
     if (res.ok) {
       setGroup(data.group);
+      setName(data.group.name);
       setColor(data.group.tile_color || "#8B1E2F");
     }
   }, [groupId]);
@@ -29,6 +31,25 @@ function AppearancePanel({ groupId }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tile_color: newColor }),
     });
+  };
+
+  const saveName = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const res = await fetch(`/api/groups/${groupId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: trimmed }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(data.error);
+      return;
+    }
+    setMessage("Renamed.");
+    onRenamed?.(trimmed);
   };
 
   const uploadIcon = async (e) => {
@@ -53,7 +74,7 @@ function AppearancePanel({ groupId }) {
   return (
     <div className="sp-card mb-4">
       <p className="text-xs uppercase tracking-wide text-inkfaint mb-3">Ministry appearance</p>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 mb-3">
         {group.image_url ? (
           <img src={group.image_url} alt="" className="w-16 h-16 rounded-xl object-cover" />
         ) : (
@@ -79,6 +100,15 @@ function AppearancePanel({ groupId }) {
           </label>
         </div>
       </div>
+      <form onSubmit={saveName} className="flex gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Ministry name"
+          className="sp-input flex-1"
+        />
+        <button type="submit" className="sp-btn-secondary px-4">Rename</button>
+      </form>
       {message && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{message}</p>}
     </div>
   );
@@ -88,7 +118,7 @@ function AppearancePanel({ groupId }) {
 // just a UI on top of the group_members data and API routes that already
 // exist from Foundation. Every member can view the roster; only a leader
 // of this group (or a Church Admin) sees and can act on the pending queue.
-export default function RosterTab({ groupId, myRole }) {
+export default function RosterTab({ groupId, myRole, onRenamed }) {
   const [active, setActive] = useState(null);
   const [pending, setPending] = useState(null);
   const [addUsername, setAddUsername] = useState("");
@@ -163,7 +193,7 @@ export default function RosterTab({ groupId, myRole }) {
     <div className="px-5 pt-4 pb-6">
       <h2 className="font-serif text-2xl text-ink mb-4">Roster</h2>
 
-      {canManage && <AppearancePanel groupId={groupId} />}
+      {canManage && <AppearancePanel groupId={groupId} onRenamed={onRenamed} />}
 
       {canManage && pending?.length > 0 && (
         <>

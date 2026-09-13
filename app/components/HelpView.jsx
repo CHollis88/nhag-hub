@@ -5,15 +5,15 @@ import { useState } from "react";
 const FAQS = [
   {
     q: "What do the tabs at the bottom do?",
-    a: "News and Events show church-wide announcements and events that any Church Admin has posted. Hub is where you go to see the ministries (Choir, Sunday School classes, and anything else) you're part of, and to browse and request joining others. Bible is the full study suite — read any book or chapter, look up commentary, cross-references, and more.",
+    a: "News and Events show church-wide announcements and events that any Church Admin has posted. Home is where you go to see the ministries (Choir, Sunday School classes, and anything else) you're part of, and to browse and request joining others. Bible is the full study suite — read any book or chapter, look up commentary, cross-references, and more.",
   },
   {
     q: "How do I join a ministry?",
-    a: "From the Hub tab, browse the list under \"All ministries\" and tap \"Request to join.\" That group's leader (or a Church Admin) will need to approve it before you're fully in — you'll see \"pending approval\" until then.",
+    a: "From the Home tab, browse the list under \"All ministries\" and tap \"Request to join.\" That group's leader (or a Church Admin) will need to approve it before you're fully in — you'll see \"pending approval\" until then.",
   },
   {
     q: "What happens when I tap \"Launch\" on a ministry?",
-    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: Choir gets a Song library and Setlists, and reading-plan groups (like Young Adults) get a daily Reading Plan and private Journal. Tap \"← Hub\" at the top to leave and go back.",
+    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: Choir gets a Song library and Setlists, and reading-plan groups (like Young Adults) get a daily Reading Plan and private Journal. Tap \"← Home\" at the top to leave and go back.",
   },
   {
     q: "Who can post News or Events in a ministry?",
@@ -62,7 +62,7 @@ function FaqItem({ item }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="border-b border-linesoft py-3">
-      <button onClick={() => setOpen(!open)} className="w-full text-left font-semibold text-[15px] text-ink">
+      <button onClick={() => setOpen(!open)} className="w-full text-left font-semibold text-[0.9375rem] text-ink">
         {item.q}
       </button>
       {open && (

@@ -144,7 +144,7 @@ export default function NewsTab({ isAdmin }) {
           <div key={n.id} className="sp-card">
             <div className="flex items-center gap-2 mb-1">
               {n.category === "pastor_message" && (
-                <span className="text-[10px] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
+                <span className="text-[0.625rem] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
                   Pastor's Message
                 </span>
               )}

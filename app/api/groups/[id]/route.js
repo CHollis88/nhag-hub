@@ -41,15 +41,26 @@ export async function PATCH(req, { params }) {
 
   const updates = { updated_at: new Date().toISOString() };
 
-  // Structural fields (name, type, features) stay admin-only -- these
-  // affect the whole app's ministry list, not just this group's own look.
-  if (name !== undefined || type !== undefined || features !== undefined) {
+  // Renaming a ministry is delegated to its own leader too, per the
+  // project's decision -- unlike type/features (below), a name change
+  // doesn't affect how the ministry behaves, just what it's called.
+  if (name !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can rename it." },
+        { status: 403 }
+      );
+    }
+    if (!name.trim()) return NextResponse.json({ error: "name cannot be empty." }, { status: 400 });
+    updates.name = name.trim();
+  }
+
+  // type/features stay admin-only -- these affect the whole app's
+  // ministry list and which modules are enabled, not just this group's
+  // own look or label.
+  if (type !== undefined || features !== undefined) {
     if (!user.is_church_admin) {
       return NextResponse.json({ error: "Church Admin access required for that change." }, { status: 403 });
-    }
-    if (name !== undefined) {
-      if (!name.trim()) return NextResponse.json({ error: "name cannot be empty." }, { status: 400 });
-      updates.name = name.trim();
     }
     if (type !== undefined) updates.type = type.trim();
     if (features !== undefined) {

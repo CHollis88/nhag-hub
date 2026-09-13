@@ -159,7 +159,7 @@ export default function GroupNewsTab({ groupId, canManage }) {
             <div key={n.id} className="sp-card">
               <div className="flex items-center gap-2 mb-1">
                 {badge && (
-                  <span className={`text-[10px] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${badge.className}`}>
+                  <span className={`text-[0.625rem] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${badge.className}`}>
                     {badge.text}
                   </span>
                 )}

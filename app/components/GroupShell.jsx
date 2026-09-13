@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Music, ListMusic, BookOpen } from "lucide-react";
 import GroupBottomNav from "./GroupBottomNav";
 import GroupSidebar from "./GroupSidebar";
 import GroupNewsTab from "./GroupNewsTab";
@@ -12,13 +13,14 @@ import SetlistsTab from "./SetlistsTab";
 import ReadingPlanTab from "./ReadingPlanTab";
 import SettingsView from "./SettingsView";
 import HelpView from "./HelpView";
+import AttributionView from "./AttributionView";
 
 const FEATURE_TABS = {
   songs_setlists: [
-    { key: "songs", label: "Songs" },
-    { key: "setlists", label: "Setlists" },
+    { key: "songs", label: "Songs", icon: Music },
+    { key: "setlists", label: "Setlists", icon: ListMusic },
   ],
-  reading_plan_journal: [{ key: "reading_plan", label: "Reading Plan" }],
+  reading_plan_journal: [{ key: "reading_plan", label: "Plan", icon: BookOpen }],
 };
 
 // Entered by tapping "Launch" on a group in the Hub. While here, the
@@ -32,6 +34,8 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
   const [tab, setTab] = useState("roster");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [attributionOpen, setAttributionOpen] = useState(false);
+  const [displayName, setDisplayName] = useState(group.name);
   const effectiveRole = group.isAdmin ? "admin" : myRole;
   const canManage = effectiveRole === "leader" || effectiveRole === "admin";
   const features = group.features || [];
@@ -43,9 +47,9 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
       <header className="flex justify-between items-center px-4 py-3 bg-navy text-white">
         <div className="flex items-center gap-3">
           <button onClick={onBackToHub} className="text-sm">
-            ← Hub
+            ← Home
           </button>
-          <strong className="font-serif">{group.name}</strong>
+          <strong className="font-serif">{displayName}</strong>
         </div>
         <button
           onClick={() => setSettingsOpen(true)}
@@ -64,7 +68,7 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
           {tab === "prayer" && (
             <GroupPrayerTab groupId={group.id} canManage={canManage} currentUserId={currentUserId} />
           )}
-          {tab === "roster" && <RosterTab groupId={group.id} myRole={effectiveRole} />}
+          {tab === "roster" && <RosterTab groupId={group.id} myRole={effectiveRole} onRenamed={setDisplayName} />}
           {features.includes("songs_setlists") && tab === "songs" && (
             <SongsTab groupId={group.id} canManage={canManage} />
           )}
@@ -81,14 +85,20 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
 
       {settingsOpen && (
         <SettingsView
+          isAdmin={effectiveRole === "admin"}
           onClose={() => setSettingsOpen(false)}
           onOpenHelp={() => {
             setSettingsOpen(false);
             setHelpOpen(true);
           }}
+          onOpenAttribution={() => {
+            setSettingsOpen(false);
+            setAttributionOpen(true);
+          }}
         />
       )}
       {helpOpen && <HelpView onClose={() => setHelpOpen(false)} />}
+      {attributionOpen && <AttributionView onClose={() => setAttributionOpen(false)} />}
     </div>
   );
 }

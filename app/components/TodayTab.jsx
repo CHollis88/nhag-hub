@@ -4,7 +4,6 @@ import { ChevronLeft, ChevronRight, Check, Flame, BookOpen } from "lucide-react"
 import { getDay, TOTAL_READING_DAYS } from "@/data/plan";
 import { computeStreak } from "@/lib/streak";
 import { parseReference } from "@/lib/bibleRef";
-import GetStartedCard from "./GetStartedCard";
 
 export default function TodayTab({ progress, setProgress, dayNum, setDayNum, setTab, onOpenBiblePassage }) {
   const entry = getDay(dayNum);
@@ -31,7 +30,6 @@ export default function TodayTab({ progress, setProgress, dayNum, setDayNum, set
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <GetStartedCard setTab={setTab} />
 
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => go(-1)} disabled={dayNum <= 1} className="p-2 -ml-2 text-inksoft disabled:opacity-30">
