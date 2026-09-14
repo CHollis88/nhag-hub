@@ -16,11 +16,17 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("group_prayer")
-    .select("id, body, is_anonymous, created_by, created_at, users(display_name)")
+    .select("id, body, is_anonymous, pray_count, created_by, created_at, users(display_name)")
     .eq("group_id", groupId)
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const { data: myPrayed } = await supabase
+    .from("group_prayer_supporters")
+    .select("prayer_id")
+    .eq("user_id", user.id);
+  const prayedIds = new Set((myPrayed || []).map((p) => p.prayer_id));
 
   // Strip the submitter's name server-side for anonymous requests, so it
   // never even reaches the client -- not just hidden in the UI.
@@ -28,6 +34,7 @@ export async function GET(req, { params }) {
     ...p,
     users: p.is_anonymous ? null : p.users,
     created_by: p.is_anonymous ? null : p.created_by,
+    i_prayed: prayedIds.has(p.id),
   }));
 
   return NextResponse.json({ prayer: sanitized });

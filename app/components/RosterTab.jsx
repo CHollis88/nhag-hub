@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { PLAN_LIST } from "@/lib/planRegistry";
 
 function AppearancePanel({ groupId, onRenamed }) {
   const [group, setGroup] = useState(null);
@@ -52,6 +53,15 @@ function AppearancePanel({ groupId, onRenamed }) {
     }
     setMessage("Saved.");
     onRenamed?.(trimmedName);
+  };
+
+  const savePlanLock = async (locked, planId) => {
+    setGroup((g) => ({ ...g, reading_plan_locked: locked, reading_plan_id: planId }));
+    await fetch(`/api/groups/${groupId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reading_plan_locked: locked, reading_plan_id: planId }),
+    });
   };
 
   const uploadIcon = async (e) => {
@@ -118,6 +128,38 @@ function AppearancePanel({ groupId, onRenamed }) {
         <button type="submit" className="sp-btn-secondary">Save</button>
       </form>
       {message && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{message}</p>}
+
+      {group.features?.includes("reading_plan_journal") && (
+        <div className="mt-4 pt-4 border-t border-linesoft">
+          <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Reading Plan</p>
+          <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+            <input
+              type="checkbox"
+              checked={group.reading_plan_locked}
+              onChange={(e) => savePlanLock(e.target.checked, group.reading_plan_id || "foundations")}
+            />
+            Lock everyone in this group onto one plan together
+          </label>
+          <p className="text-xs text-inkfaint mb-2">
+            {group.reading_plan_locked
+              ? "Everyone in this group follows the plan below."
+              : "Unlocked — each member picks their own plan from the same list."}
+          </p>
+          {group.reading_plan_locked && (
+            <select
+              value={group.reading_plan_id}
+              onChange={(e) => savePlanLock(true, e.target.value)}
+              className="sp-input"
+            >
+              {PLAN_LIST.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.totalDays} days)
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -130,6 +172,10 @@ export default function RosterTab({ groupId, myRole, onRenamed }) {
   const [active, setActive] = useState(null);
   const [pending, setPending] = useState(null);
   const [addUsername, setAddUsername] = useState("");
+  const [showBulk, setShowBulk] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkResults, setBulkResults] = useState(null);
   const [message, setMessage] = useState("");
   const canManage = myRole === "leader" || myRole === "admin";
 
@@ -197,6 +243,42 @@ export default function RosterTab({ groupId, myRole, onRenamed }) {
     load();
   };
 
+  const addBulk = async (e) => {
+    e.preventDefault();
+    setBulkResults(null);
+    setBulkBusy(true);
+    const usernames = bulkText
+      .split("\n")
+      .map((u) => u.trim())
+      .filter(Boolean);
+
+    const results = [];
+    for (const username of usernames) {
+      const lookup = await fetch(`/api/users/lookup?username=${encodeURIComponent(username)}`);
+      const lookupData = await lookup.json();
+      if (!lookup.ok) {
+        results.push({ username, ok: false, message: lookupData.error });
+        continue;
+      }
+      const res = await fetch(`/api/groups/${groupId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: lookupData.user.id, role: "member" }),
+      });
+      const data = await res.json();
+      results.push({
+        username,
+        ok: res.ok,
+        message: res.ok ? `Added ${lookupData.user.display_name}` : data.error,
+      });
+    }
+
+    setBulkResults(results);
+    setBulkBusy(false);
+    setBulkText("");
+    load();
+  };
+
   return (
     <div className="px-5 pt-4 pb-6">
       <h2 className="font-serif text-2xl text-ink mb-4">Roster</h2>
@@ -256,6 +338,44 @@ export default function RosterTab({ groupId, myRole, onRenamed }) {
             <button type="submit" className="sp-btn-secondary px-4">Add</button>
           </form>
           {message && <p className="text-sm text-inkfaint mt-2">{message}</p>}
+
+          <button
+            onClick={() => setShowBulk((s) => !s)}
+            className="text-xs text-accent underline mt-3 block"
+          >
+            {showBulk ? "Hide bulk add" : "Add multiple people at once"}
+          </button>
+
+          {showBulk && (
+            <form onSubmit={addBulk} className="sp-card mt-2">
+              <p className="text-xs text-inkfaint mb-2">
+                One username per line. Each is looked up and added the same as adding one at a time.
+              </p>
+              <textarea
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder={"jsmith\nmjones\nkwilliams"}
+                rows={6}
+                className="sp-textarea mb-2"
+              />
+              <button type="submit" disabled={bulkBusy || !bulkText.trim()} className="sp-btn-secondary">
+                {bulkBusy ? "Adding…" : "Add all"}
+              </button>
+
+              {bulkResults && (
+                <div className="mt-3 space-y-1">
+                  {bulkResults.map((r, i) => (
+                    <p
+                      key={i}
+                      className={`text-xs ${r.ok ? "text-inksoft" : "text-red-600 dark:text-red-400"}`}
+                    >
+                      {r.username}: {r.message}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </form>
+          )}
         </>
       )}
     </div>

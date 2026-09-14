@@ -8,6 +8,7 @@ import HomeTab from "./components/HomeTab";
 import NewsTab from "./components/NewsTab";
 import EventsTab from "./components/EventsTab";
 import BibleTab from "./components/BibleTab";
+import SermonsTab from "./components/SermonsTab";
 import GroupShell from "./components/GroupShell";
 import SettingsView from "./components/SettingsView";
 import HelpView from "./components/HelpView";
@@ -206,7 +207,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
 
   if (bibleOverlay) {
     return (
-      <div className="min-h-screen flex flex-col bg-paper">
+      <div className="h-dvh flex flex-col bg-paper overflow-hidden">
         <header
           className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-navy text-white"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
@@ -238,7 +239,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-paper overflow-hidden">
+    <div className="h-dvh flex flex-col bg-paper overflow-hidden">
       <header
         className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-navy text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
@@ -246,7 +247,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
         <div className="flex items-center gap-2.5">
           <img src="/icon-192.png" alt="" className="w-8 h-8 rounded" />
           <strong
-            className="font-serif tracking-wide"
+            className="font-brand tracking-wide"
             style={{
               color: "#fff",
               textShadow:
@@ -286,6 +287,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
         <main className="flex-1 overflow-y-auto">
           {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
           {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
+          {tab === "sermons" && <SermonsTab isAdmin={me.user.is_church_admin} />}
           {tab === "hub" && (
             <HomeTab
               me={me}

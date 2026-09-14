@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { logActivity } from "@/lib/activityLog";
 
 // Recognized feature keys. There's no fixed set of ministry "types" --
 // type is just a free-text label -- but features are a controlled set
@@ -75,5 +76,6 @@ export async function POST(req) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  logActivity(user.id, "ministry_created", `Created "${data.name}"`);
   return NextResponse.json({ group: data });
 }

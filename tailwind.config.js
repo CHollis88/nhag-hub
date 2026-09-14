@@ -23,6 +23,12 @@ module.exports = {
       fontFamily: {
         serif: ["'Source Serif 4'", "Georgia", "serif"],
         sans: ["Inter", "system-ui", "sans-serif"],
+        // Bold, tall, high-contrast display serif -- the closest
+        // readily-available match to the logo's own "NHAG" lettering
+        // (thick verticals, thin horizontals, sharp bracketed serifs).
+        // Used only for header titles, not the general serif heading
+        // font used elsewhere.
+        brand: ["'Playfair Display'", "Georgia", "serif"],
       },
     },
   },

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Search } from "lucide-react";
 
 function PromotionQueue() {
   const [requests, setRequests] = useState(null);
@@ -58,6 +59,7 @@ export default function NewsTab({ isAdmin }) {
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("announcement");
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/global/news");
@@ -92,6 +94,13 @@ export default function NewsTab({ isAdmin }) {
     await fetch(`/api/global/news/${id}`, { method: "DELETE" });
     load();
   };
+
+  const filtered = useMemo(() => {
+    if (!news) return [];
+    if (!query.trim()) return news;
+    const q = query.toLowerCase();
+    return news.filter((n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q));
+  }, [news, query]);
 
   return (
     <div className="px-5 pt-4 pb-6">
@@ -138,9 +147,23 @@ export default function NewsTab({ isAdmin }) {
       )}
 
       {news === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {news !== null && (
+        <div className="relative mb-3">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search News..."
+            className="sp-input pl-9"
+          />
+        </div>
+      )}
       {news?.length === 0 && <p className="text-sm text-inkfaint">No announcements yet.</p>}
+      {news?.length > 0 && filtered.length === 0 && (
+        <p className="text-sm text-inkfaint">No News matches that search.</p>
+      )}
       <div className="space-y-2">
-        {news?.map((n) => (
+        {filtered.map((n) => (
           <div key={n.id} className="sp-card">
             <div className="flex items-center gap-2 mb-1">
               {n.category === "pastor_message" && (

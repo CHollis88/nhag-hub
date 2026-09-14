@@ -1,12 +1,12 @@
 "use client";
 
 import { ChevronLeft, ChevronRight, Check, Flame, BookOpen } from "lucide-react";
-import { getDay, TOTAL_READING_DAYS } from "@/data/plan";
 import { computeStreak } from "@/lib/streak";
 import { parseReference } from "@/lib/bibleRef";
 
-export default function TodayTab({ progress, setProgress, dayNum, setDayNum, setTab, onOpenBiblePassage }) {
-  const entry = getDay(dayNum);
+export default function TodayTab({ plan, progress, setProgress, activePlanId, dayNum, setDayNum, setTab, onOpenBiblePassage }) {
+  const totalDays = plan.PLAN.length;
+  const entry = plan.getDay(dayNum);
   const dayProgress = progress[dayNum] || { p: false, r: false, m: false };
   const doneCount = Object.values(progress).filter((v) => v.p && v.r && v.m).length;
   const streak = computeStreak(progress);
@@ -19,14 +19,16 @@ export default function TodayTab({ progress, setProgress, dayNum, setDayNum, set
       await fetch("/api/reading-plan/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ day: dayNum, p: next.p, r: next.r, m: next.m }),
+        body: JSON.stringify({ day: dayNum, p: next.p, r: next.r, m: next.m, plan_id: activePlanId }),
       });
     } catch {
       /* best-effort; local state already updated for responsiveness */
     }
   };
 
-  const go = (delta) => setDayNum((d) => Math.min(365, Math.max(1, d + delta)));
+  const go = (delta) => setDayNum((d) => Math.min(totalDays, Math.max(1, d + delta)));
+
+  if (!entry) return null; // guards against a stale dayNum from a previously-longer plan
 
   return (
     <div className="px-5 pt-4 pb-6">
@@ -37,11 +39,11 @@ export default function TodayTab({ progress, setProgress, dayNum, setDayNum, set
         </button>
         <div className="text-center">
           <p className="text-xs uppercase tracking-wide text-inkfaint mb-0.5">
-            Week {entry.week <= 52 ? entry.week : 52}
+            Week {entry.week}
           </p>
           <p className="font-serif text-2xl text-ink">Day {dayNum}</p>
         </div>
-        <button onClick={() => go(1)} disabled={dayNum >= 365} className="p-2 -mr-2 text-inksoft disabled:opacity-30">
+        <button onClick={() => go(1)} disabled={dayNum >= totalDays} className="p-2 -mr-2 text-inksoft disabled:opacity-30">
           <ChevronRight size={22} />
         </button>
       </div>
@@ -116,7 +118,7 @@ export default function TodayTab({ progress, setProgress, dayNum, setDayNum, set
         <div className="flex items-center gap-2.5 bg-sage/10 rounded-xl px-3.5 py-3">
           <Check size={18} className="text-sage flex-shrink-0" />
           <p className="text-sm text-inksoft leading-tight">
-            <span className="font-semibold text-ink">{doneCount}</span> of {TOTAL_READING_DAYS}
+            <span className="font-semibold text-ink">{doneCount}</span> of {plan.TOTAL_READING_DAYS}
             <br />
             days done
           </p>

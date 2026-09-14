@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Search } from "lucide-react";
 
 function ReplyThread({ groupId, newsId }) {
   const [replies, setReplies] = useState(null);
@@ -67,6 +68,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
   const [body, setBody] = useState("");
   const [openThread, setOpenThread] = useState(null);
   const [message, setMessage] = useState("");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}/news`);
@@ -104,6 +106,13 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
     const data = await res.json();
     setMessage(res.ok ? "Sent to Church Admin for approval." : data.error);
   };
+
+  const filtered = useMemo(() => {
+    if (!news) return [];
+    if (!query.trim()) return news;
+    const q = query.toLowerCase();
+    return news.filter((n) => n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q));
+  }, [news, query]);
 
   const copy = formKind ? FORM_COPY[formKind] : null;
 
@@ -153,9 +162,23 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
       )}
 
       {news === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {news !== null && (
+        <div className="relative mb-3">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search News..."
+            className="sp-input pl-9"
+          />
+        </div>
+      )}
       {news?.length === 0 && <p className="text-sm text-inkfaint">No news yet.</p>}
+      {news?.length > 0 && filtered.length === 0 && (
+        <p className="text-sm text-inkfaint">No News matches that search.</p>
+      )}
       <div className="space-y-2">
-        {news?.map((n) => {
+        {filtered.map((n) => {
           const badge = KIND_LABELS[n.kind];
           return (
             <div key={n.id} className="sp-card">

@@ -1,18 +1,16 @@
 "use client";
 
-import { Home, Book, Megaphone, CalendarDays } from "lucide-react";
+import { Home, Book, Megaphone, CalendarDays, Mic } from "lucide-react";
 
-// The universal bottom nav. Only ever renders these four tabs, per the
-// project's decision that global tabs are News/Events/Hub/Bible -- no
-// Journal here (that stays exclusive to the Young Adults app), and no
-// Sermons yet (deferred to a later phase). Icon-first, matching the
-// Young Adults app's own bottom nav pattern -- a small label underneath
-// each icon, not a full-width text button.
+// The universal bottom nav. Icon-first, matching the Young Adults app's
+// own bottom nav pattern -- a small label underneath each icon, not a
+// full-width text button.
 export const TABS = [
   { key: "hub", label: "Home", icon: Home },
   { key: "bible", label: "Bible", icon: Book },
   { key: "news", label: "News", icon: Megaphone },
   { key: "events", label: "Events", icon: CalendarDays },
+  { key: "sermons", label: "Sermons", icon: Mic },
 ];
 
 export default function BottomNav({ tab, setTab }) {

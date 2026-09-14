@@ -2,11 +2,34 @@
 
 import { useEffect, useState, useCallback } from "react";
 
+function timeAgo(dateStr) {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+const ACTION_LABELS = {
+  ministry_created: "Created a ministry",
+  ministry_deleted: "Deleted a ministry",
+  admin_promoted: "Promoted an admin",
+  admin_demoted: "Removed admin access",
+  promotion_approved: "Approved a promotion",
+  promotion_rejected: "Rejected a promotion",
+};
+
 // Opened on demand from Settings, rather than always rendered inline on
 // Home -- per the project's decision, admin-only controls shouldn't
 // permanently take up space on the screen everyone sees every day.
 export default function AdminToolboxView({ onClose, onOpenGroup }) {
   const [users, setUsers] = useState([]);
+  const [activityLog, setActivityLog] = useState(null);
+  const [logOpen, setLogOpen] = useState(false);
 
   const loadUsers = useCallback(async () => {
     const res = await fetch("/api/admin/users");
@@ -14,9 +37,19 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
     if (res.ok) setUsers(data.users);
   }, []);
 
+  const loadActivityLog = useCallback(async () => {
+    const res = await fetch("/api/admin/activity-log");
+    const data = await res.json();
+    if (res.ok) setActivityLog(data.entries);
+  }, []);
+
   useEffect(() => {
     loadUsers();
   }, [loadUsers]);
+
+  useEffect(() => {
+    if (logOpen && activityLog === null) loadActivityLog();
+  }, [logOpen, activityLog, loadActivityLog]);
 
   const toggleAdmin = async (targetUser) => {
     const res = await fetch(`/api/admin/users/${targetUser.id}`, {
@@ -185,6 +218,31 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
             </div>
           ))}
         </div>
+
+        <button
+          onClick={() => setLogOpen((o) => !o)}
+          className="flex items-center justify-between w-full mt-6 mb-2"
+        >
+          <p className="text-xs uppercase tracking-wide text-inkfaint">Activity Log</p>
+          <span className="text-xs text-inkfaint">{logOpen ? "Hide" : "Show"}</span>
+        </button>
+        {logOpen && (
+          <div className="space-y-1.5">
+            {activityLog === null && <p className="text-sm text-inkfaint">Loading…</p>}
+            {activityLog?.length === 0 && <p className="text-sm text-inkfaint">No admin activity yet.</p>}
+            {activityLog?.map((entry) => (
+              <div key={entry.id} className="sp-card py-2.5">
+                <div className="flex justify-between items-baseline">
+                  <span className="text-sm text-ink">
+                    {entry.users?.display_name || "Someone"} — {ACTION_LABELS[entry.action] || entry.action}
+                  </span>
+                  <span className="text-xs text-inkfaint flex-shrink-0 ml-2">{timeAgo(entry.created_at)}</span>
+                </div>
+                {entry.details && <p className="text-xs text-inkfaint mt-0.5">{entry.details}</p>}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

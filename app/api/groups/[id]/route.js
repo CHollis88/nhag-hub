@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
+import { logActivity } from "@/lib/activityLog";
+import { PLANS, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
 
 const VALID_FEATURES = ["songs_setlists", "reading_plan_journal"];
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
@@ -21,7 +23,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("groups")
-    .select("id, name, type, features, image_url, tile_color")
+    .select("id, name, type, features, image_url, tile_color, reading_plan_locked, reading_plan_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -37,7 +39,7 @@ export async function PATCH(req, { params }) {
   }
 
   const { id } = await params;
-  const { name, type, features, tile_color } = await req.json();
+  const { name, type, features, tile_color, reading_plan_locked, reading_plan_id } = await req.json();
 
   const updates = { updated_at: new Date().toISOString() };
 
@@ -91,6 +93,25 @@ export async function PATCH(req, { params }) {
     updates.tile_color = tile_color;
   }
 
+  // Whether the ministry's reading plan is locked to one plan for
+  // everyone, and which plan -- the ministry's own leader decides this,
+  // same authority level as its other cosmetic/behavioral choices.
+  if (reading_plan_locked !== undefined || reading_plan_id !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can change its reading plan settings." },
+        { status: 403 }
+      );
+    }
+    if (reading_plan_locked !== undefined) updates.reading_plan_locked = Boolean(reading_plan_locked);
+    if (reading_plan_id !== undefined) {
+      if (!PLANS[reading_plan_id]) {
+        return NextResponse.json({ error: "That's not a recognized reading plan." }, { status: 400 });
+      }
+      updates.reading_plan_id = reading_plan_id;
+    }
+  }
+
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("groups")
@@ -115,8 +136,14 @@ export async function DELETE(req, { params }) {
 
   const { id } = await params;
   const supabase = supabaseServer();
+
+  // Fetch the name before deleting -- needed for a meaningful log entry,
+  // since it won't be recoverable from the row afterward.
+  const { data: group } = await supabase.from("groups").select("name").eq("id", id).maybeSingle();
+
   const { error } = await supabase.from("groups").delete().eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  logActivity(user.id, "ministry_deleted", group?.name ? `Deleted "${group.name}"` : null);
   return NextResponse.json({ ok: true });
 }

@@ -1,0 +1,1082 @@
+[
+  {
+    "day": 1,
+    "week": 1,
+    "type": "reading",
+    "main": "Genesis 1-7"
+  },
+  {
+    "day": 2,
+    "week": 1,
+    "type": "reading",
+    "main": "Genesis 8-14"
+  },
+  {
+    "day": 3,
+    "week": 1,
+    "type": "reading",
+    "main": "Genesis 15-21"
+  },
+  {
+    "day": 4,
+    "week": 1,
+    "type": "reading",
+    "main": "Genesis 22-28"
+  },
+  {
+    "day": 5,
+    "week": 1,
+    "type": "reading",
+    "main": "Genesis 29-35"
+  },
+  {
+    "day": 6,
+    "week": 1,
+    "type": "reading",
+    "main": "Genesis 36-42"
+  },
+  {
+    "day": 7,
+    "week": 1,
+    "type": "reading",
+    "main": "Genesis 43-49"
+  },
+  {
+    "day": 8,
+    "week": 2,
+    "type": "reading",
+    "main": "Genesis 50; Exodus 1-6"
+  },
+  {
+    "day": 9,
+    "week": 2,
+    "type": "reading",
+    "main": "Exodus 7-13"
+  },
+  {
+    "day": 10,
+    "week": 2,
+    "type": "reading",
+    "main": "Exodus 14-20"
+  },
+  {
+    "day": 11,
+    "week": 2,
+    "type": "reading",
+    "main": "Exodus 21-27"
+  },
+  {
+    "day": 12,
+    "week": 2,
+    "type": "reading",
+    "main": "Exodus 28-34"
+  },
+  {
+    "day": 13,
+    "week": 2,
+    "type": "reading",
+    "main": "Exodus 35-40; Leviticus 1"
+  },
+  {
+    "day": 14,
+    "week": 2,
+    "type": "reading",
+    "main": "Leviticus 2-8"
+  },
+  {
+    "day": 15,
+    "week": 3,
+    "type": "reading",
+    "main": "Leviticus 9-15"
+  },
+  {
+    "day": 16,
+    "week": 3,
+    "type": "reading",
+    "main": "Leviticus 16-22"
+  },
+  {
+    "day": 17,
+    "week": 3,
+    "type": "reading",
+    "main": "Leviticus 23-27; Numbers 1-2"
+  },
+  {
+    "day": 18,
+    "week": 3,
+    "type": "reading",
+    "main": "Numbers 3-9"
+  },
+  {
+    "day": 19,
+    "week": 3,
+    "type": "reading",
+    "main": "Numbers 10-16"
+  },
+  {
+    "day": 20,
+    "week": 3,
+    "type": "reading",
+    "main": "Numbers 17-23"
+  },
+  {
+    "day": 21,
+    "week": 3,
+    "type": "reading",
+    "main": "Numbers 24-30"
+  },
+  {
+    "day": 22,
+    "week": 4,
+    "type": "reading",
+    "main": "Numbers 31-36; Deuteronomy 1"
+  },
+  {
+    "day": 23,
+    "week": 4,
+    "type": "reading",
+    "main": "Deuteronomy 2-8"
+  },
+  {
+    "day": 24,
+    "week": 4,
+    "type": "reading",
+    "main": "Deuteronomy 9-15"
+  },
+  {
+    "day": 25,
+    "week": 4,
+    "type": "reading",
+    "main": "Deuteronomy 16-22"
+  },
+  {
+    "day": 26,
+    "week": 4,
+    "type": "reading",
+    "main": "Deuteronomy 23-29"
+  },
+  {
+    "day": 27,
+    "week": 4,
+    "type": "reading",
+    "main": "Deuteronomy 30-34; Joshua 1-2"
+  },
+  {
+    "day": 28,
+    "week": 4,
+    "type": "reading",
+    "main": "Joshua 3-9"
+  },
+  {
+    "day": 29,
+    "week": 5,
+    "type": "reading",
+    "main": "Joshua 10-16"
+  },
+  {
+    "day": 30,
+    "week": 5,
+    "type": "reading",
+    "main": "Joshua 17-23"
+  },
+  {
+    "day": 31,
+    "week": 5,
+    "type": "reading",
+    "main": "Joshua 24; Judges 1-6"
+  },
+  {
+    "day": 32,
+    "week": 5,
+    "type": "reading",
+    "main": "Judges 7-13"
+  },
+  {
+    "day": 33,
+    "week": 5,
+    "type": "reading",
+    "main": "Judges 14-20"
+  },
+  {
+    "day": 34,
+    "week": 5,
+    "type": "reading",
+    "main": "Judges 21; Ruth 1-4; 1 Samuel 1-2"
+  },
+  {
+    "day": 35,
+    "week": 5,
+    "type": "reading",
+    "main": "1 Samuel 3-9"
+  },
+  {
+    "day": 36,
+    "week": 6,
+    "type": "reading",
+    "main": "1 Samuel 10-16"
+  },
+  {
+    "day": 37,
+    "week": 6,
+    "type": "reading",
+    "main": "1 Samuel 17-23"
+  },
+  {
+    "day": 38,
+    "week": 6,
+    "type": "reading",
+    "main": "1 Samuel 24-30"
+  },
+  {
+    "day": 39,
+    "week": 6,
+    "type": "reading",
+    "main": "1 Samuel 31; 2 Samuel 1-6"
+  },
+  {
+    "day": 40,
+    "week": 6,
+    "type": "reading",
+    "main": "2 Samuel 7-13"
+  },
+  {
+    "day": 41,
+    "week": 6,
+    "type": "reading",
+    "main": "2 Samuel 14-20"
+  },
+  {
+    "day": 42,
+    "week": 6,
+    "type": "reading",
+    "main": "2 Samuel 21-24; 1 Kings 1-3"
+  },
+  {
+    "day": 43,
+    "week": 7,
+    "type": "reading",
+    "main": "1 Kings 4-10"
+  },
+  {
+    "day": 44,
+    "week": 7,
+    "type": "reading",
+    "main": "1 Kings 11-17"
+  },
+  {
+    "day": 45,
+    "week": 7,
+    "type": "reading",
+    "main": "1 Kings 18-22; 2 Kings 1-2"
+  },
+  {
+    "day": 46,
+    "week": 7,
+    "type": "reading",
+    "main": "2 Kings 3-9"
+  },
+  {
+    "day": 47,
+    "week": 7,
+    "type": "reading",
+    "main": "2 Kings 10-16"
+  },
+  {
+    "day": 48,
+    "week": 7,
+    "type": "reading",
+    "main": "2 Kings 17-23"
+  },
+  {
+    "day": 49,
+    "week": 7,
+    "type": "reading",
+    "main": "2 Kings 24-25; 1 Chronicles 1-5"
+  },
+  {
+    "day": 50,
+    "week": 8,
+    "type": "reading",
+    "main": "1 Chronicles 6-12"
+  },
+  {
+    "day": 51,
+    "week": 8,
+    "type": "reading",
+    "main": "1 Chronicles 13-19"
+  },
+  {
+    "day": 52,
+    "week": 8,
+    "type": "reading",
+    "main": "1 Chronicles 20-26"
+  },
+  {
+    "day": 53,
+    "week": 8,
+    "type": "reading",
+    "main": "1 Chronicles 27-29; 2 Chronicles 1-4"
+  },
+  {
+    "day": 54,
+    "week": 8,
+    "type": "reading",
+    "main": "2 Chronicles 5-11"
+  },
+  {
+    "day": 55,
+    "week": 8,
+    "type": "reading",
+    "main": "2 Chronicles 12-18"
+  },
+  {
+    "day": 56,
+    "week": 8,
+    "type": "reading",
+    "main": "2 Chronicles 19-25"
+  },
+  {
+    "day": 57,
+    "week": 9,
+    "type": "reading",
+    "main": "2 Chronicles 26-32"
+  },
+  {
+    "day": 58,
+    "week": 9,
+    "type": "reading",
+    "main": "2 Chronicles 33-36; Ezra 1-3"
+  },
+  {
+    "day": 59,
+    "week": 9,
+    "type": "reading",
+    "main": "Ezra 4-10"
+  },
+  {
+    "day": 60,
+    "week": 9,
+    "type": "reading",
+    "main": "Nehemiah 1-7"
+  },
+  {
+    "day": 61,
+    "week": 9,
+    "type": "reading",
+    "main": "Nehemiah 8-13; Esther 1"
+  },
+  {
+    "day": 62,
+    "week": 9,
+    "type": "reading",
+    "main": "Esther 2-8"
+  },
+  {
+    "day": 63,
+    "week": 9,
+    "type": "reading",
+    "main": "Esther 9-10; Job 1-5"
+  },
+  {
+    "day": 64,
+    "week": 10,
+    "type": "reading",
+    "main": "Job 6-12"
+  },
+  {
+    "day": 65,
+    "week": 10,
+    "type": "reading",
+    "main": "Job 13-19"
+  },
+  {
+    "day": 66,
+    "week": 10,
+    "type": "reading",
+    "main": "Job 20-26"
+  },
+  {
+    "day": 67,
+    "week": 10,
+    "type": "reading",
+    "main": "Job 27-33"
+  },
+  {
+    "day": 68,
+    "week": 10,
+    "type": "reading",
+    "main": "Job 34-40"
+  },
+  {
+    "day": 69,
+    "week": 10,
+    "type": "reading",
+    "main": "Job 41-42; Psalms 1-5"
+  },
+  {
+    "day": 70,
+    "week": 10,
+    "type": "reading",
+    "main": "Psalms 6-12"
+  },
+  {
+    "day": 71,
+    "week": 11,
+    "type": "reading",
+    "main": "Psalms 13-19"
+  },
+  {
+    "day": 72,
+    "week": 11,
+    "type": "reading",
+    "main": "Psalms 20-26"
+  },
+  {
+    "day": 73,
+    "week": 11,
+    "type": "reading",
+    "main": "Psalms 27-33"
+  },
+  {
+    "day": 74,
+    "week": 11,
+    "type": "reading",
+    "main": "Psalms 34-40"
+  },
+  {
+    "day": 75,
+    "week": 11,
+    "type": "reading",
+    "main": "Psalms 41-47"
+  },
+  {
+    "day": 76,
+    "week": 11,
+    "type": "reading",
+    "main": "Psalms 48-54"
+  },
+  {
+    "day": 77,
+    "week": 11,
+    "type": "reading",
+    "main": "Psalms 55-61"
+  },
+  {
+    "day": 78,
+    "week": 12,
+    "type": "reading",
+    "main": "Psalms 62-68"
+  },
+  {
+    "day": 79,
+    "week": 12,
+    "type": "reading",
+    "main": "Psalms 69-75"
+  },
+  {
+    "day": 80,
+    "week": 12,
+    "type": "reading",
+    "main": "Psalms 76-82"
+  },
+  {
+    "day": 81,
+    "week": 12,
+    "type": "reading",
+    "main": "Psalms 83-89"
+  },
+  {
+    "day": 82,
+    "week": 12,
+    "type": "reading",
+    "main": "Psalms 90-96"
+  },
+  {
+    "day": 83,
+    "week": 12,
+    "type": "reading",
+    "main": "Psalms 97-103"
+  },
+  {
+    "day": 84,
+    "week": 12,
+    "type": "reading",
+    "main": "Psalms 104-110"
+  },
+  {
+    "day": 85,
+    "week": 13,
+    "type": "reading",
+    "main": "Psalms 111-117"
+  },
+  {
+    "day": 86,
+    "week": 13,
+    "type": "reading",
+    "main": "Psalms 118-124"
+  },
+  {
+    "day": 87,
+    "week": 13,
+    "type": "reading",
+    "main": "Psalms 125-131"
+  },
+  {
+    "day": 88,
+    "week": 13,
+    "type": "reading",
+    "main": "Psalms 132-138"
+  },
+  {
+    "day": 89,
+    "week": 13,
+    "type": "reading",
+    "main": "Psalms 139-145"
+  },
+  {
+    "day": 90,
+    "week": 13,
+    "type": "reading",
+    "main": "Psalms 146-150; Proverbs 1-2"
+  },
+  {
+    "day": 91,
+    "week": 13,
+    "type": "reading",
+    "main": "Proverbs 3-9"
+  },
+  {
+    "day": 92,
+    "week": 14,
+    "type": "reading",
+    "main": "Proverbs 10-16"
+  },
+  {
+    "day": 93,
+    "week": 14,
+    "type": "reading",
+    "main": "Proverbs 17-23"
+  },
+  {
+    "day": 94,
+    "week": 14,
+    "type": "reading",
+    "main": "Proverbs 24-30"
+  },
+  {
+    "day": 95,
+    "week": 14,
+    "type": "reading",
+    "main": "Proverbs 31; Ecclesiastes 1-6"
+  },
+  {
+    "day": 96,
+    "week": 14,
+    "type": "reading",
+    "main": "Ecclesiastes 7-12; Song of Solomon 1"
+  },
+  {
+    "day": 97,
+    "week": 14,
+    "type": "reading",
+    "main": "Song of Solomon 2-8"
+  },
+  {
+    "day": 98,
+    "week": 14,
+    "type": "reading",
+    "main": "Isaiah 1-7"
+  },
+  {
+    "day": 99,
+    "week": 15,
+    "type": "reading",
+    "main": "Isaiah 8-14"
+  },
+  {
+    "day": 100,
+    "week": 15,
+    "type": "reading",
+    "main": "Isaiah 15-21"
+  },
+  {
+    "day": 101,
+    "week": 15,
+    "type": "reading",
+    "main": "Isaiah 22-28"
+  },
+  {
+    "day": 102,
+    "week": 15,
+    "type": "reading",
+    "main": "Isaiah 29-35"
+  },
+  {
+    "day": 103,
+    "week": 15,
+    "type": "reading",
+    "main": "Isaiah 36-42"
+  },
+  {
+    "day": 104,
+    "week": 15,
+    "type": "reading",
+    "main": "Isaiah 43-49"
+  },
+  {
+    "day": 105,
+    "week": 15,
+    "type": "reading",
+    "main": "Isaiah 50-56"
+  },
+  {
+    "day": 106,
+    "week": 16,
+    "type": "reading",
+    "main": "Isaiah 57-63"
+  },
+  {
+    "day": 107,
+    "week": 16,
+    "type": "reading",
+    "main": "Isaiah 64-66; Jeremiah 1-4"
+  },
+  {
+    "day": 108,
+    "week": 16,
+    "type": "reading",
+    "main": "Jeremiah 5-11"
+  },
+  {
+    "day": 109,
+    "week": 16,
+    "type": "reading",
+    "main": "Jeremiah 12-18"
+  },
+  {
+    "day": 110,
+    "week": 16,
+    "type": "reading",
+    "main": "Jeremiah 19-24"
+  },
+  {
+    "day": 111,
+    "week": 16,
+    "type": "reading",
+    "main": "Jeremiah 25-30"
+  },
+  {
+    "day": 112,
+    "week": 16,
+    "type": "reading",
+    "main": "Jeremiah 31-36"
+  },
+  {
+    "day": 113,
+    "week": 17,
+    "type": "reading",
+    "main": "Jeremiah 37-42"
+  },
+  {
+    "day": 114,
+    "week": 17,
+    "type": "reading",
+    "main": "Jeremiah 43-48"
+  },
+  {
+    "day": 115,
+    "week": 17,
+    "type": "reading",
+    "main": "Jeremiah 49-52; Lamentations 1-2"
+  },
+  {
+    "day": 116,
+    "week": 17,
+    "type": "reading",
+    "main": "Lamentations 3-5; Ezekiel 1-3"
+  },
+  {
+    "day": 117,
+    "week": 17,
+    "type": "reading",
+    "main": "Ezekiel 4-9"
+  },
+  {
+    "day": 118,
+    "week": 17,
+    "type": "reading",
+    "main": "Ezekiel 10-15"
+  },
+  {
+    "day": 119,
+    "week": 17,
+    "type": "reading",
+    "main": "Ezekiel 16-21"
+  },
+  {
+    "day": 120,
+    "week": 18,
+    "type": "reading",
+    "main": "Ezekiel 22-27"
+  },
+  {
+    "day": 121,
+    "week": 18,
+    "type": "reading",
+    "main": "Ezekiel 28-33"
+  },
+  {
+    "day": 122,
+    "week": 18,
+    "type": "reading",
+    "main": "Ezekiel 34-39"
+  },
+  {
+    "day": 123,
+    "week": 18,
+    "type": "reading",
+    "main": "Ezekiel 40-45"
+  },
+  {
+    "day": 124,
+    "week": 18,
+    "type": "reading",
+    "main": "Ezekiel 46-48; Daniel 1-3"
+  },
+  {
+    "day": 125,
+    "week": 18,
+    "type": "reading",
+    "main": "Daniel 4-9"
+  },
+  {
+    "day": 126,
+    "week": 18,
+    "type": "reading",
+    "main": "Daniel 10-12; Hosea 1-3"
+  },
+  {
+    "day": 127,
+    "week": 19,
+    "type": "reading",
+    "main": "Hosea 4-9"
+  },
+  {
+    "day": 128,
+    "week": 19,
+    "type": "reading",
+    "main": "Hosea 10-14; Joel 1"
+  },
+  {
+    "day": 129,
+    "week": 19,
+    "type": "reading",
+    "main": "Joel 2-3; Amos 1-4"
+  },
+  {
+    "day": 130,
+    "week": 19,
+    "type": "reading",
+    "main": "Amos 5-9; Obadiah 1"
+  },
+  {
+    "day": 131,
+    "week": 19,
+    "type": "reading",
+    "main": "Jonah 1-4; Micah 1-2"
+  },
+  {
+    "day": 132,
+    "week": 19,
+    "type": "reading",
+    "main": "Micah 3-7; Nahum 1"
+  },
+  {
+    "day": 133,
+    "week": 19,
+    "type": "reading",
+    "main": "Nahum 2-3; Habakkuk 1-3; Zephaniah 1"
+  },
+  {
+    "day": 134,
+    "week": 20,
+    "type": "reading",
+    "main": "Zephaniah 2-3; Haggai 1-2; Zechariah 1-2"
+  },
+  {
+    "day": 135,
+    "week": 20,
+    "type": "reading",
+    "main": "Zechariah 3-8"
+  },
+  {
+    "day": 136,
+    "week": 20,
+    "type": "reading",
+    "main": "Zechariah 9-14"
+  },
+  {
+    "day": 137,
+    "week": 20,
+    "type": "reading",
+    "main": "Malachi 1-4; Matthew 1-2"
+  },
+  {
+    "day": 138,
+    "week": 20,
+    "type": "reading",
+    "main": "Matthew 3-8"
+  },
+  {
+    "day": 139,
+    "week": 20,
+    "type": "reading",
+    "main": "Matthew 9-14"
+  },
+  {
+    "day": 140,
+    "week": 20,
+    "type": "reading",
+    "main": "Matthew 15-20"
+  },
+  {
+    "day": 141,
+    "week": 21,
+    "type": "reading",
+    "main": "Matthew 21-26"
+  },
+  {
+    "day": 142,
+    "week": 21,
+    "type": "reading",
+    "main": "Matthew 27-28; Mark 1-4"
+  },
+  {
+    "day": 143,
+    "week": 21,
+    "type": "reading",
+    "main": "Mark 5-10"
+  },
+  {
+    "day": 144,
+    "week": 21,
+    "type": "reading",
+    "main": "Mark 11-16"
+  },
+  {
+    "day": 145,
+    "week": 21,
+    "type": "reading",
+    "main": "Luke 1-6"
+  },
+  {
+    "day": 146,
+    "week": 21,
+    "type": "reading",
+    "main": "Luke 7-12"
+  },
+  {
+    "day": 147,
+    "week": 21,
+    "type": "reading",
+    "main": "Luke 13-18"
+  },
+  {
+    "day": 148,
+    "week": 22,
+    "type": "reading",
+    "main": "Luke 19-24"
+  },
+  {
+    "day": 149,
+    "week": 22,
+    "type": "reading",
+    "main": "John 1-6"
+  },
+  {
+    "day": 150,
+    "week": 22,
+    "type": "reading",
+    "main": "John 7-12"
+  },
+  {
+    "day": 151,
+    "week": 22,
+    "type": "reading",
+    "main": "John 13-18"
+  },
+  {
+    "day": 152,
+    "week": 22,
+    "type": "reading",
+    "main": "John 19-21; Acts 1-3"
+  },
+  {
+    "day": 153,
+    "week": 22,
+    "type": "reading",
+    "main": "Acts 4-9"
+  },
+  {
+    "day": 154,
+    "week": 22,
+    "type": "reading",
+    "main": "Acts 10-15"
+  },
+  {
+    "day": 155,
+    "week": 23,
+    "type": "reading",
+    "main": "Acts 16-21"
+  },
+  {
+    "day": 156,
+    "week": 23,
+    "type": "reading",
+    "main": "Acts 22-27"
+  },
+  {
+    "day": 157,
+    "week": 23,
+    "type": "reading",
+    "main": "Acts 28; Romans 1-5"
+  },
+  {
+    "day": 158,
+    "week": 23,
+    "type": "reading",
+    "main": "Romans 6-11"
+  },
+  {
+    "day": 159,
+    "week": 23,
+    "type": "reading",
+    "main": "Romans 12-16; 1 Corinthians 1"
+  },
+  {
+    "day": 160,
+    "week": 23,
+    "type": "reading",
+    "main": "1 Corinthians 2-7"
+  },
+  {
+    "day": 161,
+    "week": 23,
+    "type": "reading",
+    "main": "1 Corinthians 8-13"
+  },
+  {
+    "day": 162,
+    "week": 24,
+    "type": "reading",
+    "main": "1 Corinthians 14-16; 2 Corinthians 1-3"
+  },
+  {
+    "day": 163,
+    "week": 24,
+    "type": "reading",
+    "main": "2 Corinthians 4-9"
+  },
+  {
+    "day": 164,
+    "week": 24,
+    "type": "reading",
+    "main": "2 Corinthians 10-13; Galatians 1-2"
+  },
+  {
+    "day": 165,
+    "week": 24,
+    "type": "reading",
+    "main": "Galatians 3-6; Ephesians 1-2"
+  },
+  {
+    "day": 166,
+    "week": 24,
+    "type": "reading",
+    "main": "Ephesians 3-6; Philippians 1-2"
+  },
+  {
+    "day": 167,
+    "week": 24,
+    "type": "reading",
+    "main": "Philippians 3-4; Colossians 1-4"
+  },
+  {
+    "day": 168,
+    "week": 24,
+    "type": "reading",
+    "main": "1 Thessalonians 1-5; 2 Thessalonians 1"
+  },
+  {
+    "day": 169,
+    "week": 25,
+    "type": "reading",
+    "main": "2 Thessalonians 2-3; 1 Timothy 1-4"
+  },
+  {
+    "day": 170,
+    "week": 25,
+    "type": "reading",
+    "main": "1 Timothy 5-6; 2 Timothy 1-4"
+  },
+  {
+    "day": 171,
+    "week": 25,
+    "type": "reading",
+    "main": "Titus 1-3; Philemon 1; Hebrews 1-2"
+  },
+  {
+    "day": 172,
+    "week": 25,
+    "type": "reading",
+    "main": "Hebrews 3-8"
+  },
+  {
+    "day": 173,
+    "week": 25,
+    "type": "reading",
+    "main": "Hebrews 9-13; James 1"
+  },
+  {
+    "day": 174,
+    "week": 25,
+    "type": "reading",
+    "main": "James 2-5; 1 Peter 1-2"
+  },
+  {
+    "day": 175,
+    "week": 25,
+    "type": "reading",
+    "main": "1 Peter 3-5; 2 Peter 1-3"
+  },
+  {
+    "day": 176,
+    "week": 26,
+    "type": "reading",
+    "main": "1 John 1-5; 2 John 1"
+  },
+  {
+    "day": 177,
+    "week": 26,
+    "type": "reading",
+    "main": "3 John 1; Jude 1; Revelation 1-4"
+  },
+  {
+    "day": 178,
+    "week": 26,
+    "type": "reading",
+    "main": "Revelation 5-10"
+  },
+  {
+    "day": 179,
+    "week": 26,
+    "type": "reading",
+    "main": "Revelation 11-16"
+  },
+  {
+    "day": 180,
+    "week": 26,
+    "type": "reading",
+    "main": "Revelation 17-22"
+  }
+]

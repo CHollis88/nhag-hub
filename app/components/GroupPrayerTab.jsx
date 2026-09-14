@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Heart } from "lucide-react";
 
 export default function GroupPrayerTab({ groupId, canManage, currentUserId }) {
   const [prayer, setPrayer] = useState(null);
@@ -36,6 +37,21 @@ export default function GroupPrayerTab({ groupId, canManage, currentUserId }) {
     load();
   };
 
+  // Optimistic update, then reconcile with the server -- matches the
+  // toggle-with-count mechanic exactly, just applied instantly on tap
+  // rather than waiting on the round trip.
+  const pray = async (id) => {
+    setPrayer((prev) =>
+      prev.map((p) =>
+        p.id === id
+          ? { ...p, i_prayed: !p.i_prayed, pray_count: p.pray_count + (p.i_prayed ? -1 : 1) }
+          : p
+      )
+    );
+    await fetch(`/api/groups/${groupId}/prayer/${id}/pray`, { method: "POST" });
+    load();
+  };
+
   return (
     <div className="px-5 pt-4 pb-6">
       <h2 className="font-serif text-2xl text-ink mb-4">Prayer Requests</h2>
@@ -64,10 +80,19 @@ export default function GroupPrayerTab({ groupId, canManage, currentUserId }) {
           return (
             <div key={p.id} className="sp-card">
               <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{p.body}</p>
-              <p className="text-xs text-inkfaint">
-                {p.is_anonymous ? "Anonymous" : p.users?.display_name} ·{" "}
-                {new Date(p.created_at).toLocaleDateString()}
-              </p>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-inkfaint">
+                  {p.is_anonymous ? "Anonymous" : p.users?.display_name} ·{" "}
+                  {new Date(p.created_at).toLocaleDateString()}
+                </span>
+                <button
+                  onClick={() => pray(p.id)}
+                  className={`sp-pill-outline ${p.i_prayed ? "active" : ""}`}
+                >
+                  <Heart size={12} fill={p.i_prayed ? "rgb(var(--color-sage))" : "none"} />
+                  {p.i_prayed ? "Praying" : "I'm praying"} · {p.pray_count || 0}
+                </button>
+              </div>
               {(isOwner || canManage) && (
                 <button onClick={() => remove(p.id)} className="text-xs text-inkfaint mt-2 underline">
                   Remove

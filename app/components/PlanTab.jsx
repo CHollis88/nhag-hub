@@ -1,25 +1,26 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, Check } from "lucide-react";
-import { PLAN } from "@/data/plan";
+import { Search, Check, Lock } from "lucide-react";
+import { PLAN_LIST } from "@/lib/planRegistry";
 import EmptyState from "./EmptyState";
 
-export default function PlanTab({ progress, dayNum, setDayNum, setTab }) {
+export default function PlanTab({ plan, progress, dayNum, setDayNum, setTab, planLocked, onSwitchPlan }) {
   const [query, setQuery] = useState("");
-  const [openWeek, setOpenWeek] = useState(PLAN.find((d) => d.day === dayNum)?.week || 1);
+  const [openWeek, setOpenWeek] = useState(plan.PLAN.find((d) => d.day === dayNum)?.week || 1);
+  const [switching, setSwitching] = useState(false);
 
   const weeks = useMemo(() => {
     const map = {};
-    PLAN.forEach((d) => {
+    plan.PLAN.forEach((d) => {
       if (!map[d.week]) map[d.week] = [];
       map[d.week].push(d);
     });
     return map;
-  }, []);
+  }, [plan]);
 
   const filtered = query.trim()
-    ? PLAN.filter(
+    ? plan.PLAN.filter(
         (d) =>
           d.type === "reading" &&
           ((d.main && d.main.toLowerCase().includes(query.toLowerCase())) ||
@@ -34,8 +35,35 @@ export default function PlanTab({ progress, dayNum, setDayNum, setTab }) {
 
   const isDone = (d) => progress[d]?.p && progress[d]?.r && progress[d]?.m;
 
+  const handleSwitch = async (e) => {
+    const newPlanId = e.target.value;
+    setSwitching(true);
+    await onSwitchPlan(newPlanId);
+    setSwitching(false);
+  };
+
   return (
     <div className="px-5 pt-4 pb-6">
+      {planLocked ? (
+        <div className="sp-card mb-4 flex items-center gap-2.5">
+          <Lock size={15} className="text-inkfaint flex-shrink-0" />
+          <p className="text-sm text-inksoft">
+            This group is following <strong className="text-ink">{plan.name}</strong> together.
+          </p>
+        </div>
+      ) : (
+        <div className="sp-card mb-4">
+          <label className="block text-xs uppercase tracking-wide text-inkfaint mb-2">Your reading plan</label>
+          <select value={plan.id} onChange={handleSwitch} disabled={switching} className="sp-input">
+            {PLAN_LIST.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.totalDays} days)
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="relative mb-4">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
         <input
@@ -80,9 +108,7 @@ export default function PlanTab({ progress, dayNum, setDayNum, setTab }) {
                     onClick={() => setOpenWeek(open ? null : w)}
                     className="w-full flex items-center justify-between px-4 py-3"
                   >
-                    <span className="font-serif text-base text-ink">
-                      {w <= 52 ? `Week ${w}` : "Reflection"}
-                    </span>
+                    <span className="font-serif text-base text-ink">Week {w}</span>
                     <span className="text-xs text-inkfaint">
                       {readingItems.length > 0 ? `${completed}/${readingItems.length}` : ""}
                     </span>

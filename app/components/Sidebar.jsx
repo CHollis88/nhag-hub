@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Home, Book, Megaphone, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, Book, Megaphone, CalendarDays, Mic, ChevronLeft, ChevronRight } from "lucide-react";
 
-// Desktop counterpart to BottomNav -- same four tabs, same order, just a
+// Desktop counterpart to BottomNav -- same tabs, same order, just a
 // persistent left sidebar instead of a bottom bar once there's enough
 // screen width to spare. Hidden below the md breakpoint; BottomNav is
 // hidden at and above it, so exactly one of the two is ever visible.
@@ -14,6 +14,7 @@ const TABS = [
   { key: "bible", label: "Bible", icon: Book },
   { key: "news", label: "News", icon: Megaphone },
   { key: "events", label: "Events", icon: CalendarDays },
+  { key: "sermons", label: "Sermons", icon: Mic },
 ];
 
 export default function Sidebar({ tab, setTab }) {

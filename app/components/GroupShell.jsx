@@ -16,6 +16,7 @@ import JournalTab from "./JournalTab";
 import SettingsView from "./SettingsView";
 import HelpView from "./HelpView";
 import AttributionView from "./AttributionView";
+import { getPlan, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
 
 // Tabs that append after the shared News/Events/Prayer/Roster set.
 const APPEND_FEATURE_TABS = {
@@ -63,25 +64,83 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
   // shared here so all three tabs stay in sync (e.g. changing the day in
   // Today reflects immediately in Plan and Journal too), same as when
   // they lived together inside one ReadingPlanTab component.
+  //
+  // WHICH plan is active is resolved here too: if the group has locked
+  // its reading plan, everyone in it uses that plan regardless of their
+  // own personal choice; otherwise each member's own active_reading_plan
+  // applies. Progress/journal are fetched scoped to whichever plan_id
+  // that resolves to, so switching plans (or being in a locked group on
+  // a different plan than your personal pick) never mixes data across
+  // plans.
   const [dayNum, setDayNum] = useState(1);
   const [progress, setProgress] = useState({});
   const [journal, setJournal] = useState({});
   const [readingPlanLoaded, setReadingPlanLoaded] = useState(false);
+  const [activePlanId, setActivePlanId] = useState(DEFAULT_PLAN_ID);
+  const [planLocked, setPlanLocked] = useState(false);
 
   useEffect(() => {
     if (!hasReadingPlan) return;
-    Promise.all([
-      fetch("/api/reading-plan/progress").then((r) => r.json()),
-      fetch("/api/reading-plan/journal").then((r) => r.json()),
-    ]).then(([p, j]) => {
+    let cancelled = false;
+
+    (async () => {
+      const groupRes = await fetch(`/api/groups/${group.id}`);
+      const groupData = await groupRes.json();
+      const locked = groupRes.ok && groupData.group?.reading_plan_locked;
+      const lockedPlanId = groupData.group?.reading_plan_id;
+
+      let resolvedPlanId = DEFAULT_PLAN_ID;
+      if (locked) {
+        resolvedPlanId = lockedPlanId || DEFAULT_PLAN_ID;
+      } else {
+        const selRes = await fetch("/api/reading-plan/selection");
+        const selData = await selRes.json();
+        resolvedPlanId = (selRes.ok && selData.active_reading_plan) || DEFAULT_PLAN_ID;
+      }
+
+      const [p, j] = await Promise.all([
+        fetch(`/api/reading-plan/progress?plan_id=${resolvedPlanId}`).then((r) => r.json()),
+        fetch(`/api/reading-plan/journal?plan_id=${resolvedPlanId}`).then((r) => r.json()),
+      ]);
+
+      if (cancelled) return;
+      setPlanLocked(Boolean(locked));
+      setActivePlanId(resolvedPlanId);
       setProgress(p.progress || {});
       setJournal(j.journal || {});
       setReadingPlanLoaded(true);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasReadingPlan, group.id]);
+
+  const activePlan = getPlan(activePlanId);
+
+  // Called when a member picks a different plan for themselves (only
+  // available when their group hasn't locked the plan) -- re-resolves
+  // everything against the new plan_id, same as the initial load.
+  const switchPlan = async (newPlanId) => {
+    await fetch("/api/reading-plan/selection", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan_id: newPlanId }),
     });
-  }, [hasReadingPlan]);
+    setReadingPlanLoaded(false);
+    const [p, j] = await Promise.all([
+      fetch(`/api/reading-plan/progress?plan_id=${newPlanId}`).then((r) => r.json()),
+      fetch(`/api/reading-plan/journal?plan_id=${newPlanId}`).then((r) => r.json()),
+    ]);
+    setActivePlanId(newPlanId);
+    setProgress(p.progress || {});
+    setJournal(j.journal || {});
+    setDayNum(1);
+    setReadingPlanLoaded(true);
+  };
 
   return (
-    <div className="h-screen flex flex-col bg-paper overflow-hidden">
+    <div className="h-dvh flex flex-col bg-paper overflow-hidden">
       <header
         className="sticky top-0 z-30 flex justify-between items-center px-4 py-3 bg-navy text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
@@ -90,7 +149,16 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
           <button onClick={onBackToHub} className="text-sm">
             ← Home
           </button>
-          <strong className="font-serif">{displayName}</strong>
+          <strong
+            className="font-brand tracking-wide"
+            style={{
+              color: "#fff",
+              textShadow:
+                "-1px -1px 0 #C41E28, 1px -1px 0 #C41E28, -1px 1px 0 #C41E28, 1px 1px 0 #C41E28, 2px 2px 3px rgba(0,0,0,0.7)",
+            }}
+          >
+            {displayName}
+          </strong>
         </div>
         <button
           onClick={() => setSettingsOpen(true)}
@@ -110,8 +178,10 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
             <>
               {tab === "today" && (
                 <TodayTab
+                  plan={activePlan}
                   progress={progress}
                   setProgress={setProgress}
+                  activePlanId={activePlanId}
                   dayNum={dayNum}
                   setDayNum={setDayNum}
                   setTab={setTab}
@@ -119,10 +189,25 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
                 />
               )}
               {tab === "plan" && (
-                <PlanTab progress={progress} dayNum={dayNum} setDayNum={setDayNum} setTab={setTab} />
+                <PlanTab
+                  plan={activePlan}
+                  progress={progress}
+                  dayNum={dayNum}
+                  setDayNum={setDayNum}
+                  setTab={setTab}
+                  planLocked={planLocked}
+                  onSwitchPlan={switchPlan}
+                />
               )}
               {tab === "journal" && (
-                <JournalTab dayNum={dayNum} setDayNum={setDayNum} journal={journal} setJournal={setJournal} />
+                <JournalTab
+                  plan={activePlan}
+                  activePlanId={activePlanId}
+                  dayNum={dayNum}
+                  setDayNum={setDayNum}
+                  journal={journal}
+                  setJournal={setJournal}
+                />
               )}
             </>
           )}

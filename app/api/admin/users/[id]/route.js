@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { logActivity } from "@/lib/activityLog";
 
 export async function PATCH(req, { params }) {
   const user = await getCurrentUser(req);
@@ -33,5 +34,10 @@ export async function PATCH(req, { params }) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  logActivity(
+    user.id,
+    is_church_admin ? "admin_promoted" : "admin_demoted",
+    is_church_admin ? `Made @${data.username} an admin` : `Removed @${data.username}'s admin access`
+  );
   return NextResponse.json({ user: data });
 }

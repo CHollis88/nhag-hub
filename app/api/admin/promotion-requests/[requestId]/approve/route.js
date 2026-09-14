@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { logActivity } from "@/lib/activityLog";
 
 // Approving creates a COPY on the global feed (not a link) -- per the
 // project's decision, linking back to group content would leak access to
@@ -53,5 +54,6 @@ export async function POST(req, { params }) {
     .single();
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  logActivity(admin.id, "promotion_approved", `Approved "${original.title}" from ${request.groups.name}`);
   return NextResponse.json({ request: updated });
 }
