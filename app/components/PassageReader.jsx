@@ -30,6 +30,7 @@ import {
   Type,
 } from "lucide-react";
 import { BOOKS, ABBR_TO_NAME, formatReference, parseQuickReference } from "@/lib/bibleRef";
+import { addRecentPassage, getRecentPassages } from "@/lib/recentPassages";
 import { getDesktopMode } from "@/lib/desktopMode";
 import { api } from "@/lib/api";
 import StudyPopup from "./StudyPopup";
@@ -466,10 +467,12 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   }, [book, chapter]);
 
   // Remember the last-read position so re-opening the Bible tab returns here,
-  // instead of always starting over at Genesis 1.
+  // instead of always starting over at Genesis 1. Also logs to the
+  // recently-viewed list shown in the picker.
   useEffect(() => {
     setPref("sp_bible_last_book", book);
     setPref("sp_bible_last_chapter", String(chapter));
+    addRecentPassage(book, chapter);
   }, [book, chapter]);
 
   const load = useCallback(async () => {
@@ -1051,7 +1054,8 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     </>
   );
 
-  const verseActionBar = verseMenu !== null && !popup && !selection && !colorPickerFor && !noteEditor && !tagEditor && (
+  const verseActionBarShowing = verseMenu !== null && !popup && !selection && !colorPickerFor && !noteEditor && !tagEditor;
+  const verseActionBar = verseActionBarShowing && (
     <div
       className="fixed bottom-0 left-0 right-0 z-40 bg-card border-t border-line shadow-lg"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
@@ -1226,6 +1230,30 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const bookChapterPickerPopup = bookChapterPickerOpen && (
     <StudyPopup title="Go to Book & Chapter" onClose={() => setBookChapterPickerOpen(false)}>
       <div className="space-y-3">
+        {(() => {
+          const recent = getRecentPassages().filter((p) => !(p.bookAbbr === book && p.chapter === chapter));
+          if (recent.length === 0) return null;
+          return (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-inkfaint mb-1.5">Recently Viewed</p>
+              <div className="flex flex-wrap gap-1.5">
+                {recent.map((p) => (
+                  <button
+                    key={`${p.bookAbbr}-${p.chapter}`}
+                    onClick={() => {
+                      setBook(p.bookAbbr);
+                      setChapter(p.chapter);
+                      setBookChapterPickerOpen(false);
+                    }}
+                    className="text-xs bg-paper border border-line rounded-full px-3 py-1.5 text-inksoft"
+                  >
+                    {ABBR_TO_NAME[p.bookAbbr] || p.bookAbbr} {p.chapter}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
         <select
           value={book}
           onChange={(e) => {
@@ -1455,6 +1483,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           )}
         </StudyPopup>
       )}
+      {verseActionBarShowing && <div className="h-24" aria-hidden="true" />}
       {verseActionBar}
       {colorPickerPopup}
       {noteEditorPopup}
@@ -1531,6 +1560,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
               </>
             )}
           </div>
+          {verseActionBarShowing && <div className="h-32" aria-hidden="true" />}
           {verseActionBar}
           {colorPickerPopup}
           {noteEditorPopup}

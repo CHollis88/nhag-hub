@@ -9,6 +9,7 @@ import NewsTab from "./components/NewsTab";
 import EventsTab from "./components/EventsTab";
 import BibleTab from "./components/BibleTab";
 import SermonsTab from "./components/SermonsTab";
+import CalendarTab from "./components/CalendarTab";
 import GroupShell from "./components/GroupShell";
 import SettingsView from "./components/SettingsView";
 import HelpView from "./components/HelpView";
@@ -288,6 +289,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
           {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
           {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
           {tab === "sermons" && <SermonsTab isAdmin={me.user.is_church_admin} />}
+          {tab === "calendar" && <CalendarTab />}
           {tab === "hub" && (
             <HomeTab
               me={me}

@@ -90,20 +90,36 @@ function RsvpControl({ event, onRsvp, expanded, onToggleExpanded, rsvpList }) {
   );
 }
 
-function VolunteerControl({ event, onSignUp, onCancel }) {
+function VolunteerControl({ event, onSignUp, onCancel, expanded, onToggleExpanded, volunteerList }) {
   if (!event.volunteers_needed) return null;
   const full = event.volunteer_count >= event.volunteers_needed;
   return (
-    <div className="mt-2 flex items-center gap-2">
-      <span className="text-xs text-inkfaint">
-        {event.volunteer_count}/{event.volunteers_needed} volunteers
-      </span>
-      {event.i_volunteered ? (
-        <button onClick={() => onCancel(event.id)} className="sp-pill-outline active">Signed up ✓</button>
-      ) : full ? (
-        <span className="text-xs text-inkfaint">Full</span>
-      ) : (
-        <button onClick={() => onSignUp(event.id)} className="sp-pill-outline">Sign up to help</button>
+    <div className="mt-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-inkfaint">
+          {event.volunteer_count}/{event.volunteers_needed} volunteers
+        </span>
+        {event.i_volunteered ? (
+          <button onClick={() => onCancel(event.id)} className="sp-pill-outline active">Signed up ✓</button>
+        ) : full ? (
+          <span className="text-xs text-inkfaint">Full</span>
+        ) : (
+          <button onClick={() => onSignUp(event.id)} className="sp-pill-outline">Sign up to help</button>
+        )}
+        {event.volunteer_count > 0 && (
+          <button onClick={() => onToggleExpanded(event.id)} className="text-xs text-accent underline">
+            {expanded ? "Hide list" : "Who's signed up?"}
+          </button>
+        )}
+      </div>
+      {expanded && (
+        <div className="mt-2 text-sm text-inksoft space-y-0.5">
+          {volunteerList === null && <span className="text-inkfaint">Loading…</span>}
+          {volunteerList?.length === 0 && <span className="text-inkfaint">No one yet.</span>}
+          {volunteerList?.map((v, i) => (
+            <div key={i}>{v.users?.display_name}</div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -154,6 +170,8 @@ export default function GroupEventsTab({ groupId, canManage }) {
   const [openThread, setOpenThread] = useState(null);
   const [expandedRsvpId, setExpandedRsvpId] = useState(null);
   const [rsvpLists, setRsvpLists] = useState({});
+  const [expandedVolunteerId, setExpandedVolunteerId] = useState(null);
+  const [volunteerLists, setVolunteerLists] = useState({});
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState("list");
   const [selectedDate, setSelectedDate] = useState(null);
@@ -168,11 +186,16 @@ export default function GroupEventsTab({ groupId, canManage }) {
     load();
   }, [load]);
 
+  // Tapping an already-selected status clears the RSVP entirely (back to
+  // "no response"), rather than only ever letting you switch between
+  // Yes/Maybe/No with no way to unselect.
   const rsvp = async (eventId, status) => {
+    const current = events.find((ev) => ev.id === eventId);
+    const isUnselecting = current?.my_rsvp === status;
     await fetch(`/api/groups/${groupId}/events/${eventId}/rsvp`, {
-      method: "POST",
+      method: isUnselecting ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: isUnselecting ? undefined : JSON.stringify({ status }),
     });
     load();
     if (expandedRsvpId === eventId) loadRsvpList(eventId);
@@ -202,11 +225,29 @@ export default function GroupEventsTab({ groupId, canManage }) {
       return;
     }
     load();
+    if (expandedVolunteerId === eventId) loadVolunteerList(eventId);
   };
 
   const cancelVolunteer = async (eventId) => {
     await fetch(`/api/groups/${groupId}/events/${eventId}/volunteer`, { method: "DELETE" });
     load();
+    if (expandedVolunteerId === eventId) loadVolunteerList(eventId);
+  };
+
+  const loadVolunteerList = async (eventId) => {
+    setVolunteerLists((prev) => ({ ...prev, [eventId]: null }));
+    const res = await fetch(`/api/groups/${groupId}/events/${eventId}/volunteer`);
+    const data = await res.json();
+    if (res.ok) setVolunteerLists((prev) => ({ ...prev, [eventId]: data.volunteers }));
+  };
+
+  const toggleVolunteerExpanded = (eventId) => {
+    if (expandedVolunteerId === eventId) {
+      setExpandedVolunteerId(null);
+    } else {
+      setExpandedVolunteerId(eventId);
+      loadVolunteerList(eventId);
+    }
   };
 
   const submit = async (e) => {
@@ -382,7 +423,14 @@ export default function GroupEventsTab({ groupId, canManage }) {
               onToggleExpanded={toggleRsvpExpanded}
               rsvpList={rsvpLists[ev.id]}
             />
-            <VolunteerControl event={ev} onSignUp={signUpVolunteer} onCancel={cancelVolunteer} />
+            <VolunteerControl
+              event={ev}
+              onSignUp={signUpVolunteer}
+              onCancel={cancelVolunteer}
+              expanded={expandedVolunteerId === ev.id}
+              onToggleExpanded={toggleVolunteerExpanded}
+              volunteerList={volunteerLists[ev.id]}
+            />
 
             <div className="flex gap-3 mt-2 items-center flex-wrap">
               <button onClick={() => setOpenThread(openThread === ev.id ? null : ev.id)} className="text-xs text-accent underline">

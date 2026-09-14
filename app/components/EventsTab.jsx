@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search, List, CalendarDays } from "lucide-react";
-import EventCalendar from "./EventCalendar";
+import { Search } from "lucide-react";
 
 function RsvpControl({ event, onRsvp, expanded, onToggleExpanded, rsvpList }) {
   const buttons = [
@@ -44,20 +43,36 @@ function RsvpControl({ event, onRsvp, expanded, onToggleExpanded, rsvpList }) {
   );
 }
 
-function VolunteerControl({ event, onSignUp, onCancel }) {
+function VolunteerControl({ event, onSignUp, onCancel, expanded, onToggleExpanded, volunteerList }) {
   if (!event.volunteers_needed) return null;
   const full = event.volunteer_count >= event.volunteers_needed;
   return (
-    <div className="mt-2 flex items-center gap-2">
-      <span className="text-xs text-inkfaint">
-        {event.volunteer_count}/{event.volunteers_needed} volunteers
-      </span>
-      {event.i_volunteered ? (
-        <button onClick={() => onCancel(event.id)} className="sp-pill-outline active">Signed up ✓</button>
-      ) : full ? (
-        <span className="text-xs text-inkfaint">Full</span>
-      ) : (
-        <button onClick={() => onSignUp(event.id)} className="sp-pill-outline">Sign up to help</button>
+    <div className="mt-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-inkfaint">
+          {event.volunteer_count}/{event.volunteers_needed} volunteers
+        </span>
+        {event.i_volunteered ? (
+          <button onClick={() => onCancel(event.id)} className="sp-pill-outline active">Signed up ✓</button>
+        ) : full ? (
+          <span className="text-xs text-inkfaint">Full</span>
+        ) : (
+          <button onClick={() => onSignUp(event.id)} className="sp-pill-outline">Sign up to help</button>
+        )}
+        {event.volunteer_count > 0 && (
+          <button onClick={() => onToggleExpanded(event.id)} className="text-xs text-accent underline">
+            {expanded ? "Hide list" : "Who's signed up?"}
+          </button>
+        )}
+      </div>
+      {expanded && (
+        <div className="mt-2 text-sm text-inksoft space-y-0.5">
+          {volunteerList === null && <span className="text-inkfaint">Loading…</span>}
+          {volunteerList?.length === 0 && <span className="text-inkfaint">No one yet.</span>}
+          {volunteerList?.map((v, i) => (
+            <div key={i}>{v.users?.display_name}</div>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -107,10 +122,10 @@ export default function EventsTab({ isAdmin }) {
   const [volunteersNeeded, setVolunteersNeeded] = useState(3);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [viewMode, setViewMode] = useState("list"); // "list" | "calendar"
-  const [selectedDate, setSelectedDate] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const [rsvpLists, setRsvpLists] = useState({});
+  const [expandedVolunteerId, setExpandedVolunteerId] = useState(null);
+  const [volunteerLists, setVolunteerLists] = useState({});
 
   const load = useCallback(async () => {
     const res = await fetch("/api/global/events");
@@ -122,11 +137,16 @@ export default function EventsTab({ isAdmin }) {
     load();
   }, [load]);
 
+  // Tapping an already-selected status clears the RSVP entirely (back to
+  // "no response"), rather than only ever letting you switch between
+  // Yes/Maybe/No with no way to unselect.
   const rsvp = async (eventId, status) => {
+    const current = events.find((ev) => ev.id === eventId);
+    const isUnselecting = current?.my_rsvp === status;
     await fetch(`/api/global/events/${eventId}/rsvp`, {
-      method: "POST",
+      method: isUnselecting ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: isUnselecting ? undefined : JSON.stringify({ status }),
     });
     load();
     if (expandedId === eventId) loadRsvpList(eventId);
@@ -156,11 +176,29 @@ export default function EventsTab({ isAdmin }) {
       return;
     }
     load();
+    if (expandedVolunteerId === eventId) loadVolunteerList(eventId);
   };
 
   const cancelVolunteer = async (eventId) => {
     await fetch(`/api/global/events/${eventId}/volunteer`, { method: "DELETE" });
     load();
+    if (expandedVolunteerId === eventId) loadVolunteerList(eventId);
+  };
+
+  const loadVolunteerList = async (eventId) => {
+    setVolunteerLists((prev) => ({ ...prev, [eventId]: null }));
+    const res = await fetch(`/api/global/events/${eventId}/volunteer`);
+    const data = await res.json();
+    if (res.ok) setVolunteerLists((prev) => ({ ...prev, [eventId]: data.volunteers }));
+  };
+
+  const toggleVolunteerExpanded = (eventId) => {
+    if (expandedVolunteerId === eventId) {
+      setExpandedVolunteerId(null);
+    } else {
+      setExpandedVolunteerId(eventId);
+      loadVolunteerList(eventId);
+    }
   };
 
   const submit = async (e) => {
@@ -200,44 +238,16 @@ export default function EventsTab({ isAdmin }) {
 
   const filtered = useMemo(() => {
     if (!events) return [];
-    let result = events;
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      result = result.filter(
-        (ev) => ev.title.toLowerCase().includes(q) || (ev.location && ev.location.toLowerCase().includes(q))
-      );
-    }
-    if (viewMode === "calendar" && selectedDate) {
-      result = result.filter((ev) => ev.event_date === selectedDate);
-    }
-    return result;
-  }, [events, query, viewMode, selectedDate]);
+    if (!query.trim()) return events;
+    const q = query.toLowerCase();
+    return events.filter(
+      (ev) => ev.title.toLowerCase().includes(q) || (ev.location && ev.location.toLowerCase().includes(q))
+    );
+  }, [events, query]);
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-serif text-2xl text-ink">Church Events</h2>
-        <div className="flex bg-paper rounded-lg p-0.5 border border-line">
-          <button
-            onClick={() => setViewMode("list")}
-            className={`p-1.5 rounded-md ${viewMode === "list" ? "bg-card text-accent" : "text-inkfaint"}`}
-            aria-label="List view"
-          >
-            <List size={16} />
-          </button>
-          <button
-            onClick={() => setViewMode("calendar")}
-            className={`p-1.5 rounded-md ${viewMode === "calendar" ? "bg-card text-accent" : "text-inkfaint"}`}
-            aria-label="Calendar view"
-          >
-            <CalendarDays size={16} />
-          </button>
-        </div>
-      </div>
-
-      {viewMode === "calendar" && (
-        <EventCalendar events={events || []} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
-      )}
+      <h2 className="font-serif text-2xl text-ink mb-4">Church Events</h2>
 
       {isAdmin && (
         <form onSubmit={submit} className="sp-card mb-4">
@@ -312,12 +322,7 @@ export default function EventsTab({ isAdmin }) {
         </div>
       )}
       {events?.length === 0 && <p className="text-sm text-inkfaint">No upcoming events.</p>}
-      {events?.length > 0 && filtered.length === 0 && viewMode === "calendar" && (
-        <p className="text-sm text-inkfaint">
-          {selectedDate ? "No events on that date." : "Tap a date with a dot to see its events."}
-        </p>
-      )}
-      {events?.length > 0 && filtered.length === 0 && viewMode === "list" && (
+      {events?.length > 0 && filtered.length === 0 && (
         <p className="text-sm text-inkfaint">No Events match that search.</p>
       )}
       <div className="space-y-2">
@@ -341,7 +346,14 @@ export default function EventsTab({ isAdmin }) {
               onToggleExpanded={toggleExpanded}
               rsvpList={rsvpLists[ev.id]}
             />
-            <VolunteerControl event={ev} onSignUp={signUpVolunteer} onCancel={cancelVolunteer} />
+            <VolunteerControl
+              event={ev}
+              onSignUp={signUpVolunteer}
+              onCancel={cancelVolunteer}
+              expanded={expandedVolunteerId === ev.id}
+              onToggleExpanded={toggleVolunteerExpanded}
+              volunteerList={volunteerLists[ev.id]}
+            />
 
             {isAdmin && <DeleteControl event={ev} onDelete={remove} />}
           </div>

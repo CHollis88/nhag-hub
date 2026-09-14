@@ -57,3 +57,26 @@ export async function POST(req, { params }) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ rsvp: data });
 }
+
+// Lets someone clear their RSVP entirely (back to "no response"), not
+// just switch between Yes/Maybe/No -- tapping an already-selected status
+// again in the UI calls this.
+export async function DELETE(req, { params }) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { id: groupId, eventId } = await params;
+  if (!(await isActiveGroupMember(user, groupId))) {
+    return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
+  }
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("group_event_rsvps")
+    .delete()
+    .eq("event_id", eventId)
+    .eq("user_id", user.id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

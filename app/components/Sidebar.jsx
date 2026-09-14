@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Home, Book, Megaphone, CalendarDays, Mic, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, Book, Megaphone, CalendarDays, CalendarRange, Mic, ChevronLeft, ChevronRight } from "lucide-react";
 
 // Desktop counterpart to BottomNav -- same tabs, same order, just a
 // persistent left sidebar instead of a bottom bar once there's enough
@@ -14,6 +14,7 @@ const TABS = [
   { key: "bible", label: "Bible", icon: Book },
   { key: "news", label: "News", icon: Megaphone },
   { key: "events", label: "Events", icon: CalendarDays },
+  { key: "calendar", label: "Calendar", icon: CalendarRange },
   { key: "sermons", label: "Sermons", icon: Mic },
 ];
 

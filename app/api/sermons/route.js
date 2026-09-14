@@ -9,7 +9,7 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("sermons")
-    .select("id, title, synopsis, link_url, sermon_date, created_at, users(display_name)")
+    .select("id, title, synopsis, speaker, link_url, sermon_date, created_at, users(display_name)")
     .order("sermon_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
@@ -26,7 +26,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { title, synopsis, link_url, sermon_date } = await req.json();
+  const { title, synopsis, speaker, link_url, sermon_date } = await req.json();
   if (!title?.trim() || !synopsis?.trim()) {
     return NextResponse.json({ error: "title and synopsis are required." }, { status: 400 });
   }
@@ -37,11 +37,12 @@ export async function POST(req) {
     .insert({
       title: title.trim(),
       synopsis: synopsis.trim(),
+      speaker: speaker?.trim() || null,
       link_url: link_url?.trim() || null,
       sermon_date: sermon_date || null,
       created_by: user.id,
     })
-    .select("id, title, synopsis, link_url, sermon_date, created_at")
+    .select("id, title, synopsis, speaker, link_url, sermon_date, created_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

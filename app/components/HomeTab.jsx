@@ -12,30 +12,38 @@ function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin }) {
   return (
     <div className="sp-card p-0 overflow-hidden flex flex-col h-full">
       <div className="h-2 flex-shrink-0" style={{ background: bg }} />
-      <div className="p-4 flex flex-col items-center text-center flex-1">
+      <div className="p-4 md:p-5 lg:p-6 flex flex-col items-center text-center flex-1">
         {group.image_url ? (
-          <img src={group.image_url} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0 mb-2" />
+          <img
+            src={group.image_url}
+            alt=""
+            className="w-14 h-14 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-xl object-cover flex-shrink-0 mb-2 md:mb-3"
+          />
         ) : (
           <div
-            className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-serif text-xl mb-2"
+            className="w-14 h-14 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-serif text-xl md:text-3xl lg:text-4xl mb-2 md:mb-3"
             style={{ background: bg }}
           >
             {group.name?.[0]?.toUpperCase() || "?"}
           </div>
         )}
-        <p className="font-serif text-base text-ink leading-snug break-words">{group.name}</p>
-        {group.type && <p className="text-xs text-inkfaint break-words mt-0.5">{group.type}</p>}
+        <p className="font-serif text-base md:text-xl lg:text-2xl text-ink leading-snug break-words">{group.name}</p>
+        {group.type && <p className="text-xs md:text-sm text-inkfaint break-words mt-0.5">{group.type}</p>}
         {leaders?.length > 0 && (
-          <p className="text-xs text-inkfaint break-words mt-0.5">
+          <p className="text-xs md:text-sm text-inkfaint break-words mt-0.5">
             {leaders.length === 1 ? "Leader: " : "Leaders: "}
             {leaders.join(", ")}
           </p>
         )}
-        {isMember && <p className="text-xs text-inkfaint mt-0.5">{myRole === "leader" ? "Ministry Leader" : "Member"}</p>}
+        {isMember && (
+          <p className="text-xs md:text-sm text-inkfaint mt-0.5">
+            {myRole === "leader" ? "Ministry Leader" : "Member"}
+          </p>
+        )}
 
-        <div className="mt-auto pt-3 w-full">
+        <div className="mt-auto pt-3 md:pt-4 w-full">
           {isMember ? (
-            <button onClick={onLaunch} className="sp-btn-pill w-full">Launch</button>
+            <button onClick={onLaunch} className="sp-btn-pill w-full md:text-base md:py-2">Launch</button>
           ) : (
             <button onClick={onRequestJoin} className="sp-btn-secondary text-xs py-1.5 w-full">
               Join
@@ -161,7 +169,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
       {myGroups.length === 0 && (
         <p className="text-sm text-inkfaint mb-2">You're not in any ministries yet — request to join one below.</p>
       )}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3 mb-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-3 mb-2">
         {myGroups.map((g) => (
           <MinistryTile
             key={g.id}
@@ -182,7 +190,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
       {otherGroups.length > 0 && (
         <>
           <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Other ministries</p>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-3">
             {otherGroups.map((g) => (
               <MinistryTile
                 key={g.id}

@@ -15,6 +15,7 @@ export default function SermonsTab({ isAdmin }) {
   const [sermons, setSermons] = useState(null);
   const [title, setTitle] = useState("");
   const [synopsis, setSynopsis] = useState("");
+  const [speaker, setSpeaker] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [sermonDate, setSermonDate] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -36,7 +37,7 @@ export default function SermonsTab({ isAdmin }) {
     const res = await fetch("/api/sermons", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, synopsis, link_url: linkUrl, sermon_date: sermonDate || null }),
+      body: JSON.stringify({ title, synopsis, speaker, link_url: linkUrl, sermon_date: sermonDate || null }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -45,6 +46,7 @@ export default function SermonsTab({ isAdmin }) {
     }
     setTitle("");
     setSynopsis("");
+    setSpeaker("");
     setLinkUrl("");
     setSermonDate("");
     setShowForm(false);
@@ -77,12 +79,20 @@ export default function SermonsTab({ isAdmin }) {
             required
             className="sp-input mb-2"
           />
-          <input
-            type="date"
-            value={sermonDate}
-            onChange={(e) => setSermonDate(e.target.value)}
-            className="sp-input mb-2"
-          />
+          <div className="flex gap-2 mb-2">
+            <input
+              type="date"
+              value={sermonDate}
+              onChange={(e) => setSermonDate(e.target.value)}
+              className="sp-input flex-1"
+            />
+            <input
+              value={speaker}
+              onChange={(e) => setSpeaker(e.target.value)}
+              placeholder="Speaker (optional)"
+              className="sp-input flex-1"
+            />
+          </div>
           <textarea
             value={synopsis}
             onChange={(e) => setSynopsis(e.target.value)}
@@ -108,7 +118,13 @@ export default function SermonsTab({ isAdmin }) {
         {sermons?.map((s) => (
           <div key={s.id} className="sp-card">
             <h3 className="font-medium text-ink mb-1">{s.title}</h3>
-            {s.sermon_date && <p className="text-xs text-inkfaint mb-2">{fmtDate(s.sermon_date)}</p>}
+            {(s.sermon_date || s.speaker) && (
+              <p className="text-xs text-inkfaint mb-2">
+                {s.sermon_date && fmtDate(s.sermon_date)}
+                {s.sermon_date && s.speaker && " · "}
+                {s.speaker}
+              </p>
+            )}
             <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{s.synopsis}</p>
             {s.link_url && (
               <a

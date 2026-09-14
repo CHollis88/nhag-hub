@@ -43,3 +43,22 @@ export async function POST(req, { params }) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ rsvp: data });
 }
+
+// Lets someone clear their RSVP entirely (back to "no response"), not
+// just switch between Yes/Maybe/No -- tapping an already-selected status
+// again in the UI calls this.
+export async function DELETE(req, { params }) {
+  const { id } = await params;
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const supabase = supabaseServer();
+  const { error } = await supabase
+    .from("global_event_rsvps")
+    .delete()
+    .eq("event_id", id)
+    .eq("user_id", user.id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
