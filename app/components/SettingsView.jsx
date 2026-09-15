@@ -43,7 +43,7 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
     setTheme(getStoredPreference());
     setTextSize(getStoredTextSize());
     setDesktopLayoutState(getDesktopMode());
-    setPushSubscribed(isSubscribedToPush());
+    isSubscribedToPush().then(setPushSubscribed);
     if (isAdmin && !isControlled) setLocalAdminModeOn(isAdminModeOn());
     fetch("/api/notifications/preferences")
       .then((r) => r.json())
