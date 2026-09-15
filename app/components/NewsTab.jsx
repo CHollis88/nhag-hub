@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search, Megaphone } from "lucide-react";
+import { Search, Megaphone, Pencil } from "lucide-react";
 import EmptyState from "./EmptyState";
 
 function PromotionQueue() {
@@ -61,6 +61,9 @@ export default function NewsTab({ isAdmin }) {
   const [category, setCategory] = useState("announcement");
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editBody, setEditBody] = useState("");
   const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
@@ -104,6 +107,22 @@ export default function NewsTab({ isAdmin }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pinned: !pinned }),
     });
+    load();
+  };
+
+  const startEdit = (n) => {
+    setEditingId(n.id);
+    setEditTitle(n.title);
+    setEditBody(n.body);
+  };
+
+  const saveEdit = async (id) => {
+    await fetch(`/api/global/news/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: editTitle, body: editBody }),
+    });
+    setEditingId(null);
     load();
   };
 
@@ -182,38 +201,62 @@ export default function NewsTab({ isAdmin }) {
         <p className="text-sm text-inkfaint">No News matches that search.</p>
       )}
       <div className="space-y-2">
-        {filtered.map((n) => (
+        {filtered.map((n) => {
+          const isEditing = editingId === n.id;
+          return (
           <div key={n.id} className={`sp-card ${n.pinned ? "border-accent/40" : ""}`}>
-            <div className="flex items-center gap-2 mb-1 flex-wrap">
-              {n.pinned && (
-                <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
-                  📌 Pinned
-                </span>
-              )}
-              {n.category === "pastor_message" && (
-                <span className="text-[0.625rem] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
-                  Pastor's Message
-                </span>
-              )}
-              <h3 className="font-medium text-ink">{n.title}</h3>
-            </div>
-            <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
-            <p className="text-xs text-inkfaint">
-              {new Date(n.created_at).toLocaleDateString()}
-              {n.users?.display_name && ` · ${n.users.display_name}`}
-            </p>
-            {isAdmin && (
-              <div className="flex gap-3 mt-2">
-                <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
-                  {n.pinned ? "Unpin" : "Pin to top"}
-                </button>
-                <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
-                  Delete
-                </button>
-              </div>
+            {isEditing ? (
+              <>
+                <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="sp-input mb-2" />
+                <textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  rows={3}
+                  className="sp-textarea mb-2"
+                />
+                <div className="flex gap-3">
+                  <button onClick={() => saveEdit(n.id)} className="sp-btn-primary py-1.5 px-3 text-sm">Save</button>
+                  <button onClick={() => setEditingId(null)} className="text-xs text-inkfaint underline">Cancel</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  {n.pinned && (
+                    <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
+                      📌 Pinned
+                    </span>
+                  )}
+                  {n.category === "pastor_message" && (
+                    <span className="text-[0.625rem] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
+                      Pastor's Message
+                    </span>
+                  )}
+                  <h3 className="font-medium text-ink">{n.title}</h3>
+                </div>
+                <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
+                <p className="text-xs text-inkfaint">
+                  {new Date(n.created_at).toLocaleDateString()}
+                  {n.users?.display_name && ` · ${n.users.display_name}`}
+                </p>
+                {isAdmin && (
+                  <div className="flex gap-3 mt-2 flex-wrap">
+                    <button onClick={() => startEdit(n)} className="text-xs text-accent underline flex items-center gap-1">
+                      <Pencil size={11} /> Edit
+                    </button>
+                    <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
+                      {n.pinned ? "Unpin" : "Pin to top"}
+                    </button>
+                    <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

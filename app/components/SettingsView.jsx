@@ -20,7 +20,7 @@ const TEXT_SIZES = [
   { id: "xxl", label: "Largest" },
 ];
 
-export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, isAdmin, adminModeOn: controlledAdminModeOn, onToggleAdminMode }) {
+export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, isAdmin, adminModeOn: controlledAdminModeOn, onToggleAdminMode, me, refreshMe }) {
   const [theme, setTheme] = useState("system");
   const [textSize, setTextSize] = useState("md");
   const [desktopLayout, setDesktopLayoutState] = useState(false);
@@ -31,6 +31,10 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
   const [newPin, setNewPin] = useState("");
   const [confirmNewPin, setConfirmNewPin] = useState("");
   const [pinMessage, setPinMessage] = useState("");
+  const [displayName, setDisplayName] = useState(me?.user?.display_name || "");
+  const [username, setUsername] = useState(me?.user?.username || "");
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileBusy, setProfileBusy] = useState(false);
 
   // Controlled (from AppShell, which also shows a header emblem that
   // needs to stay in sync) if onToggleAdminMode is passed; otherwise
@@ -86,6 +90,25 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
     setPushBusy(false);
   };
 
+  const saveProfile = async (e) => {
+    e.preventDefault();
+    setProfileMessage("");
+    setProfileBusy(true);
+    const res = await fetch("/api/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ display_name: displayName, username }),
+    });
+    const data = await res.json();
+    setProfileBusy(false);
+    if (!res.ok) {
+      setProfileMessage(data.error);
+      return;
+    }
+    setProfileMessage("Saved.");
+    refreshMe?.();
+  };
+
   const setGlobalPref = async (enabled) => {
     setPrefs((p) => ({ ...p, global: enabled }));
     await fetch("/api/notifications/preferences", {
@@ -139,6 +162,34 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
           <h2 className="font-serif text-xl text-ink m-0">Settings</h2>
           <button onClick={onClose} className="text-2xl text-inkfaint leading-none">×</button>
         </div>
+
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Profile</p>
+        <form onSubmit={saveProfile} className="mb-5">
+          <input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Display name"
+            className="sp-input mb-2"
+          />
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value.toLowerCase())}
+            placeholder="username"
+            className="sp-input mb-2"
+          />
+          <button type="submit" disabled={profileBusy} className="sp-btn-secondary">
+            {profileBusy ? "Saving…" : "Save"}
+          </button>
+          {profileMessage && (
+            <p
+              className={`text-sm mt-2 ${
+                profileMessage === "Saved." ? "text-sage" : "text-red-600 dark:text-red-400"
+              }`}
+            >
+              {profileMessage}
+            </p>
+          )}
+        </form>
 
         <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Theme</p>
         <div className="flex gap-2 mb-5">

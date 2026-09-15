@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { Wrench } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Wrench, Search } from "lucide-react";
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -29,6 +29,7 @@ const ACTION_LABELS = {
 // permanently take up space on the screen everyone sees every day.
 export default function AdminToolboxView({ onClose, onOpenGroup }) {
   const [users, setUsers] = useState([]);
+  const [userQuery, setUserQuery] = useState("");
   const [activityLog, setActivityLog] = useState(null);
   const [logOpen, setLogOpen] = useState(false);
 
@@ -37,6 +38,14 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
     const data = await res.json();
     if (res.ok) setUsers(data.users);
   }, []);
+
+  const filteredUsers = useMemo(() => {
+    if (!userQuery.trim()) return users;
+    const q = userQuery.toLowerCase();
+    return users.filter(
+      (u) => u.display_name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q)
+    );
+  }, [users, userQuery]);
 
   const loadActivityLog = useCallback(async () => {
     const res = await fetch("/api/admin/activity-log");
@@ -200,12 +209,27 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
 
         {message && <p className="text-sm text-inksoft mt-3">{message}</p>}
 
-        <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Admins</p>
+        <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">All Users</p>
         <p className="text-xs text-inkfaint mb-2">
-          Only promote people you trust — admins can manage every ministry and everyone's account.
+          Every registered account. Only promote people you trust — admins can manage every ministry and
+          everyone's account.
         </p>
+        {users.length > 6 && (
+          <div className="relative mb-2">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
+            <input
+              value={userQuery}
+              onChange={(e) => setUserQuery(e.target.value)}
+              placeholder="Search users..."
+              className="sp-input pl-9"
+            />
+          </div>
+        )}
+        {users.length > 0 && filteredUsers.length === 0 && (
+          <p className="text-sm text-inkfaint mb-2">No users match that search.</p>
+        )}
         <div className="space-y-2">
-          {users.map((u) => (
+          {filteredUsers.map((u) => (
             <div key={u.id} className="sp-card flex justify-between items-center">
               <span className="text-sm text-ink">
                 {u.display_name} <span className="text-inkfaint">(@{u.username})</span>

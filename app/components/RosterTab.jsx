@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { PLAN_LIST } from "@/lib/planRegistry";
 import { readableTextColor } from "@/lib/colorContrast";
 import EmptyState from "./EmptyState";
+import GroupProgressView from "./GroupProgressView";
 
 function AppearancePanel({ groupId, onRenamed, isAdmin }) {
   const [group, setGroup] = useState(null);
@@ -14,6 +15,7 @@ function AppearancePanel({ groupId, onRenamed, isAdmin }) {
   const [color, setColor] = useState("#8B1E2F");
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [progressViewOpen, setProgressViewOpen] = useState(false);
   const fileInputRef = useRef(null);
 
   const load = useCallback(async () => {
@@ -202,6 +204,15 @@ function AppearancePanel({ groupId, onRenamed, isAdmin }) {
                 </option>
               ))}
             </select>
+          )}
+          <button
+            onClick={() => setProgressViewOpen(true)}
+            className="text-xs text-accent underline mt-2 block"
+          >
+            View Group Progress
+          </button>
+          {progressViewOpen && (
+            <GroupProgressView groupId={groupId} onClose={() => setProgressViewOpen(false)} />
           )}
         </div>
       )}

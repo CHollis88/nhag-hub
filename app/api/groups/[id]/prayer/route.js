@@ -30,8 +30,15 @@ export async function GET(req, { params }) {
 
   // Strip the submitter's name server-side for anonymous requests, so it
   // never even reaches the client -- not just hidden in the UI.
+  // is_mine is computed from the real created_by before it's nulled out
+  // below -- so the owner of an anonymous request can still see their
+  // own Edit/Remove controls, without the client ever learning WHO wrote
+  // anyone else's anonymous request. Without this, the owner's own
+  // created_by looks identical to everyone else's (null), and the
+  // ownership check silently never matches even for the actual owner.
   const sanitized = data.map((p) => ({
     ...p,
+    is_mine: p.created_by === user.id,
     users: p.is_anonymous ? null : p.users,
     created_by: p.is_anonymous ? null : p.created_by,
     i_prayed: prayedIds.has(p.id),

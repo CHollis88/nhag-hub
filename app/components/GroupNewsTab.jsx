@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search, Megaphone } from "lucide-react";
+import { Search, Megaphone, Pencil } from "lucide-react";
 import EmptyState from "./EmptyState";
 
 function ReplyThread({ groupId, newsId }) {
@@ -69,6 +69,9 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
   const [body, setBody] = useState("");
   const [openThread, setOpenThread] = useState(null);
   const [message, setMessage] = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editBody, setEditBody] = useState("");
   const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
@@ -107,6 +110,22 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pinned: !pinned }),
     });
+    load();
+  };
+
+  const startEdit = (n) => {
+    setEditingId(n.id);
+    setEditTitle(n.title);
+    setEditBody(n.body);
+  };
+
+  const saveEdit = async (id) => {
+    await fetch(`/api/groups/${groupId}/news/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: editTitle, body: editBody }),
+    });
+    setEditingId(null);
     load();
   };
 
@@ -190,51 +209,73 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
       <div className="space-y-2">
         {filtered.map((n) => {
           const badge = KIND_LABELS[n.kind];
+          const isEditing = editingId === n.id;
           return (
             <div key={n.id} className={`sp-card ${n.pinned ? "border-accent/40" : ""}`}>
-              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                {n.pinned && (
-                  <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
-                    📌 Pinned
-                  </span>
-                )}
-                {badge && (
-                  <span className={`text-[0.625rem] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${badge.className}`}>
-                    {badge.text}
-                  </span>
-                )}
-                <h3 className="font-medium text-ink">{n.title}</h3>
-              </div>
-              <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
-              <p className="text-xs text-inkfaint">
-                {new Date(n.created_at).toLocaleDateString()}
-                {n.users?.display_name && ` · ${n.users.display_name}`}
-              </p>
+              {isEditing ? (
+                <>
+                  <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="sp-input mb-2" />
+                  <textarea
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
+                    rows={3}
+                    className="sp-textarea mb-2"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={() => saveEdit(n.id)} className="sp-btn-primary py-1.5 px-3 text-sm">Save</button>
+                    <button onClick={() => setEditingId(null)} className="text-xs text-inkfaint underline">Cancel</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    {n.pinned && (
+                      <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
+                        📌 Pinned
+                      </span>
+                    )}
+                    {badge && (
+                      <span className={`text-[0.625rem] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${badge.className}`}>
+                        {badge.text}
+                      </span>
+                    )}
+                    <h3 className="font-medium text-ink">{n.title}</h3>
+                  </div>
+                  <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
+                  <p className="text-xs text-inkfaint">
+                    {new Date(n.created_at).toLocaleDateString()}
+                    {n.users?.display_name && ` · ${n.users.display_name}`}
+                  </p>
 
-              <div className="flex gap-3 mt-2 flex-wrap">
-                {n.kind === "discuss" && (
-                  <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} className="text-xs text-accent underline">
-                    {openThread === n.id ? "Hide replies" : "Replies"}
-                  </button>
-                )}
-                {canManage && (
-                  <>
-                    <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
-                      {n.pinned ? "Unpin" : "Pin to top"}
-                    </button>
-                    {n.kind !== "class" && (
-                      <button onClick={() => requestPromotion(n.id)} className="text-xs text-accent underline">
-                        Request promote to church-wide
+                  <div className="flex gap-3 mt-2 flex-wrap">
+                    {n.kind === "discuss" && (
+                      <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} className="text-xs text-accent underline">
+                        {openThread === n.id ? "Hide replies" : "Replies"}
                       </button>
                     )}
-                    <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
-                      Delete
-                    </button>
-                  </>
-                )}
-              </div>
+                    {canManage && (
+                      <>
+                        <button onClick={() => startEdit(n)} className="text-xs text-accent underline flex items-center gap-1">
+                          <Pencil size={11} /> Edit
+                        </button>
+                        <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
+                          {n.pinned ? "Unpin" : "Pin to top"}
+                        </button>
+                        {n.kind !== "class" && (
+                          <button onClick={() => requestPromotion(n.id)} className="text-xs text-accent underline">
+                            Request promote to church-wide
+                          </button>
+                        )}
+                        <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
 
-              {n.kind === "discuss" && openThread === n.id && <ReplyThread groupId={groupId} newsId={n.id} />}
+                  {n.kind === "discuss" && openThread === n.id && <ReplyThread groupId={groupId} newsId={n.id} />}
+                </>
+              )}
             </div>
           );
         })}

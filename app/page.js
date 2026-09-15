@@ -17,6 +17,7 @@ import AttributionView from "./components/AttributionView";
 import AdminToolboxView from "./components/AdminToolboxView";
 import DirectoryView from "./components/DirectoryView";
 import NotificationsView from "./components/NotificationsView";
+import NotifyBanner, { shouldShowNotifyBanner } from "./components/NotifyBanner";
 import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound } from "lucide-react";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
@@ -182,6 +183,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [showNotifyBanner, setShowNotifyBanner] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [adminModeOn, setAdminModeOnState] = useState(true);
   const isAdmin = me.user.is_church_admin;
@@ -193,6 +195,16 @@ function AppShell({ me, refreshMe, onSignOut }) {
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
+
+  // Prompt for push a moment after landing, same delay YA uses -- gives
+  // the page a beat to settle before asking, rather than an instant
+  // permission dialog on load.
+  useEffect(() => {
+    if (shouldShowNotifyBanner()) {
+      const t = setTimeout(() => setShowNotifyBanner(true), 1500);
+      return () => clearTimeout(t);
     }
   }, []);
 
@@ -377,6 +389,8 @@ function AppShell({ me, refreshMe, onSignOut }) {
         </div>
       </header>
 
+      {showNotifyBanner && <NotifyBanner onDone={() => setShowNotifyBanner(false)} />}
+
       <div className="flex flex-1 min-h-0">
         <Sidebar tab={tab} setTab={switchTab} badges={badges} />
         <main className="flex-1 overflow-y-auto">
@@ -402,6 +416,8 @@ function AppShell({ me, refreshMe, onSignOut }) {
 
       {settingsOpen && (
         <SettingsView
+          me={me}
+          refreshMe={refreshMe}
           isAdmin={me.user.is_church_admin}
           adminModeOn={adminModeOn}
           onToggleAdminMode={toggleAdminMode}

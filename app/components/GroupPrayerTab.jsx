@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Heart } from "lucide-react";
+import { Heart, Pencil } from "lucide-react";
 import EmptyState from "./EmptyState";
 
-export default function GroupPrayerTab({ groupId, canManage, currentUserId }) {
+export default function GroupPrayerTab({ groupId, canManage }) {
   const [prayer, setPrayer] = useState(null);
   const [body, setBody] = useState("");
   const [anonymous, setAnonymous] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editBody, setEditBody] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}/prayer`);
@@ -35,6 +37,21 @@ export default function GroupPrayerTab({ groupId, canManage, currentUserId }) {
 
   const remove = async (id) => {
     await fetch(`/api/groups/${groupId}/prayer/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const startEdit = (p) => {
+    setEditingId(p.id);
+    setEditBody(p.body);
+  };
+
+  const saveEdit = async (id) => {
+    await fetch(`/api/groups/${groupId}/prayer/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: editBody }),
+    });
+    setEditingId(null);
     load();
   };
 
@@ -77,27 +94,55 @@ export default function GroupPrayerTab({ groupId, canManage, currentUserId }) {
       {prayer?.length === 0 && <p className="text-sm text-inkfaint">No prayer requests yet.</p>}
       <div className="space-y-2">
         {prayer?.map((p) => {
-          const isOwner = p.created_by === currentUserId;
+          const isEditing = editingId === p.id;
           return (
             <div key={p.id} className="sp-card">
-              <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{p.body}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-inkfaint">
-                  {p.is_anonymous ? "Anonymous" : p.users?.display_name} ·{" "}
-                  {new Date(p.created_at).toLocaleDateString()}
-                </span>
-                <button
-                  onClick={() => pray(p.id)}
-                  className={`sp-pill-outline ${p.i_prayed ? "active" : ""}`}
-                >
-                  <Heart size={12} fill={p.i_prayed ? "rgb(var(--color-sage))" : "none"} />
-                  {p.i_prayed ? "Praying" : "I'm praying"} · {p.pray_count || 0}
-                </button>
-              </div>
-              {(isOwner || canManage) && (
-                <button onClick={() => remove(p.id)} className="text-xs text-inkfaint mt-2 underline">
-                  Remove
-                </button>
+              {isEditing ? (
+                <>
+                  <textarea
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
+                    rows={3}
+                    className="sp-textarea mb-2"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={() => saveEdit(p.id)} className="sp-btn-primary py-1.5 px-3 text-sm">
+                      Save
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="text-xs text-inkfaint underline">
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{p.body}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-inkfaint">
+                      {p.is_anonymous ? "Anonymous" : p.users?.display_name} ·{" "}
+                      {new Date(p.created_at).toLocaleDateString()}
+                    </span>
+                    <button
+                      onClick={() => pray(p.id)}
+                      className={`sp-pill-outline ${p.i_prayed ? "active" : ""}`}
+                    >
+                      <Heart size={12} fill={p.i_prayed ? "rgb(var(--color-sage))" : "none"} />
+                      {p.i_prayed ? "Praying" : "I'm praying"} · {p.pray_count || 0}
+                    </button>
+                  </div>
+                  <div className="flex gap-3 mt-2">
+                    {p.is_mine && (
+                      <button onClick={() => startEdit(p)} className="text-xs text-accent underline flex items-center gap-1">
+                        <Pencil size={11} /> Edit
+                      </button>
+                    )}
+                    {(p.is_mine || canManage) && (
+                      <button onClick={() => remove(p.id)} className="text-xs text-inkfaint underline">
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           );

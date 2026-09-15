@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+
 // Returns the current user plus every group they have an active or pending
 // relationship with. This is for client-side UI decisions (which nav items
 // to show, etc.) only — every mutating route re-checks authority itself and
@@ -37,4 +39,47 @@ export async function GET(req) {
       group: m.groups,
     })),
   });
+}
+
+// Editing your own name/username -- same validation rules as initial
+// account setup, so a changed username can't end up in a state the
+// signup flow itself would never have allowed.
+export async function PATCH(req) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { username, display_name } = await req.json();
+  const updates = { updated_at: new Date().toISOString() };
+
+  if (display_name !== undefined) {
+    const trimmed = display_name.trim();
+    if (!trimmed) return NextResponse.json({ error: "Display name is required." }, { status: 400 });
+    updates.display_name = trimmed;
+  }
+  if (username !== undefined) {
+    const normalized = username.trim().toLowerCase();
+    if (!USERNAME_RE.test(normalized)) {
+      return NextResponse.json(
+        { error: "Username must be 3–20 characters: lowercase letters, numbers, and underscores only." },
+        { status: 400 }
+      );
+    }
+    updates.username = normalized;
+  }
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("users")
+    .update(updates)
+    .eq("id", user.id)
+    .select("username, display_name")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      return NextResponse.json({ error: "That username is already taken." }, { status: 409 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  return NextResponse.json({ user: data });
 }

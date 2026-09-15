@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search, CalendarDays } from "lucide-react";
+import { Search, CalendarDays, Pencil } from "lucide-react";
 import EmptyState from "./EmptyState";
 import { formatTime12h } from "@/lib/formatTime";
 
@@ -86,6 +86,47 @@ function VolunteerControl({ event, onSignUp, onCancel, expanded, onToggleExpande
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function EditEventControl({ event, onSave }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(event.title);
+  const [date, setDate] = useState(event.event_date);
+  const [time, setTime] = useState(event.event_time || "");
+  const [location, setLocation] = useState(event.location || "");
+
+  if (!editing) {
+    return (
+      <button onClick={() => setEditing(true)} className="text-xs text-accent underline flex items-center gap-1">
+        <Pencil size={11} /> Edit
+      </button>
+    );
+  }
+
+  const save = async () => {
+    await onSave(event.id, { title, event_date: date, event_time: time || null, location: location || null });
+    setEditing(false);
+  };
+
+  return (
+    <div className="sp-card mt-2">
+      <input value={title} onChange={(e) => setTitle(e.target.value)} className="sp-input mb-2" />
+      <div className="flex gap-2 mb-2">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="sp-input flex-1" />
+        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="sp-input flex-1" />
+      </div>
+      <input
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        placeholder="Location (optional)"
+        className="sp-input mb-2"
+      />
+      <div className="flex gap-3">
+        <button onClick={save} className="sp-btn-primary py-1.5 px-3 text-sm">Save</button>
+        <button onClick={() => setEditing(false)} className="text-xs text-inkfaint underline">Cancel</button>
+      </div>
     </div>
   );
 }
@@ -252,6 +293,15 @@ export default function EventsTab({ isAdmin }) {
     load();
   };
 
+  const saveEdit = async (id, updates) => {
+    await fetch(`/api/global/events/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updates),
+    });
+    load();
+  };
+
   const filtered = useMemo(() => {
     if (!events) return [];
     if (!query.trim()) return events;
@@ -387,7 +437,10 @@ export default function EventsTab({ isAdmin }) {
               volunteerList={volunteerLists[ev.id]}
             />
 
-            {isAdmin && <DeleteControl event={ev} onDelete={remove} />}
+            <div className="flex gap-3 items-center mt-2 flex-wrap">
+              {isAdmin && <EditEventControl event={ev} onSave={saveEdit} />}
+              {isAdmin && <DeleteControl event={ev} onDelete={remove} />}
+            </div>
           </div>
         ))}
       </div>
