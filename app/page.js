@@ -17,7 +17,7 @@ import AttributionView from "./components/AttributionView";
 import AdminToolboxView from "./components/AdminToolboxView";
 import DirectoryView from "./components/DirectoryView";
 import NotificationsView from "./components/NotificationsView";
-import { Bell } from "lucide-react";
+import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound } from "lucide-react";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
 
@@ -181,9 +181,20 @@ function AppShell({ me, refreshMe, onSignOut }) {
   const [adminToolboxOpen, setAdminToolboxOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [adminModeOn, setAdminModeOnState] = useState(true);
   const isAdmin = me.user.is_church_admin;
+
+  // Register the service worker once on load -- without this, push
+  // notifications can never arrive: there's nothing installed in the
+  // browser to receive a push event and actually show it, regardless of
+  // whether the subscription/VAPID setup is otherwise correct.
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     if (isAdmin) setAdminModeOnState(isAdminModeOn());
@@ -251,7 +262,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
     return (
       <div className="h-dvh flex flex-col bg-paper overflow-hidden">
         <header
-          className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-navy text-white"
+          className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-[#132560] text-white"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
         >
           <button onClick={closeBibleOverlay} className="text-sm">
@@ -283,13 +294,13 @@ function AppShell({ me, refreshMe, onSignOut }) {
   return (
     <div className="h-dvh flex flex-col bg-paper overflow-hidden">
       <header
-        className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-navy text-white"
+        className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-[#132560] text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
       >
         <div className="flex items-center gap-2.5">
           <img src="/icon-192.png" alt="" className="w-8 h-8 rounded" />
           <strong
-            className="font-brand tracking-wide"
+            className="font-serif tracking-wide"
             style={{
               color: "#fff",
               textShadow:
@@ -299,25 +310,24 @@ function AppShell({ me, refreshMe, onSignOut }) {
             North Hodge Assembly of God
           </strong>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs hidden sm:inline">{me.user.display_name}</span>
+        <div className="flex items-center gap-3 relative">
           {isAdmin && adminModeOn && (
             <button
               onClick={() => setAdminToolboxOpen(true)}
               aria-label="Admin Toolbox"
               title="Admin Toolbox"
-              className="border border-white/40 rounded px-2 py-1 text-xs"
+              className="text-white/90"
             >
-              🧰
+              <Wrench size={16} />
             </button>
           )}
           <button
             onClick={() => setNotificationsOpen(true)}
             aria-label="Notifications"
             title="Notifications"
-            className="relative border border-white/40 rounded px-2 py-1 text-xs"
+            className="relative text-white/90"
           >
-            <Bell size={14} />
+            <Bell size={17} />
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white" />
             )}
@@ -325,13 +335,45 @@ function AppShell({ me, refreshMe, onSignOut }) {
           <button
             onClick={() => setSettingsOpen(true)}
             aria-label="Settings"
-            className="border border-white/40 rounded px-2 py-1 text-xs"
+            title="Settings"
+            className="text-white/90"
           >
-            ⚙
+            <Settings size={17} />
           </button>
-          <button onClick={onSignOut} className="border border-white/40 rounded px-2 py-1 text-xs">
-            Sign out
+          <button
+            onClick={() => setProfileMenuOpen((o) => !o)}
+            aria-label="Profile"
+            title={me.user.display_name}
+            className="text-white/90"
+          >
+            <UserCircle size={19} />
           </button>
+
+          {profileMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-2 bg-card text-ink rounded-xl shadow-xl border border-line py-1.5 w-44 z-50">
+                <p className="px-3.5 py-1.5 text-sm text-ink font-medium truncate border-b border-linesoft mb-1">
+                  {me.user.display_name}
+                </p>
+                <button
+                  onClick={() => {
+                    setProfileMenuOpen(false);
+                    setSettingsOpen(true);
+                  }}
+                  className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-inksoft"
+                >
+                  <KeyRound size={14} /> Change PIN
+                </button>
+                <button
+                  onClick={onSignOut}
+                  className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-inksoft"
+                >
+                  <LogOut size={14} /> Sign out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </header>
 

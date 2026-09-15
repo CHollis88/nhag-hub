@@ -142,7 +142,7 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
   return (
     <div className="h-dvh flex flex-col bg-paper overflow-hidden">
       <header
-        className="sticky top-0 z-30 flex justify-between items-center px-4 py-3 bg-navy text-white"
+        className="sticky top-0 z-30 flex justify-between items-center px-4 py-3 bg-[#132560] text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
       >
         <div className="flex items-center gap-3">
@@ -150,7 +150,7 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
             ← Home
           </button>
           <strong
-            className="font-brand tracking-wide"
+            className="font-serif tracking-wide"
             style={{
               color: "#fff",
               textShadow:

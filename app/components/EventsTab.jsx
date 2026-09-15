@@ -249,6 +249,17 @@ export default function EventsTab({ isAdmin }) {
     );
   }, [events, query]);
 
+  // While actively searching, show every match together regardless of
+  // date -- searching implies looking for something specific. Otherwise,
+  // split into upcoming (shown normally) and past (collapsed, muted),
+  // same pattern as the Young Adults app -- without this split, past
+  // events just accumulate forever at the top of an ascending list,
+  // pushing what's actually upcoming further down the page.
+  const today = new Date().toISOString().slice(0, 10);
+  const isSearching = query.trim().length > 0;
+  const upcoming = isSearching ? filtered : filtered.filter((ev) => ev.event_date >= today);
+  const past = isSearching ? [] : filtered.filter((ev) => ev.event_date < today);
+
   return (
     <div className="px-5 pt-4 pb-6">
       <div className="flex items-center justify-between mb-4">
@@ -336,8 +347,11 @@ export default function EventsTab({ isAdmin }) {
       {events?.length > 0 && filtered.length === 0 && (
         <p className="text-sm text-inkfaint">No Events match that search.</p>
       )}
+      {events?.length > 0 && !isSearching && upcoming.length === 0 && past.length > 0 && (
+        <p className="text-sm text-inkfaint mb-3">No upcoming events.</p>
+      )}
       <div className="space-y-2">
-        {filtered.map((ev) => (
+        {upcoming.map((ev) => (
           <div key={ev.id} className="sp-card">
             <h3 className="font-medium text-ink mb-1">{ev.title}</h3>
             <p className="text-sm text-inksoft">
@@ -370,6 +384,28 @@ export default function EventsTab({ isAdmin }) {
           </div>
         ))}
       </div>
+
+      {!isSearching && past.length > 0 && (
+        <details className="mt-6">
+          <summary className="text-sm text-inkfaint cursor-pointer">Past events ({past.length})</summary>
+          <div className="space-y-2 mt-2">
+            {past.map((ev) => (
+              <div key={ev.id} className="bg-paper border border-linesoft rounded-xl p-3.5 opacity-70">
+                <p className="font-serif text-base text-ink">{ev.title}</p>
+                <p className="text-xs text-inkfaint">
+                  {new Date(ev.event_date + "T00:00:00").toLocaleDateString(undefined, {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                  {ev.event_time && ` · ${formatTime12h(ev.event_time)}`}
+                </p>
+                {isAdmin && <DeleteControl event={ev} onDelete={remove} />}
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }
