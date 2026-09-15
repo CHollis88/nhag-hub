@@ -23,16 +23,24 @@ export default function EventCalendar({ events, selectedDate, onSelectDate }) {
     return { year: base.getFullYear(), month: base.getMonth() };
   });
   const [isNarrow, setIsNarrow] = useState(true); // default to the more compact mobile treatment until measured
+  const [isWide, setIsWide] = useState(false); // desktop tier -- more room to actually use, not just "not narrow"
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    setIsNarrow(mq.matches);
-    const listener = (e) => setIsNarrow(e.matches);
-    mq.addEventListener("change", listener);
-    return () => mq.removeEventListener("change", listener);
+    const mqNarrow = window.matchMedia("(max-width: 767px)");
+    const mqWide = window.matchMedia("(min-width: 1024px)");
+    setIsNarrow(mqNarrow.matches);
+    setIsWide(mqWide.matches);
+    const narrowListener = (e) => setIsNarrow(e.matches);
+    const wideListener = (e) => setIsWide(e.matches);
+    mqNarrow.addEventListener("change", narrowListener);
+    mqWide.addEventListener("change", wideListener);
+    return () => {
+      mqNarrow.removeEventListener("change", narrowListener);
+      mqWide.removeEventListener("change", wideListener);
+    };
   }, []);
 
-  const maxBarsPerDay = isNarrow ? 1 : 2;
+  const maxBarsPerDay = isNarrow ? 1 : isWide ? 3 : 2;
 
   const eventsByDate = useMemo(() => {
     const map = {};
@@ -125,18 +133,18 @@ export default function EventCalendar({ events, selectedDate, onSelectDate }) {
             <button
               key={i}
               onClick={() => onSelectDate(isSelected ? null : key)}
-              className={`flex flex-col items-stretch rounded-lg p-0.5 text-left min-h-[2.75rem] md:min-h-[3.25rem] ${
+              className={`flex flex-col items-stretch rounded-lg p-0.5 text-left min-h-[2.75rem] md:min-h-[3.25rem] lg:min-h-[4.5rem] ${
                 isSelected ? "bg-accent/15 ring-1 ring-accent" : isToday ? "bg-accent/5" : ""
               }`}
             >
-              <span className={`text-[0.6875rem] md:text-xs px-0.5 ${isToday ? "font-bold text-accent" : "text-ink"}`}>
+              <span className={`text-[0.6875rem] md:text-xs lg:text-sm px-0.5 ${isToday ? "font-bold text-accent" : "text-ink"}`}>
                 {d}
               </span>
               <div className="flex flex-col gap-0.5 mt-0.5">
                 {shown.map((ev, j) => (
                   <span
                     key={j}
-                    className="text-[0.625rem] leading-tight rounded px-1 py-[1px] truncate"
+                    className="text-[0.625rem] lg:text-xs leading-tight rounded px-1 py-[1px] truncate"
                     style={{ background: ev.color, color: readableTextColor(ev.color) }}
                     title={ev.title}
                   >
@@ -144,7 +152,7 @@ export default function EventCalendar({ events, selectedDate, onSelectDate }) {
                   </span>
                 ))}
                 {overflow > 0 && (
-                  <span className="text-[0.625rem] text-inkfaint px-0.5">+{overflow}</span>
+                  <span className="text-[0.625rem] lg:text-xs text-inkfaint px-0.5">+{overflow}</span>
                 )}
               </div>
             </button>

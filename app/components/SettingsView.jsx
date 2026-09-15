@@ -5,6 +5,7 @@ import { getStoredPreference, applyTheme, getStoredTextSize, applyTextSize } fro
 import { getDesktopMode, setDesktopMode } from "@/lib/desktopMode";
 import { isSubscribedToPush, subscribeToPush, unsubscribeFromPush } from "@/lib/pushClient";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
+import packageJson from "../../package.json";
 
 const THEMES = [
   { id: "light", label: "Light" },
@@ -12,15 +13,17 @@ const THEMES = [
   { id: "system", label: "System" },
 ];
 const TEXT_SIZES = [
+  { id: "xxs", label: "Tiny" },
   { id: "xs", label: "Smallest" },
   { id: "sm", label: "Small" },
   { id: "md", label: "Default" },
   { id: "lg", label: "Large" },
   { id: "xl", label: "Larger" },
   { id: "xxl", label: "Largest" },
+  { id: "xxxl", label: "Maximum" },
 ];
 
-export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, isAdmin, adminModeOn: controlledAdminModeOn, onToggleAdminMode, me, refreshMe }) {
+export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, isAdmin, adminModeOn: controlledAdminModeOn, onToggleAdminMode }) {
   const [theme, setTheme] = useState("system");
   const [textSize, setTextSize] = useState("md");
   const [desktopLayout, setDesktopLayoutState] = useState(false);
@@ -28,13 +31,6 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
   const [pushBusy, setPushBusy] = useState(false);
   const [prefs, setPrefs] = useState(null);
   const [localAdminModeOn, setLocalAdminModeOn] = useState(true);
-  const [newPin, setNewPin] = useState("");
-  const [confirmNewPin, setConfirmNewPin] = useState("");
-  const [pinMessage, setPinMessage] = useState("");
-  const [displayName, setDisplayName] = useState(me?.user?.display_name || "");
-  const [username, setUsername] = useState(me?.user?.username || "");
-  const [profileMessage, setProfileMessage] = useState("");
-  const [profileBusy, setProfileBusy] = useState(false);
 
   // Controlled (from AppShell, which also shows a header emblem that
   // needs to stay in sync) if onToggleAdminMode is passed; otherwise
@@ -90,25 +86,6 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
     setPushBusy(false);
   };
 
-  const saveProfile = async (e) => {
-    e.preventDefault();
-    setProfileMessage("");
-    setProfileBusy(true);
-    const res = await fetch("/api/me", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ display_name: displayName, username }),
-    });
-    const data = await res.json();
-    setProfileBusy(false);
-    if (!res.ok) {
-      setProfileMessage(data.error);
-      return;
-    }
-    setProfileMessage("Saved.");
-    refreshMe?.();
-  };
-
   const setGlobalPref = async (enabled) => {
     setPrefs((p) => ({ ...p, global: enabled }));
     await fetch("/api/notifications/preferences", {
@@ -130,28 +107,6 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
     });
   };
 
-  const changePin = async (e) => {
-    e.preventDefault();
-    setPinMessage("");
-    if (newPin !== confirmNewPin) {
-      setPinMessage("PINs don't match.");
-      return;
-    }
-    const res = await fetch("/api/auth/reset-pin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pin: newPin }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setPinMessage(data.error);
-      return;
-    }
-    setNewPin("");
-    setConfirmNewPin("");
-    setPinMessage("PIN updated.");
-  };
-
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end z-50" onClick={onClose}>
       <div
@@ -162,34 +117,6 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
           <h2 className="font-serif text-xl text-ink m-0">Settings</h2>
           <button onClick={onClose} className="text-2xl text-inkfaint leading-none">×</button>
         </div>
-
-        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Profile</p>
-        <form onSubmit={saveProfile} className="mb-5">
-          <input
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Display name"
-            className="sp-input mb-2"
-          />
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value.toLowerCase())}
-            placeholder="username"
-            className="sp-input mb-2"
-          />
-          <button type="submit" disabled={profileBusy} className="sp-btn-secondary">
-            {profileBusy ? "Saving…" : "Save"}
-          </button>
-          {profileMessage && (
-            <p
-              className={`text-sm mt-2 ${
-                profileMessage === "Saved." ? "text-sage" : "text-red-600 dark:text-red-400"
-              }`}
-            >
-              {profileMessage}
-            </p>
-          )}
-        </form>
 
         <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Theme</p>
         <div className="flex gap-2 mb-5">
@@ -204,17 +131,21 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
           ))}
         </div>
 
-        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Text Size</p>
-        <div className="flex gap-1.5 flex-wrap mb-5">
-          {TEXT_SIZES.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => chooseTextSize(t.id)}
-              className={textSize === t.id ? "sp-pill-outline active" : "sp-pill-outline"}
-            >
-              {t.label}
-            </button>
-          ))}
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">
+          Text Size — {TEXT_SIZES.find((t) => t.id === textSize)?.label}
+        </p>
+        <input
+          type="range"
+          min="0"
+          max={TEXT_SIZES.length - 1}
+          step="1"
+          value={TEXT_SIZES.findIndex((t) => t.id === textSize)}
+          onChange={(e) => chooseTextSize(TEXT_SIZES[Number(e.target.value)].id)}
+          className="w-full mb-1"
+        />
+        <div className="flex justify-between text-[0.625rem] text-inkfaint mb-5">
+          <span>A</span>
+          <span className="text-base">A</span>
         </div>
 
         <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Desktop Layout</p>
@@ -247,26 +178,6 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
           </>
         )}
 
-        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Change PIN</p>
-        <form onSubmit={changePin} className="mb-5">
-          <input
-            value={newPin}
-            onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
-            placeholder="New PIN (4–8 digits)"
-            inputMode="numeric"
-            className="sp-input mb-2"
-          />
-          <input
-            value={confirmNewPin}
-            onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, ""))}
-            placeholder="Confirm new PIN"
-            inputMode="numeric"
-            className="sp-input mb-2"
-          />
-          <button type="submit" className="sp-btn-secondary">Update PIN</button>
-          {pinMessage && <p className="text-sm text-inksoft mt-2">{pinMessage}</p>}
-        </form>
-
         {isAdmin && (
           <>
             <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Admin</p>
@@ -291,6 +202,8 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
             Sources &amp; Attribution
           </button>
         </div>
+
+        <p className="text-[0.6875rem] text-inkfaint mt-5 text-center">Version {packageJson.version}</p>
       </div>
     </div>
   );

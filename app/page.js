@@ -18,7 +18,8 @@ import AdminToolboxView from "./components/AdminToolboxView";
 import DirectoryView from "./components/DirectoryView";
 import NotificationsView from "./components/NotificationsView";
 import NotifyBanner, { shouldShowNotifyBanner } from "./components/NotifyBanner";
-import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound } from "lucide-react";
+import ProfileView from "./components/ProfileView";
+import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle } from "lucide-react";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
 
@@ -184,6 +185,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [showNotifyBanner, setShowNotifyBanner] = useState(false);
+  const [profileViewOpen, setProfileViewOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [adminModeOn, setAdminModeOnState] = useState(true);
   const isAdmin = me.user.is_church_admin;
@@ -319,7 +321,8 @@ function AppShell({ me, refreshMe, onSignOut }) {
                 "-1px -1px 0 #C41E28, 1px -1px 0 #C41E28, -1px 1px 0 #C41E28, 1px 1px 0 #C41E28, 2px 2px 3px rgba(0,0,0,0.7)",
             }}
           >
-            North Hodge Assembly of God
+            <span className="hidden sm:inline">North Hodge Assembly of God</span>
+            <span className="sm:hidden">NHAG</span>
           </strong>
         </div>
         <div className="flex items-center gap-1.5 relative">
@@ -343,6 +346,14 @@ function AppShell({ me, refreshMe, onSignOut }) {
             {unreadCount > 0 && (
               <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-white" />
             )}
+          </button>
+          <button
+            onClick={() => setHelpOpen(true)}
+            aria-label="Help & FAQ"
+            title="Help & FAQ"
+            className="text-white/90 p-1"
+          >
+            <HelpCircle size={22} />
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
@@ -371,11 +382,11 @@ function AppShell({ me, refreshMe, onSignOut }) {
                 <button
                   onClick={() => {
                     setProfileMenuOpen(false);
-                    setSettingsOpen(true);
+                    setProfileViewOpen(true);
                   }}
                   className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-inksoft"
                 >
-                  <KeyRound size={14} /> Change PIN
+                  <KeyRound size={14} /> Edit Profile
                 </button>
                 <button
                   onClick={onSignOut}
@@ -445,6 +456,9 @@ function AppShell({ me, refreshMe, onSignOut }) {
             loadUnreadCount();
           }}
         />
+      )}
+      {profileViewOpen && (
+        <ProfileView me={me} refreshMe={refreshMe} onClose={() => setProfileViewOpen(false)} />
       )}
     </div>
   );

@@ -9,23 +9,31 @@ const FAQS = [
   },
   {
     q: "What do the tabs at the bottom do?",
-    a: "Home is where you see the ministries (Choir, Sunday School classes, and anything else) you're part of, and browse or request joining others. Bible is the full study suite. News and Events show church-wide announcements and events that any Church Admin has posted.",
+    a: "Home is where you see the ministries you're part of, and browse or request joining others. Bible is the full study suite. News, Events, Calendar, and Sermons show church-wide content — Calendar pulls together everything from church-wide Events plus every ministry you're actually in, color-coded so you can tell at a glance where each thing is coming from.",
   },
   {
     q: "How do I join a ministry?",
-    a: "From the Home tab, browse the list under \"Other ministries\" and tap \"Join.\" That group's leader (or a Church Admin) will need to approve it before you're fully in — you'll see \"pending approval\" until then.",
+    a: "From the Home tab, tap a ministry under \"Other ministries\" to see what it's about — its description and who leads it — then tap \"Request to Join\" from there. That ministry's leader (or a Church Admin) will need to approve it before you're fully in.",
   },
   {
     q: "What happens when I tap \"Launch\" on a ministry?",
-    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: Choir gets a Song library and Setlists, and reading-plan groups (like Young Adults) get Today, Plan, and Journal as their own tabs, leading the list. Tap \"← Home\" at the top to leave and go back.",
+    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: a Song library and Setlists, or a Bible Plan bolt-on with Today, Plan, and Journal, leading the list. Tap \"← Home\" at the top to leave and go back.",
   },
   {
-    q: "Who can post News or Events in a ministry?",
-    a: "Only that ministry's leaders, or a Church Admin. Inside a ministry, News comes in three flavors: a plain Post, Class notes, or a Discuss post — only Discuss posts can be replied to by everyone in the group.",
+    q: "Who can post, edit, or delete News, Events, or Prayer requests?",
+    a: "Posting News or Events in a ministry is limited to that ministry's leaders or a Church Admin — and the same people can edit or delete a post afterward if something needs fixing or removing. Prayer requests work differently: anyone in the group can submit one, and only the person who wrote it can edit it, though a leader or admin can still remove one if needed.",
+  },
+  {
+    q: "Can I pin an announcement?",
+    a: "Yes — a ministry's leaders (or a Church Admin for church-wide News) can pin a post to keep it at the top regardless of when it was posted, until it's unpinned. Useful for something that should stay visible for a while, like registration being open all month.",
   },
   {
     q: "Can I submit a prayer request?",
-    a: "Yes — any member of a ministry can submit a prayer request to that ministry, and you can choose to submit it anonymously. Prayer requests don't have replies, by design.",
+    a: "Yes — any member of a ministry can submit a prayer request to that ministry, and you can choose to submit it anonymously. Prayer requests don't have replies, but you can tap \"I'm praying\" to let the group know without posting a reply.",
+  },
+  {
+    q: "Do events always have RSVP or replies?",
+    a: "Not necessarily — whoever creates an event can choose whether RSVPs and replies are turned on for that specific event. Not every event needs a headcount or a discussion thread.",
   },
   {
     q: "What does \"Request to promote to church-wide\" do?",
@@ -33,11 +41,15 @@ const FAQS = [
   },
   {
     q: "What's the Directory?",
-    a: "A church-wide list of every ministry and its leaders, reachable from Home. Tap any ministry to see who leads it. If you're a member of that ministry, you'll also see its full roster; ministries you're not part of only show their leaders, to keep membership lists private to the people actually in them.",
+    a: "A church-wide, searchable list of every ministry and its leaders, reachable from Home. Tap any ministry to see its description and who leads it. If you're a member, you'll also see its full roster; ministries you're not part of only show their leaders, to keep membership lists private to the people actually in them.",
   },
   {
-    q: "Can a ministry change its own name, icon, or color?",
-    a: "Yes — a ministry's own leaders (or a Church Admin) can rename it, change its type/category label, upload an icon, and pick its tile color, all from inside that ministry's Roster tab.",
+    q: "Can a ministry change its own name, icon, color, or description?",
+    a: "Yes — a ministry's own leaders (or a Church Admin) can rename it, change its type/category label, write a short description shown to people considering joining, upload an icon, and pick its tile color, all from inside that ministry's Roster tab.",
+  },
+  {
+    q: "How does Bible Plan work, and can I pick which plan I'm on?",
+    a: "Bible Plan is an optional bolt-on a ministry's leader can turn on, giving that ministry Today, Plan, and Journal tabs. There are four plans to choose from — the original year-long plan, Whole Bible in 6 or 9 months, and New Testament in 90 Days. A ministry's leader decides whether everyone follows one locked-in plan together, or each person picks their own. If you're a leader, you can also check the whole class's progress from the Roster tab. If notifications are on for a Bible Plan ministry, you'll also get a daily reading reminder.",
   },
   {
     q: "How does the Bible tab work?",
@@ -45,7 +57,7 @@ const FAQS = [
       {
         platform: "Reading",
         steps: [
-          "Pick any book and chapter using the picker — the app remembers where you left off",
+          "Pick any book and chapter using the picker — the app remembers where you left off, and shows your recently viewed passages so you can jump back quickly",
           "Use the search bar to jump straight to a reference (like \"John 3:16\")",
           "Words with a dotted underline can be tapped to see their original Hebrew or Greek meaning",
         ],
@@ -55,26 +67,30 @@ const FAQS = [
         steps: [
           "Tap a verse number to select it — a bar appears with what you can do with it",
           "Tap more verse numbers to extend your selection across a passage",
-          "From that bar: see cross-references and commentary, highlight, add a note, tag it, or copy the text",
+          "From that bar: see cross-references (listed in Bible order) and commentary, highlight, add a note, tag it, or copy the text",
         ],
       },
     ],
   },
   {
     q: "Is my Journal private?",
-    a: "Yes. Only you can ever see your own Journal entries — there's no leader or admin view of anyone's journal, anywhere in the app.",
+    a: "Yes. Only you can ever see your own Journal entries — there's no leader or admin view of anyone's journal, anywhere in the app. You can export your own Journal as a text file from the Journal tab any time.",
   },
   {
     q: "How do notifications work?",
-    a: "You can turn on push notifications for your device in Settings, then choose what you want to hear about: church-wide News & Events, and separately for each ministry you're in. If a ministry has Today/Plan/Journal, you'll also get a 9am reading reminder if notifications are on for that ministry.",
+    a: "You can turn on push notifications for your device in Settings, then choose what you want to hear about: church-wide News, Events, and Sermons, and separately for each ministry you're in. Tap the bell icon in the header any time to see your full notification history, not just what came through as a push. Tabs with something new since you last checked them also show a small dot.",
   },
   {
     q: "Can I make the text bigger?",
-    a: "Yes — Settings has a Text Size option with six sizes. Ministry tiles on Home automatically adjust how many fit per row based on your text size and screen width, so things never feel cramped.",
+    a: "Yes — Settings has a Text Size option with eight sizes, from Tiny to Maximum. Ministry tiles on Home automatically adjust how many fit per row based on your text size and screen width, so things never feel cramped.",
+  },
+  {
+    q: "Can I edit my name or username?",
+    a: "Yes — the Profile section at the top of Settings lets you change your display name and username any time. Usernames still need to be unique, same as when you first signed up.",
   },
   {
     q: "I'm a Church Admin — where's the Admin Toolbox?",
-    a: "Tap the toolbox icon in the header (only Admins see it). From there you can create ministries, manage or delete any ministry, and promote or remove other people's admin access. You can also hide the toolbox icon and toggle from your own view in Settings if you'd rather not see it day-to-day — that's just a personal display choice and never actually changes your access.",
+    a: "Tap the toolbox icon in the header (only Admins see it). From there you can create ministries, manage or delete any ministry, promote or remove other people's admin access, search the full user directory, and see a log of recent admin activity. You can also hide the toolbox icon and toggle from your own view in Settings if you'd rather not see it day-to-day — that's just a personal display choice and never actually changes your access.",
   },
 ];
 

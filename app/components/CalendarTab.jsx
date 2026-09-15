@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { CalendarRange } from "lucide-react";
+import { CalendarRange, Grid3x3, List } from "lucide-react";
 import EventCalendar from "./EventCalendar";
+import WeekCalendarView from "./WeekCalendarView";
 import EmptyState from "./EmptyState";
 import { readableTextColor } from "@/lib/colorContrast";
 import { formatTime12h } from "@/lib/formatTime";
@@ -20,6 +21,18 @@ export default function CalendarTab({ me }) {
   const [rawEvents, setRawEvents] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [hiddenSources, setHiddenSources] = useState(new Set());
+  const [viewMode, setViewMode] = useState(null); // null until measured, then "month" | "week"
+
+  // Default to Week on phones (a month-grid cell only fits ~5-6
+  // characters before an event title truncates) and Month on wider
+  // screens, where there's room for full titles in each cell. This only
+  // sets the STARTING view -- once picked (by this default or by hand
+  // via the toggle below), it doesn't get silently swapped back if the
+  // window resizes or the phone rotates, since that would discard a
+  // deliberate choice without asking.
+  useEffect(() => {
+    setViewMode(window.matchMedia("(max-width: 767px)").matches ? "week" : "month");
+  }, []);
 
   const myGroups = (me?.memberships || []).filter((m) => m.status === "active");
 
@@ -81,7 +94,29 @@ export default function CalendarTab({ me }) {
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <h2 className="font-serif text-2xl text-ink mb-3">Calendar</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-serif text-2xl text-ink">Calendar</h2>
+        {viewMode && (
+          <div className="flex bg-paper rounded-lg p-0.5 border border-line">
+            <button
+              onClick={() => setViewMode("week")}
+              className={`p-1.5 rounded-md ${viewMode === "week" ? "bg-card text-accent" : "text-inkfaint"}`}
+              aria-label="Week view"
+              title="Week view"
+            >
+              <List size={16} />
+            </button>
+            <button
+              onClick={() => setViewMode("month")}
+              className={`p-1.5 rounded-md ${viewMode === "month" ? "bg-card text-accent" : "text-inkfaint"}`}
+              aria-label="Month view"
+              title="Month view"
+            >
+              <Grid3x3 size={16} />
+            </button>
+          </div>
+        )}
+      </div>
 
       {sources.length > 1 && (
         <div className="flex flex-wrap gap-1.5 mb-4">
@@ -109,7 +144,11 @@ export default function CalendarTab({ me }) {
 
       {rawEvents === null && <EmptyState icon={CalendarRange} text="Loading…" />}
       {rawEvents !== null && (
-        <EventCalendar events={visibleEvents} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+        viewMode === "week" ? (
+          <WeekCalendarView events={visibleEvents} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+        ) : (
+          <EventCalendar events={visibleEvents} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+        )
       )}
 
       {selectedDate && (

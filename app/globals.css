@@ -83,20 +83,26 @@
 /* Text size preference (Settings > Text Size). Since Tailwind's text-sm,
    text-base, etc. are all relative to the root font-size, adjusting this
    one value scales reading text consistently everywhere it's used. */
+html.text-scale-xxs {
+  font-size: 11px;
+}
 html.text-scale-xs {
-  font-size: 13px;
+  font-size: 12px;
 }
 html.text-scale-sm {
-  font-size: 15px;
+  font-size: 14px;
 }
 html.text-scale-lg {
-  font-size: 19px;
+  font-size: 18px;
 }
 html.text-scale-xl {
-  font-size: 22px;
+  font-size: 21px;
 }
 html.text-scale-xxl {
-  font-size: 26px;
+  font-size: 24px;
+}
+html.text-scale-xxxl {
+  font-size: 27px;
 }
 
 html,
