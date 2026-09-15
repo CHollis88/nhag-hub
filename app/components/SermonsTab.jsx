@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { ExternalLink } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { ExternalLink, Search, Mic } from "lucide-react";
+import EmptyState from "./EmptyState";
 
 function fmtDate(d) {
   return new Date(d + "T00:00:00").toLocaleDateString(undefined, {
@@ -20,6 +21,7 @@ export default function SermonsTab({ isAdmin }) {
   const [sermonDate, setSermonDate] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/sermons");
@@ -58,6 +60,18 @@ export default function SermonsTab({ isAdmin }) {
     await fetch(`/api/sermons/${id}`, { method: "DELETE" });
     load();
   };
+
+  const filtered = useMemo(() => {
+    if (!sermons) return [];
+    if (!query.trim()) return sermons;
+    const q = query.toLowerCase();
+    return sermons.filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        s.synopsis.toLowerCase().includes(q) ||
+        (s.speaker && s.speaker.toLowerCase().includes(q))
+    );
+  }, [sermons, query]);
 
   return (
     <div className="px-5 pt-4 pb-6">
@@ -112,10 +126,25 @@ export default function SermonsTab({ isAdmin }) {
         </form>
       )}
 
-      {sermons === null && <p className="text-sm text-inkfaint">Loading…</p>}
-      {sermons?.length === 0 && <p className="text-sm text-inkfaint">No sermons posted yet.</p>}
+      {sermons !== null && sermons.length > 0 && (
+        <div className="relative mb-3">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search sermons or speakers..."
+            className="sp-input pl-9"
+          />
+        </div>
+      )}
+
+      {sermons === null && <EmptyState icon={Mic} text="Loading…" />}
+      {sermons?.length === 0 && <EmptyState icon={Mic} text="No sermons posted yet." />}
+      {sermons?.length > 0 && filtered.length === 0 && (
+        <EmptyState icon={Search} text="No sermons match that search." />
+      )}
       <div className="space-y-2">
-        {sermons?.map((s) => (
+        {filtered.map((s) => (
           <div key={s.id} className="sp-card">
             <h3 className="font-medium text-ink mb-1">{s.title}</h3>
             {(s.sermon_date || s.speaker) && (

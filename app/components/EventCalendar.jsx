@@ -1,21 +1,38 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarCheck } from "lucide-react";
+import { readableTextColor } from "@/lib/colorContrast";
 
-const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MAX_BARS_PER_DAY = 2;
 
 function toDateKey(y, m, d) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+// events must each carry a `color` (hex) already resolved by the caller
+// -- this component just renders whatever color it's given, same as
+// Canvas's month view: small colored bars with a truncated title inside
+// each day cell, not a generic dot.
 export default function EventCalendar({ events, selectedDate, onSelectDate }) {
   const [viewMonth, setViewMonth] = useState(() => {
     const base = selectedDate ? new Date(selectedDate + "T00:00:00") : new Date();
     return { year: base.getFullYear(), month: base.getMonth() };
   });
 
-  const eventDatesSet = useMemo(() => new Set((events || []).map((e) => e.event_date)), [events]);
+  const eventsByDate = useMemo(() => {
+    const map = {};
+    for (const ev of events || []) {
+      if (!map[ev.event_date]) map[ev.event_date] = [];
+      map[ev.event_date].push(ev);
+    }
+    // Earliest time first within each day, same ordering as the day list below.
+    for (const key in map) {
+      map[key].sort((a, b) => (a.event_time || "99:99").localeCompare(b.event_time || "99:99"));
+    }
+    return map;
+  }, [events]);
 
   const grid = useMemo(() => {
     const { year, month } = viewMonth;
@@ -43,13 +60,33 @@ export default function EventCalendar({ events, selectedDate, onSelectDate }) {
 
   const todayKey = toDateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
 
+  const jumpToToday = () => {
+    const now = new Date();
+    setViewMonth({ year: now.getFullYear(), month: now.getMonth() });
+    onSelectDate(todayKey);
+  };
+
+  const isOnCurrentMonth = viewMonth.year === new Date().getFullYear() && viewMonth.month === new Date().getMonth();
+
   return (
     <div className="sp-card mb-4">
       <div className="flex items-center justify-between mb-3">
         <button onClick={() => changeMonth(-1)} className="text-inkfaint p-1" aria-label="Previous month">
           <ChevronLeft size={18} />
         </button>
-        <p className="font-serif text-base text-ink">{monthLabel}</p>
+        <div className="flex items-center gap-2">
+          <p className="font-serif text-base text-ink">{monthLabel}</p>
+          {!isOnCurrentMonth && (
+            <button
+              onClick={jumpToToday}
+              className="text-inkfaint p-1"
+              aria-label="Jump to today"
+              title="Jump to today"
+            >
+              <CalendarCheck size={15} />
+            </button>
+          )}
+        </div>
         <button onClick={() => changeMonth(1)} className="text-inkfaint p-1" aria-label="Next month">
           <ChevronRight size={18} />
         </button>
@@ -57,7 +94,7 @@ export default function EventCalendar({ events, selectedDate, onSelectDate }) {
 
       <div className="grid grid-cols-7 gap-1 text-center mb-1">
         {WEEKDAY_LABELS.map((w, i) => (
-          <div key={i} className="text-[0.625rem] text-inkfaint font-medium">{w}</div>
+          <div key={i} className="text-[0.625rem] text-inkfaint font-medium">{w.slice(0, 1)}</div>
         ))}
       </div>
 
@@ -65,21 +102,34 @@ export default function EventCalendar({ events, selectedDate, onSelectDate }) {
         {grid.map((d, i) => {
           if (d === null) return <div key={i} />;
           const key = toDateKey(viewMonth.year, viewMonth.month, d);
-          const hasEvent = eventDatesSet.has(key);
+          const dayEvents = eventsByDate[key] || [];
           const isSelected = selectedDate === key;
           const isToday = key === todayKey;
+          const shown = dayEvents.slice(0, MAX_BARS_PER_DAY);
+          const overflow = dayEvents.length - shown.length;
+
           return (
             <button
               key={i}
               onClick={() => onSelectDate(isSelected ? null : key)}
-              className={`relative aspect-square rounded-lg text-sm flex items-center justify-center ${
-                isSelected ? "bg-accent text-white font-semibold" : isToday ? "bg-accent/10 text-ink" : "text-ink"
+              className={`flex flex-col items-stretch rounded-lg p-0.5 text-left min-h-[3.25rem] ${
+                isSelected ? "bg-accent/15 ring-1 ring-accent" : isToday ? "bg-accent/5" : ""
               }`}
             >
-              {d}
-              {hasEvent && !isSelected && (
-                <span className="absolute bottom-1 w-1 h-1 rounded-full bg-accent" />
-              )}
+              <span className={`text-xs px-0.5 ${isToday ? "font-bold text-accent" : "text-ink"}`}>{d}</span>
+              <div className="flex flex-col gap-0.5 mt-0.5">
+                {shown.map((ev, j) => (
+                  <span
+                    key={j}
+                    className="text-[0.5625rem] leading-tight rounded px-1 py-[1px] truncate"
+                    style={{ background: ev.color, color: readableTextColor(ev.color) }}
+                    title={ev.title}
+                  >
+                    {ev.title}
+                  </span>
+                ))}
+                {overflow > 0 && <span className="text-[0.5625rem] text-inkfaint px-0.5">+{overflow} more</span>}
+              </div>
             </button>
           );
         })}

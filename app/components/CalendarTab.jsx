@@ -1,49 +1,122 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { CalendarRange } from "lucide-react";
 import EventCalendar from "./EventCalendar";
+import EmptyState from "./EmptyState";
+import { readableTextColor } from "@/lib/colorContrast";
+
+const DEFAULT_TILE_COLOR = "#4A5568";
+const CHURCH_WIDE_COLOR = "#16296B"; // the app's own brand navy, distinct from any ministry's tile color
+
+function fmtTime(t) {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+}
 
 // A calendar's whole point is showing everything at a glance -- so unlike
 // the global Events tab (deliberately church-wide only, matching News'
 // same scoping), this aggregates church-wide events with every event
 // from every ministry the signed-in user is actually an active member
-// of. Each event is tagged with where it came from so the day-detail
-// view stays clear about which is which.
+// of, color-coded by that ministry's own tile color, with a toggle to
+// show/hide each source -- same pattern as Canvas's academic calendar.
 export default function CalendarTab({ me }) {
-  const [events, setEvents] = useState(null);
+  const [rawEvents, setRawEvents] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [hiddenSources, setHiddenSources] = useState(new Set());
+
+  const myGroups = (me?.memberships || []).filter((m) => m.status === "active");
+
+  const sources = useMemo(
+    () => [
+      { id: "global", name: "Church-wide", color: CHURCH_WIDE_COLOR },
+      ...myGroups.map((m) => ({
+        id: m.group_id,
+        name: m.group?.name || "Ministry",
+        color: m.group?.tile_color || DEFAULT_TILE_COLOR,
+      })),
+    ],
+    [me]
+  );
 
   const load = useCallback(async () => {
-    const myGroupMemberships = (me?.memberships || []).filter((m) => m.status === "active");
-
     const [globalRes, ...groupResults] = await Promise.all([
       fetch("/api/global/events").then((r) => r.json()),
-      ...myGroupMemberships.map((m) =>
-        fetch(`/api/groups/${m.group_id}/events`).then((r) => r.json())
-      ),
+      ...myGroups.map((m) => fetch(`/api/groups/${m.group_id}/events`).then((r) => r.json())),
     ]);
 
-    const globalEvents = (globalRes.events || []).map((ev) => ({ ...ev, source: "Church-wide" }));
-    const groupEvents = myGroupMemberships.flatMap((m, i) =>
-      (groupResults[i]?.events || []).map((ev) => ({ ...ev, source: m.group?.name || "Ministry" }))
+    const globalEvents = (globalRes.events || []).map((ev) => ({
+      ...ev,
+      sourceId: "global",
+      sourceName: "Church-wide",
+      color: CHURCH_WIDE_COLOR,
+    }));
+    const groupEvents = myGroups.flatMap((m, i) =>
+      (groupResults[i]?.events || []).map((ev) => ({
+        ...ev,
+        sourceId: m.group_id,
+        sourceName: m.group?.name || "Ministry",
+        color: m.group?.tile_color || DEFAULT_TILE_COLOR,
+      }))
     );
 
-    setEvents([...globalEvents, ...groupEvents]);
+    setRawEvents([...globalEvents, ...groupEvents]);
   }, [me]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const dayEvents = selectedDate ? (events || []).filter((ev) => ev.event_date === selectedDate) : [];
+  const toggleSource = (id) => {
+    setHiddenSources((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const visibleEvents = (rawEvents || []).filter((ev) => !hiddenSources.has(ev.sourceId));
+
+  const dayEvents = selectedDate
+    ? visibleEvents
+        .filter((ev) => ev.event_date === selectedDate)
+        .sort((a, b) => (a.event_time || "99:99").localeCompare(b.event_time || "99:99"))
+    : [];
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <h2 className="font-serif text-2xl text-ink mb-4">Calendar</h2>
+      <h2 className="font-serif text-2xl text-ink mb-3">Calendar</h2>
 
-      {events === null && <p className="text-sm text-inkfaint">Loading…</p>}
-      {events !== null && (
-        <EventCalendar events={events} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+      {sources.length > 1 && (
+        <div className="flex flex-wrap gap-1.5 mb-4">
+          {sources.map((s) => {
+            const hidden = hiddenSources.has(s.id);
+            return (
+              <button
+                key={s.id}
+                onClick={() => toggleSource(s.id)}
+                className={`inline-flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 border ${
+                  hidden ? "border-line text-inkfaint" : "border-transparent"
+                }`}
+                style={hidden ? {} : { background: s.color, color: readableTextColor(s.color) }}
+              >
+                <span
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ background: hidden ? s.color : readableTextColor(s.color) }}
+                />
+                {s.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {rawEvents === null && <EmptyState icon={CalendarRange} text="Loading…" />}
+      {rawEvents !== null && (
+        <EventCalendar events={visibleEvents} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
       )}
 
       {selectedDate && (
@@ -56,24 +129,25 @@ export default function CalendarTab({ me }) {
             })}
           </p>
           {dayEvents.length === 0 && <p className="text-sm text-inkfaint">No events on this date.</p>}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {dayEvents.map((ev) => (
-              <div key={`${ev.source}-${ev.id}`} className="sp-card">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[0.625rem] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
-                    {ev.source}
-                  </span>
-                  <h3 className="font-medium text-ink">{ev.title}</h3>
-                </div>
-                {ev.event_time && <p className="text-sm text-inksoft">{ev.event_time}</p>}
-                {ev.location && <p className="text-sm text-inksoft">{ev.location}</p>}
+              <div
+                key={`${ev.sourceId}-${ev.id}`}
+                className="flex items-center gap-3 bg-card border border-line rounded-lg pl-0 pr-3 py-2.5 overflow-hidden"
+              >
+                <span className="w-1.5 self-stretch flex-shrink-0" style={{ background: ev.color }} />
+                <span className="text-xs text-inkfaint w-16 flex-shrink-0">
+                  {ev.event_time ? fmtTime(ev.event_time) : "All day"}
+                </span>
+                <span className="text-sm text-ink flex-1 truncate">{ev.title}</span>
+                <span className="text-[0.625rem] text-inkfaint flex-shrink-0">{ev.sourceName}</span>
               </div>
             ))}
           </div>
         </>
       )}
-      {!selectedDate && events?.length > 0 && (
-        <p className="text-sm text-inkfaint text-center">Tap a date with a dot to see its events.</p>
+      {!selectedDate && visibleEvents.length > 0 && (
+        <p className="text-sm text-inkfaint text-center">Tap a date to see its events.</p>
       )}
     </div>
   );

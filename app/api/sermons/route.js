@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { notifyGlobal } from "@/lib/push";
 
 export async function GET(req) {
   const user = await getCurrentUser(req);
@@ -46,5 +47,12 @@ export async function POST(req) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  notifyGlobal({
+    title: "New Sermon",
+    body: speaker?.trim() ? `${title.trim()} — ${speaker.trim()}` : title.trim(),
+    url: "/",
+  }).catch(() => {});
+
   return NextResponse.json({ sermon: data });
 }
