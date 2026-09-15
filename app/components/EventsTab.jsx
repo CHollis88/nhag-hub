@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search } from "lucide-react";
+import { Search, CalendarDays } from "lucide-react";
+import EmptyState from "./EmptyState";
 
 function RsvpControl({ event, onRsvp, expanded, onToggleExpanded, rsvpList }) {
   const buttons = [
@@ -121,6 +122,7 @@ export default function EventsTab({ isAdmin }) {
   const [needsVolunteers, setNeedsVolunteers] = useState(false);
   const [volunteersNeeded, setVolunteersNeeded] = useState(3);
   const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState(null);
   const [rsvpLists, setRsvpLists] = useState({});
@@ -228,6 +230,7 @@ export default function EventsTab({ isAdmin }) {
     setLocation("");
     setRepeat("");
     setNeedsVolunteers(false);
+    setShowForm(false);
     load();
   };
 
@@ -247,9 +250,16 @@ export default function EventsTab({ isAdmin }) {
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <h2 className="font-serif text-2xl text-ink mb-4">Church Events</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-serif text-2xl text-ink">Church Events</h2>
+        {isAdmin && (
+          <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
+            {showForm ? "Cancel" : "+ Add"}
+          </button>
+        )}
+      </div>
 
-      {isAdmin && (
+      {isAdmin && showForm && (
         <form onSubmit={submit} className="sp-card mb-4">
           <input
             value={title}
@@ -309,7 +319,7 @@ export default function EventsTab({ isAdmin }) {
         </form>
       )}
 
-      {events === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {events === null && <EmptyState icon={CalendarDays} text="Loading…" />}
       {events !== null && (
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />

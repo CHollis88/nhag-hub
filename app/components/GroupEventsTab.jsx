@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, List, CalendarDays } from "lucide-react";
 import EventCalendar from "./EventCalendar";
+import EmptyState from "./EmptyState";
 
 function ReplyThread({ groupId, eventId }) {
   const [replies, setReplies] = useState(null);
@@ -173,6 +174,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
   const [expandedVolunteerId, setExpandedVolunteerId] = useState(null);
   const [volunteerLists, setVolunteerLists] = useState({});
   const [query, setQuery] = useState("");
+  const [showForm, setShowForm] = useState(false);
   const [viewMode, setViewMode] = useState("list");
   const [selectedDate, setSelectedDate] = useState(null);
 
@@ -272,6 +274,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
       setLocation("");
       setRepeat("");
       setNeedsVolunteers(false);
+      setShowForm(false);
       load();
     }
   };
@@ -298,23 +301,30 @@ export default function GroupEventsTab({ groupId, canManage }) {
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <h2 className="font-serif text-2xl text-ink">Group Events</h2>
-        <div className="flex bg-paper rounded-lg p-0.5 border border-line">
-          <button
-            onClick={() => setViewMode("list")}
-            className={`p-1.5 rounded-md ${viewMode === "list" ? "bg-card text-accent" : "text-inkfaint"}`}
-            aria-label="List view"
-          >
-            <List size={16} />
-          </button>
-          <button
-            onClick={() => setViewMode("calendar")}
-            className={`p-1.5 rounded-md ${viewMode === "calendar" ? "bg-card text-accent" : "text-inkfaint"}`}
-            aria-label="Calendar view"
-          >
-            <CalendarDays size={16} />
-          </button>
+        <div className="flex items-center gap-2">
+          <div className="flex bg-paper rounded-lg p-0.5 border border-line">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-1.5 rounded-md ${viewMode === "list" ? "bg-card text-accent" : "text-inkfaint"}`}
+              aria-label="List view"
+            >
+              <List size={16} />
+            </button>
+            <button
+              onClick={() => setViewMode("calendar")}
+              className={`p-1.5 rounded-md ${viewMode === "calendar" ? "bg-card text-accent" : "text-inkfaint"}`}
+              aria-label="Calendar view"
+            >
+              <CalendarDays size={16} />
+            </button>
+          </div>
+          {canManage && (
+            <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
+              {showForm ? "Cancel" : "+ Add"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -322,7 +332,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
         <EventCalendar events={events || []} selectedDate={selectedDate} onSelectDate={setSelectedDate} />
       )}
 
-      {canManage && (
+      {canManage && showForm && (
         <form onSubmit={submit} className="sp-card mb-4">
           <input
             value={title}
@@ -381,7 +391,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
         </form>
       )}
 
-      {events === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {events === null && <EmptyState icon={CalendarDays} text="Loading…" />}
       {events !== null && (
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />

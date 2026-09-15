@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, ListMusic, Trash2, Pencil } from "lucide-react";
+import EmptyState from "./EmptyState";
 import SetlistForm from "./SetlistForm";
 
 function fmtDate(d) {
@@ -88,7 +89,7 @@ export default function SetlistsTab({ groupId, canManage }) {
     load();
   };
 
-  if (setlists === null) return <div className="px-5 pt-4"><p className="text-sm text-inkfaint">Loading…</p></div>;
+  if (setlists === null) return <div className="px-5 pt-4"><EmptyState icon={ListMusic} text="Loading…" /></div>;
 
   return (
     <div className="px-5 pt-4 pb-6">

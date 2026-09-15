@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { ChevronDown, ChevronUp, Search } from "lucide-react";
+import { readableTextColor } from "@/lib/colorContrast";
+import EmptyState from "./EmptyState";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 
@@ -31,8 +33,8 @@ function DirectoryEntry({ group, leaders, isMember }) {
           <img src={group.image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
         ) : (
           <div
-            className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center text-white font-serif text-sm"
-            style={{ background: bg }}
+            className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center font-serif text-sm"
+            style={{ background: bg, color: readableTextColor(bg) }}
           >
             {group.name?.[0]?.toUpperCase() || "?"}
           </div>
@@ -51,6 +53,7 @@ function DirectoryEntry({ group, leaders, isMember }) {
 
       {open && (
         <div className="px-3 pb-3 border-t border-linesoft pt-2">
+          {group.description && <p className="text-sm text-inksoft mb-2">{group.description}</p>}
           {!isMember ? (
             <p className="text-xs text-inkfaint">Join this ministry to see its full roster.</p>
           ) : members === null ? (
@@ -73,6 +76,7 @@ function DirectoryEntry({ group, leaders, isMember }) {
 
 export default function DirectoryView({ me, onClose }) {
   const [groups, setGroups] = useState(null);
+  const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
     const res = await fetch("/api/groups");
@@ -85,6 +89,15 @@ export default function DirectoryView({ me, onClose }) {
   }, [load]);
 
   const myGroupIds = new Set(me.memberships.filter((m) => m.status === "active").map((m) => m.group_id));
+
+  const filtered = useMemo(() => {
+    if (!groups) return [];
+    if (!query.trim()) return groups;
+    const q = query.toLowerCase();
+    return groups.filter(
+      (g) => g.name.toLowerCase().includes(q) || (g.leaders || []).some((l) => l.toLowerCase().includes(q))
+    );
+  }, [groups, query]);
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end z-[60]" onClick={onClose}>
@@ -101,9 +114,24 @@ export default function DirectoryView({ me, onClose }) {
           otherwise just its leaders are shown.
         </p>
 
-        {groups === null && <p className="text-sm text-inkfaint">Loading…</p>}
+        {groups !== null && groups.length > 3 && (
+          <div className="relative mb-3">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search ministries or leaders..."
+              className="sp-input pl-9"
+            />
+          </div>
+        )}
+
+        {groups === null && <EmptyState icon={Search} text="Loading…" />}
+        {groups?.length > 0 && filtered.length === 0 && (
+          <EmptyState icon={Search} text="No ministries match that search." />
+        )}
         <div className="space-y-2">
-          {groups?.map((g) => (
+          {filtered.map((g) => (
             <DirectoryEntry key={g.id} group={g} leaders={g.leaders} isMember={myGroupIds.has(g.id)} />
           ))}
         </div>

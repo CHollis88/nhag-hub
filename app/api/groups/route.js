@@ -23,7 +23,7 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data: groups, error } = await supabase
     .from("groups")
-    .select("id, name, type, features, image_url, tile_color, created_at")
+    .select("id, name, type, features, image_url, tile_color, description, created_at")
     .order("name", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

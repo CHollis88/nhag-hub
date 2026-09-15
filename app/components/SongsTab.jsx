@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Music, FileText, Guitar, FileMusic, Mic2, Trash2, Pencil, ExternalLink } from "lucide-react";
+import EmptyState from "./EmptyState";
 import SongForm from "./SongForm";
 
 const LINK_BUTTONS = [
@@ -122,7 +123,7 @@ export default function SongsTab({ groupId, canManage }) {
     load();
   };
 
-  if (songs === null) return <div className="px-5 pt-4"><p className="text-sm text-inkfaint">Loading…</p></div>;
+  if (songs === null) return <div className="px-5 pt-4"><EmptyState icon={Music} text="Loading…" /></div>;
 
   return (
     <div className="px-5 pt-4 pb-6">

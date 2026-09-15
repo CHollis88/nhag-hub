@@ -18,7 +18,7 @@ const TABS = [
   { key: "sermons", label: "Sermons", icon: Mic },
 ];
 
-export default function Sidebar({ tab, setTab }) {
+export default function Sidebar({ tab, setTab, badges = {} }) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -38,7 +38,12 @@ export default function Sidebar({ tab, setTab }) {
               active ? "font-semibold text-accent border-accent bg-accent/5" : "text-inkfaint border-transparent"
             }`}
           >
-            <Icon size={18} strokeWidth={active ? 2.3 : 1.8} className="flex-shrink-0" />
+            <span className="relative flex-shrink-0">
+              <Icon size={18} strokeWidth={active ? 2.3 : 1.8} />
+              {badges[key] && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent border border-card" />
+              )}
+            </span>
             {!collapsed && <span>{label}</span>}
           </button>
         );

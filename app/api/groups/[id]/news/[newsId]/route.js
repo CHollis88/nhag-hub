@@ -15,10 +15,11 @@ export async function PATCH(req, { params }) {
     );
   }
 
-  const { title, body } = await req.json();
+  const { title, body, pinned } = await req.json();
   const updates = { updated_at: new Date().toISOString() };
   if (title !== undefined) updates.title = title.trim();
   if (body !== undefined) updates.body = body.trim();
+  if (pinned !== undefined) updates.pinned = Boolean(pinned);
 
   const supabase = supabaseServer();
   const { data, error } = await supabase

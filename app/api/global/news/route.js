@@ -14,7 +14,8 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("global_news")
-    .select("id, title, body, category, created_at, users(display_name)")
+    .select("id, title, body, category, pinned, created_at, users(display_name)")
+    .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

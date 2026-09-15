@@ -23,7 +23,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("groups")
-    .select("id, name, type, features, image_url, tile_color, reading_plan_locked, reading_plan_id")
+    .select("id, name, type, features, image_url, tile_color, description, reading_plan_locked, reading_plan_id")
     .eq("id", id)
     .maybeSingle();
 
@@ -39,7 +39,7 @@ export async function PATCH(req, { params }) {
   }
 
   const { id } = await params;
-  const { name, type, features, tile_color, reading_plan_locked, reading_plan_id } = await req.json();
+  const { name, type, features, tile_color, description, reading_plan_locked, reading_plan_id } = await req.json();
 
   const updates = { updated_at: new Date().toISOString() };
 
@@ -65,6 +65,16 @@ export async function PATCH(req, { params }) {
       );
     }
     updates.type = type.trim();
+  }
+
+  if (description !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can change its description." },
+        { status: 403 }
+      );
+    }
+    updates.description = description.trim() || null;
   }
 
   // features stays admin-only -- enabling/disabling a whole module

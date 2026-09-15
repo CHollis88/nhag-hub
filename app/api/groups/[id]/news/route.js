@@ -18,8 +18,9 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("group_news")
-    .select("id, title, body, kind, created_at, users(display_name)")
+    .select("id, title, body, kind, pinned, created_at, users(display_name)")
     .eq("group_id", groupId)
+    .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

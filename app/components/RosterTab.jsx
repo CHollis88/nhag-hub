@@ -1,12 +1,16 @@
 "use client";
 
+import { Users } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { PLAN_LIST } from "@/lib/planRegistry";
+import { readableTextColor } from "@/lib/colorContrast";
+import EmptyState from "./EmptyState";
 
 function AppearancePanel({ groupId, onRenamed }) {
   const [group, setGroup] = useState(null);
   const [name, setName] = useState("");
   const [type, setType] = useState("");
+  const [description, setDescription] = useState("");
   const [color, setColor] = useState("#8B1E2F");
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
@@ -19,6 +23,7 @@ function AppearancePanel({ groupId, onRenamed }) {
       setGroup(data.group);
       setName(data.group.name);
       setType(data.group.type || "");
+      setDescription(data.group.description || "");
       setColor(data.group.tile_color || "#8B1E2F");
     }
   }, [groupId]);
@@ -44,7 +49,7 @@ function AppearancePanel({ groupId, onRenamed }) {
     const res = await fetch(`/api/groups/${groupId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: trimmedName, type: type.trim() }),
+      body: JSON.stringify({ name: trimmedName, type: type.trim(), description: description.trim() }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -91,8 +96,8 @@ function AppearancePanel({ groupId, onRenamed }) {
           <img src={group.image_url} alt="" className="w-16 h-16 rounded-xl object-cover" />
         ) : (
           <div
-            className="w-16 h-16 rounded-xl flex items-center justify-center text-white font-serif text-2xl"
-            style={{ background: color }}
+            className="w-16 h-16 rounded-xl flex items-center justify-center font-serif text-2xl"
+            style={{ background: color, color: readableTextColor(color) }}
           >
             {group.name?.[0]?.toUpperCase() || "?"}
           </div>
@@ -124,6 +129,13 @@ function AppearancePanel({ groupId, onRenamed }) {
           onChange={(e) => setType(e.target.value)}
           placeholder="Type / category label (optional)"
           className="sp-input"
+        />
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="What is this ministry? (shown to people considering joining)"
+          rows={3}
+          className="sp-textarea"
         />
         <button type="submit" className="sp-btn-secondary">Save</button>
       </form>
@@ -303,7 +315,7 @@ export default function RosterTab({ groupId, myRole, onRenamed }) {
       )}
 
       <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Members</p>
-      {active === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {active === null && <EmptyState icon={Users} text="Loading…" />}
       <div className="space-y-2">
         {active?.map((m) => (
           <div key={m.id} className="sp-card flex justify-between items-center">

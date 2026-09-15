@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, CalendarCheck } from "lucide-react";
 import { readableTextColor } from "@/lib/colorContrast";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MAX_BARS_PER_DAY = 2;
 
 function toDateKey(y, m, d) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -14,12 +13,26 @@ function toDateKey(y, m, d) {
 // events must each carry a `color` (hex) already resolved by the caller
 // -- this component just renders whatever color it's given, same as
 // Canvas's month view: small colored bars with a truncated title inside
-// each day cell, not a generic dot.
+// each day cell, not a generic dot. Desktop (>=768px) shows 2 bars per
+// day at its current size; narrower screens show just 1, with cells a
+// little shorter overall, to stay legible without losing the same
+// colored-bar-with-title treatment.
 export default function EventCalendar({ events, selectedDate, onSelectDate }) {
   const [viewMonth, setViewMonth] = useState(() => {
     const base = selectedDate ? new Date(selectedDate + "T00:00:00") : new Date();
     return { year: base.getFullYear(), month: base.getMonth() };
   });
+  const [isNarrow, setIsNarrow] = useState(true); // default to the more compact mobile treatment until measured
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    setIsNarrow(mq.matches);
+    const listener = (e) => setIsNarrow(e.matches);
+    mq.addEventListener("change", listener);
+    return () => mq.removeEventListener("change", listener);
+  }, []);
+
+  const maxBarsPerDay = isNarrow ? 1 : 2;
 
   const eventsByDate = useMemo(() => {
     const map = {};
@@ -105,30 +118,34 @@ export default function EventCalendar({ events, selectedDate, onSelectDate }) {
           const dayEvents = eventsByDate[key] || [];
           const isSelected = selectedDate === key;
           const isToday = key === todayKey;
-          const shown = dayEvents.slice(0, MAX_BARS_PER_DAY);
+          const shown = dayEvents.slice(0, maxBarsPerDay);
           const overflow = dayEvents.length - shown.length;
 
           return (
             <button
               key={i}
               onClick={() => onSelectDate(isSelected ? null : key)}
-              className={`flex flex-col items-stretch rounded-lg p-0.5 text-left min-h-[3.25rem] ${
+              className={`flex flex-col items-stretch rounded-lg p-0.5 text-left min-h-[2.75rem] md:min-h-[3.25rem] ${
                 isSelected ? "bg-accent/15 ring-1 ring-accent" : isToday ? "bg-accent/5" : ""
               }`}
             >
-              <span className={`text-xs px-0.5 ${isToday ? "font-bold text-accent" : "text-ink"}`}>{d}</span>
+              <span className={`text-[0.6875rem] md:text-xs px-0.5 ${isToday ? "font-bold text-accent" : "text-ink"}`}>
+                {d}
+              </span>
               <div className="flex flex-col gap-0.5 mt-0.5">
                 {shown.map((ev, j) => (
                   <span
                     key={j}
-                    className="text-[0.5625rem] leading-tight rounded px-1 py-[1px] truncate"
+                    className="text-[0.625rem] leading-tight rounded px-1 py-[1px] truncate"
                     style={{ background: ev.color, color: readableTextColor(ev.color) }}
                     title={ev.title}
                   >
                     {ev.title}
                   </span>
                 ))}
-                {overflow > 0 && <span className="text-[0.5625rem] text-inkfaint px-0.5">+{overflow} more</span>}
+                {overflow > 0 && (
+                  <span className="text-[0.625rem] text-inkfaint px-0.5">+{overflow}</span>
+                )}
               </div>
             </button>
           );

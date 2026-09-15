@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search } from "lucide-react";
+import { Search, Megaphone } from "lucide-react";
+import EmptyState from "./EmptyState";
 
 function PromotionQueue() {
   const [requests, setRequests] = useState(null);
@@ -59,6 +60,7 @@ export default function NewsTab({ isAdmin }) {
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("announcement");
   const [error, setError] = useState("");
+  const [showForm, setShowForm] = useState(false);
   const [query, setQuery] = useState("");
 
   const load = useCallback(async () => {
@@ -87,11 +89,21 @@ export default function NewsTab({ isAdmin }) {
     setTitle("");
     setBody("");
     setCategory("announcement");
+    setShowForm(false);
     load();
   };
 
   const remove = async (id) => {
     await fetch(`/api/global/news/${id}`, { method: "DELETE" });
+    load();
+  };
+
+  const togglePin = async (id, pinned) => {
+    await fetch(`/api/global/news/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned: !pinned }),
+    });
     load();
   };
 
@@ -104,11 +116,18 @@ export default function NewsTab({ isAdmin }) {
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <h2 className="font-serif text-2xl text-ink mb-4">Church News</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-serif text-2xl text-ink">Church News</h2>
+        {isAdmin && (
+          <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
+            {showForm ? "Cancel" : "+ Add"}
+          </button>
+        )}
+      </div>
 
       {isAdmin && <PromotionQueue />}
 
-      {isAdmin && (
+      {isAdmin && showForm && (
         <form onSubmit={submit} className="sp-card mb-4">
           <div className="flex gap-2 mb-2">
             <button
@@ -146,7 +165,7 @@ export default function NewsTab({ isAdmin }) {
         </form>
       )}
 
-      {news === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {news === null && <EmptyState icon={Megaphone} text="Loading…" />}
       {news !== null && (
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
@@ -164,8 +183,13 @@ export default function NewsTab({ isAdmin }) {
       )}
       <div className="space-y-2">
         {filtered.map((n) => (
-          <div key={n.id} className="sp-card">
-            <div className="flex items-center gap-2 mb-1">
+          <div key={n.id} className={`sp-card ${n.pinned ? "border-accent/40" : ""}`}>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              {n.pinned && (
+                <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
+                  📌 Pinned
+                </span>
+              )}
               {n.category === "pastor_message" && (
                 <span className="text-[0.625rem] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
                   Pastor's Message
@@ -179,9 +203,14 @@ export default function NewsTab({ isAdmin }) {
               {n.users?.display_name && ` · ${n.users.display_name}`}
             </p>
             {isAdmin && (
-              <button onClick={() => remove(n.id)} className="text-xs text-inkfaint mt-2 underline">
-                Delete
-              </button>
+              <div className="flex gap-3 mt-2">
+                <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
+                  {n.pinned ? "Unpin" : "Pin to top"}
+                </button>
+                <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
+                  Delete
+                </button>
+              </div>
             )}
           </div>
         ))}

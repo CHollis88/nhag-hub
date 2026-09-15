@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Heart } from "lucide-react";
+import EmptyState from "./EmptyState";
 
 export default function GroupPrayerTab({ groupId, canManage, currentUserId }) {
   const [prayer, setPrayer] = useState(null);
@@ -72,7 +73,7 @@ export default function GroupPrayerTab({ groupId, canManage, currentUserId }) {
         <button type="submit" className="sp-btn-primary">Submit</button>
       </form>
 
-      {prayer === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {prayer === null && <EmptyState icon={Heart} text="Loading…" />}
       {prayer?.length === 0 && <p className="text-sm text-inkfaint">No prayer requests yet.</p>}
       <div className="space-y-2">
         {prayer?.map((p) => {

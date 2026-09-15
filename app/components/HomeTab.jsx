@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import HomeGetStartedCard from "./HomeGetStartedCard";
+import { readableTextColor } from "@/lib/colorContrast";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 
@@ -21,8 +22,8 @@ function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin }) {
           />
         ) : (
           <div
-            className="w-14 h-14 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-xl flex-shrink-0 flex items-center justify-center text-white font-serif text-xl md:text-3xl lg:text-4xl mb-2 md:mb-3"
-            style={{ background: bg }}
+            className="w-14 h-14 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-xl flex-shrink-0 flex items-center justify-center font-serif text-xl md:text-3xl lg:text-4xl mb-2 md:mb-3"
+            style={{ background: bg, color: readableTextColor(bg) }}
           >
             {group.name?.[0]?.toUpperCase() || "?"}
           </div>
@@ -39,6 +40,9 @@ function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin }) {
           <p className="text-xs md:text-sm text-inkfaint mt-0.5">
             {myRole === "leader" ? "Ministry Leader" : "Member"}
           </p>
+        )}
+        {!isMember && group.description && (
+          <p className="text-xs md:text-sm text-inksoft mt-1.5 line-clamp-2">{group.description}</p>
         )}
 
         <div className="mt-auto pt-3 md:pt-4 w-full">

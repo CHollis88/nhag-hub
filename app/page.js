@@ -17,6 +17,7 @@ import AttributionView from "./components/AttributionView";
 import AdminToolboxView from "./components/AdminToolboxView";
 import DirectoryView from "./components/DirectoryView";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
+import { hasNewContent, markSeen } from "@/lib/lastSeen";
 
 function AuthCard({ children }) {
   return (
@@ -171,6 +172,7 @@ function SignInScreen({ authError }) {
 
 function AppShell({ me, refreshMe, onSignOut }) {
   const [tab, setTab] = useState("hub");
+  const [latestContent, setLatestContent] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
@@ -182,6 +184,30 @@ function AppShell({ me, refreshMe, onSignOut }) {
   useEffect(() => {
     if (isAdmin) setAdminModeOnState(isAdminModeOn());
   }, [isAdmin]);
+
+  useEffect(() => {
+    fetch("/api/notifications/latest")
+      .then((r) => r.json())
+      .then(setLatestContent)
+      .catch(() => {});
+  }, []);
+
+  const badges = latestContent
+    ? {
+        news: hasNewContent("news", latestContent.news),
+        events: hasNewContent("events", latestContent.events),
+        sermons: hasNewContent("sermons", latestContent.sermons),
+      }
+    : {};
+
+  // Switching to a tab that had a "new" dot marks it seen, clearing the
+  // dot -- same idea as any app's unread-badge behavior. Passed anywhere
+  // setTab would otherwise go, so every entry point into a top-level tab
+  // (bottom nav, sidebar, Home's own internal links) behaves the same way.
+  const switchTab = (nextTab) => {
+    markSeen(nextTab);
+    setTab(nextTab);
+  };
 
   const toggleAdminMode = () => {
     const next = !adminModeOn;
@@ -284,7 +310,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
       </header>
 
       <div className="flex flex-1 min-h-0">
-        <Sidebar tab={tab} setTab={setTab} />
+        <Sidebar tab={tab} setTab={switchTab} badges={badges} />
         <main className="flex-1 overflow-y-auto">
           {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
           {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
@@ -295,7 +321,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
               me={me}
               refreshMe={refreshMe}
               onOpenGroup={openGroup}
-              onGoToTab={setTab}
+              onGoToTab={switchTab}
               onOpenSettings={() => setSettingsOpen(true)}
               onOpenDirectory={() => setDirectoryOpen(true)}
             />
@@ -304,7 +330,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
         </main>
       </div>
 
-      <BottomNav tab={tab} setTab={setTab} />
+      <BottomNav tab={tab} setTab={switchTab} badges={badges} />
 
       {settingsOpen && (
         <SettingsView

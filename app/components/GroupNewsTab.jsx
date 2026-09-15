@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search } from "lucide-react";
+import { Search, Megaphone } from "lucide-react";
+import EmptyState from "./EmptyState";
 
 function ReplyThread({ groupId, newsId }) {
   const [replies, setReplies] = useState(null);
@@ -100,6 +101,15 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
     load();
   };
 
+  const togglePin = async (id, pinned) => {
+    await fetch(`/api/groups/${groupId}/news/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned: !pinned }),
+    });
+    load();
+  };
+
   const requestPromotion = async (id) => {
     setMessage("");
     const res = await fetch(`/api/groups/${groupId}/news/${id}/promote`, { method: "POST" });
@@ -161,7 +171,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
         </form>
       )}
 
-      {news === null && <p className="text-sm text-inkfaint">Loading…</p>}
+      {news === null && <EmptyState icon={Megaphone} text="Loading…" />}
       {news !== null && (
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
@@ -181,8 +191,13 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
         {filtered.map((n) => {
           const badge = KIND_LABELS[n.kind];
           return (
-            <div key={n.id} className="sp-card">
-              <div className="flex items-center gap-2 mb-1">
+            <div key={n.id} className={`sp-card ${n.pinned ? "border-accent/40" : ""}`}>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                {n.pinned && (
+                  <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
+                    📌 Pinned
+                  </span>
+                )}
                 {badge && (
                   <span className={`text-[0.625rem] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${badge.className}`}>
                     {badge.text}
@@ -196,7 +211,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
                 {n.users?.display_name && ` · ${n.users.display_name}`}
               </p>
 
-              <div className="flex gap-3 mt-2">
+              <div className="flex gap-3 mt-2 flex-wrap">
                 {n.kind === "discuss" && (
                   <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} className="text-xs text-accent underline">
                     {openThread === n.id ? "Hide replies" : "Replies"}
@@ -204,6 +219,9 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
                 )}
                 {canManage && (
                   <>
+                    <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
+                      {n.pinned ? "Unpin" : "Pin to top"}
+                    </button>
                     {n.kind !== "class" && (
                       <button onClick={() => requestPromotion(n.id)} className="text-xs text-accent underline">
                         Request promote to church-wide
