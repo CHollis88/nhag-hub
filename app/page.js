@@ -289,7 +289,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
           {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
           {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
           {tab === "sermons" && <SermonsTab isAdmin={me.user.is_church_admin} />}
-          {tab === "calendar" && <CalendarTab />}
+          {tab === "calendar" && <CalendarTab me={me} />}
           {tab === "hub" && (
             <HomeTab
               me={me}
