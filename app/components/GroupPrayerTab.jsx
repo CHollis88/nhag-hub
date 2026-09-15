@@ -1,20 +1,33 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Heart, Pencil } from "lucide-react";
+import { Heart, Pencil, RefreshCw } from "lucide-react";
 import EmptyState from "./EmptyState";
 
 export default function GroupPrayerTab({ groupId, canManage }) {
   const [prayer, setPrayer] = useState(null);
+  const [loadError, setLoadError] = useState("");
   const [body, setBody] = useState("");
   const [anonymous, setAnonymous] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editBody, setEditBody] = useState("");
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/prayer`);
-    const data = await res.json();
-    if (res.ok) setPrayer(data.prayer);
+    setLoadError("");
+    try {
+      const res = await fetch(`/api/groups/${groupId}/prayer`);
+      const data = await res.json();
+      if (res.ok) {
+        setPrayer(data.prayer);
+      } else {
+        // A failed load used to leave the screen stuck on "Loading…"
+        // forever with no explanation -- now it actually says what went
+        // wrong and offers a way to try again, instead of hanging silently.
+        setLoadError(data.error || "Couldn't load prayer requests.");
+      }
+    } catch {
+      setLoadError("Couldn't reach the server. Check your connection and try again.");
+    }
   }, [groupId]);
 
   useEffect(() => {
@@ -72,7 +85,12 @@ export default function GroupPrayerTab({ groupId, canManage }) {
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <h2 className="font-serif text-2xl text-ink mb-4">Prayer Requests</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="font-serif text-2xl text-ink">Prayer Requests</h2>
+        <button onClick={load} aria-label="Refresh" title="Refresh" className="text-inkfaint p-1">
+          <RefreshCw size={16} />
+        </button>
+      </div>
 
       <form onSubmit={submit} className="sp-card mb-4">
         <textarea
@@ -90,7 +108,15 @@ export default function GroupPrayerTab({ groupId, canManage }) {
         <button type="submit" className="sp-btn-primary">Submit</button>
       </form>
 
-      {prayer === null && <EmptyState icon={Heart} text="Loading…" />}
+      {prayer === null && !loadError && <EmptyState icon={Heart} text="Loading…" />}
+      {loadError && (
+        <div className="sp-card border-red-200 dark:border-red-900 mb-2">
+          <p className="text-sm text-red-600 dark:text-red-400 mb-2">{loadError}</p>
+          <button onClick={load} className="sp-btn-secondary py-1.5 px-3 text-sm flex items-center gap-1.5 w-fit">
+            <RefreshCw size={13} /> Try again
+          </button>
+        </div>
+      )}
       {prayer?.length === 0 && <p className="text-sm text-inkfaint">No prayer requests yet.</p>}
       <div className="space-y-2">
         {prayer?.map((p) => {
