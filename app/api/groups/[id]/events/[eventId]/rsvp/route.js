@@ -45,6 +45,17 @@ export async function POST(req, { params }) {
   }
 
   const supabase = supabaseServer();
+  const { data: event, error: eventError } = await supabase
+    .from("group_events")
+    .select("allow_rsvp")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (eventError) return NextResponse.json({ error: eventError.message }, { status: 500 });
+  if (!event) return NextResponse.json({ error: "Event not found." }, { status: 404 });
+  if (!event.allow_rsvp) {
+    return NextResponse.json({ error: "RSVP is turned off for this event." }, { status: 403 });
+  }
+
   const { data, error } = await supabase
     .from("group_event_rsvps")
     .upsert(

@@ -52,6 +52,12 @@ function ReplyThread({ groupId, eventId }) {
   );
 }
 
+// Same fixed spans as the global Events tab -- see EventsTab.jsx for the
+// reasoning (no user-facing picker; a bare unlabeled number wasn't
+// self-explanatory, and weekly recurrence isn't tied to a specific
+// month's day-of-week count anyway).
+const DEFAULT_REPEAT_COUNT = { weekly: 13, biweekly: 13, monthly: 12 };
+
 function RsvpControl({ event, onRsvp, expanded, onToggleExpanded, rsvpList }) {
   const buttons = [
     { key: "yes", label: "Yes" },
@@ -166,8 +172,8 @@ export default function GroupEventsTab({ groupId, canManage }) {
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [repeat, setRepeat] = useState("");
-  const [repeatCount, setRepeatCount] = useState(4);
   const [needsVolunteers, setNeedsVolunteers] = useState(false);
+  const [allowRsvp, setAllowRsvp] = useState(true);
   const [allowReplies, setAllowReplies] = useState(true);
   const [volunteersNeeded, setVolunteersNeeded] = useState(3);
   const [openThread, setOpenThread] = useState(null);
@@ -265,9 +271,10 @@ export default function GroupEventsTab({ groupId, canManage }) {
         event_time: time,
         location,
         repeat: repeat || null,
-        repeat_count: repeat ? repeatCount : null,
+        repeat_count: repeat ? DEFAULT_REPEAT_COUNT[repeat] : null,
         volunteers_needed: needsVolunteers ? volunteersNeeded : null,
         allow_replies: allowReplies,
+        allow_rsvp: allowRsvp,
       }),
     });
     if (res.ok) {
@@ -278,6 +285,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
       setRepeat("");
       setNeedsVolunteers(false);
       setAllowReplies(true);
+      setAllowRsvp(true);
       setShowForm(false);
       load();
     }
@@ -367,29 +375,22 @@ export default function GroupEventsTab({ groupId, canManage }) {
             className="sp-input mb-2"
           />
 
-          <div className="flex gap-2 mb-2">
-            <select value={repeat} onChange={(e) => setRepeat(e.target.value)} className="sp-input flex-1">
+          <div className="mb-2">
+            <select value={repeat} onChange={(e) => setRepeat(e.target.value)} className="sp-input">
               <option value="">Doesn't repeat</option>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Every 2 weeks</option>
               <option value="monthly">Monthly</option>
             </select>
-            {repeat && (
-              <input
-                type="number"
-                min="2"
-                max="26"
-                value={repeatCount}
-                onChange={(e) => setRepeatCount(e.target.value)}
-                className="sp-input w-24"
-                title="Number of occurrences"
-              />
-            )}
           </div>
 
           <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
             <input type="checkbox" checked={needsVolunteers} onChange={(e) => setNeedsVolunteers(e.target.checked)} />
             This event needs volunteers
+          </label>
+          <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+            <input type="checkbox" checked={allowRsvp} onChange={(e) => setAllowRsvp(e.target.checked)} />
+            Allow RSVPs on this event
           </label>
           <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
             <input type="checkbox" checked={allowReplies} onChange={(e) => setAllowReplies(e.target.checked)} />
@@ -448,13 +449,15 @@ export default function GroupEventsTab({ groupId, canManage }) {
             </p>
             {ev.location && <p className="text-sm text-inksoft mt-1">{ev.location}</p>}
 
-            <RsvpControl
-              event={ev}
-              onRsvp={rsvp}
-              expanded={expandedRsvpId === ev.id}
-              onToggleExpanded={toggleRsvpExpanded}
-              rsvpList={rsvpLists[ev.id]}
-            />
+            {ev.allow_rsvp && (
+              <RsvpControl
+                event={ev}
+                onRsvp={rsvp}
+                expanded={expandedRsvpId === ev.id}
+                onToggleExpanded={toggleRsvpExpanded}
+                rsvpList={rsvpLists[ev.id]}
+              />
+            )}
             <VolunteerControl
               event={ev}
               onSignUp={signUpVolunteer}

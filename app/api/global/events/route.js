@@ -14,7 +14,7 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data: events, error } = await supabase
     .from("global_events")
-    .select("id, title, event_date, event_time, location, notes, volunteers_needed, recurrence_group_id")
+    .select("id, title, event_date, event_time, location, notes, volunteers_needed, allow_rsvp, recurrence_group_id")
     .order("event_date", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -62,7 +62,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { title, event_date, event_time, location, notes, volunteers_needed, repeat, repeat_count } = await req.json();
+  const { title, event_date, event_time, location, notes, volunteers_needed, allow_rsvp, repeat, repeat_count } = await req.json();
   if (!title?.trim() || !event_date) {
     return NextResponse.json({ error: "title and event_date are required." }, { status: 400 });
   }
@@ -77,6 +77,7 @@ export async function POST(req) {
     location: location || null,
     notes: notes || null,
     volunteers_needed: volunteers_needed ? Number(volunteers_needed) : null,
+    allow_rsvp: allow_rsvp === undefined ? true : Boolean(allow_rsvp),
     recurrence_group_id: recurrenceGroupId,
     created_by: user.id,
   }));

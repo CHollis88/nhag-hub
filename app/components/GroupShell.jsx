@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Music, ListMusic, Home, BookOpen, NotebookPen } from "lucide-react";
+import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings } from "lucide-react";
 import GroupBottomNav from "./GroupBottomNav";
 import GroupSidebar from "./GroupSidebar";
 import GroupNewsTab from "./GroupNewsTab";
@@ -163,9 +163,9 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
         <button
           onClick={() => setSettingsOpen(true)}
           aria-label="Settings"
-          className="border border-white/40 rounded px-2 py-1 text-xs"
+          className="text-white/90 p-1"
         >
-          ⚙
+          <Settings size={22} />
         </button>
       </header>
 

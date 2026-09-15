@@ -5,6 +5,16 @@ import { Search, CalendarDays } from "lucide-react";
 import EmptyState from "./EmptyState";
 import { formatTime12h } from "@/lib/formatTime";
 
+// Fixed occurrence counts per interval -- no user-facing picker for this
+// anymore, since a bare number with no context ("4") wasn't
+// self-explanatory (especially with no visible label on mobile) and
+// wasn't tied to any real calendar meaning (a 5-Sunday month isn't a
+// special case here -- weekly recurrence is just "every 7 days", not
+// "every Sunday this month"). These spans are simply long enough to
+// cover a real season of recurring events without needing to be reset
+// constantly, well under the 26-occurrence cap in lib/recurrence.js.
+const DEFAULT_REPEAT_COUNT = { weekly: 13, biweekly: 13, monthly: 12 };
+
 function RsvpControl({ event, onRsvp, expanded, onToggleExpanded, rsvpList }) {
   const buttons = [
     { key: "yes", label: "Yes" },
@@ -119,8 +129,8 @@ export default function EventsTab({ isAdmin }) {
   const [time, setTime] = useState("");
   const [location, setLocation] = useState("");
   const [repeat, setRepeat] = useState("");
-  const [repeatCount, setRepeatCount] = useState(4);
   const [needsVolunteers, setNeedsVolunteers] = useState(false);
+  const [allowRsvp, setAllowRsvp] = useState(true);
   const [volunteersNeeded, setVolunteersNeeded] = useState(3);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -216,8 +226,9 @@ export default function EventsTab({ isAdmin }) {
         event_time: time,
         location,
         repeat: repeat || null,
-        repeat_count: repeat ? repeatCount : null,
+        repeat_count: repeat ? DEFAULT_REPEAT_COUNT[repeat] : null,
         volunteers_needed: needsVolunteers ? volunteersNeeded : null,
+        allow_rsvp: allowRsvp,
       }),
     });
     const data = await res.json();
@@ -231,6 +242,7 @@ export default function EventsTab({ isAdmin }) {
     setLocation("");
     setRepeat("");
     setNeedsVolunteers(false);
+    setAllowRsvp(true);
     setShowForm(false);
     load();
   };
@@ -291,29 +303,22 @@ export default function EventsTab({ isAdmin }) {
             className="sp-input mb-2"
           />
 
-          <div className="flex gap-2 mb-2">
-            <select value={repeat} onChange={(e) => setRepeat(e.target.value)} className="sp-input flex-1">
+          <div className="mb-2">
+            <select value={repeat} onChange={(e) => setRepeat(e.target.value)} className="sp-input">
               <option value="">Doesn't repeat</option>
               <option value="weekly">Weekly</option>
               <option value="biweekly">Every 2 weeks</option>
               <option value="monthly">Monthly</option>
             </select>
-            {repeat && (
-              <input
-                type="number"
-                min="2"
-                max="26"
-                value={repeatCount}
-                onChange={(e) => setRepeatCount(e.target.value)}
-                className="sp-input w-24"
-                title="Number of occurrences"
-              />
-            )}
           </div>
 
           <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
             <input type="checkbox" checked={needsVolunteers} onChange={(e) => setNeedsVolunteers(e.target.checked)} />
             This event needs volunteers
+          </label>
+          <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+            <input type="checkbox" checked={allowRsvp} onChange={(e) => setAllowRsvp(e.target.checked)} />
+            Allow RSVPs on this event
           </label>
           {needsVolunteers && (
             <input
@@ -364,13 +369,15 @@ export default function EventsTab({ isAdmin }) {
             </p>
             {ev.location && <p className="text-sm text-inksoft mt-1">{ev.location}</p>}
 
-            <RsvpControl
-              event={ev}
-              onRsvp={rsvp}
-              expanded={expandedId === ev.id}
-              onToggleExpanded={toggleExpanded}
-              rsvpList={rsvpLists[ev.id]}
-            />
+            {ev.allow_rsvp && (
+              <RsvpControl
+                event={ev}
+                onRsvp={rsvp}
+                expanded={expandedId === ev.id}
+                onToggleExpanded={toggleExpanded}
+                rsvpList={rsvpLists[ev.id]}
+              />
+            )}
             <VolunteerControl
               event={ev}
               onSignUp={signUpVolunteer}

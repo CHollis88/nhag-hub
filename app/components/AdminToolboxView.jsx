@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { Wrench } from "lucide-react";
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -140,7 +141,7 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
       >
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-serif text-xl text-ink m-0 flex items-center gap-2">
-            <span>🧰</span> Admin Toolbox
+            <Wrench size={18} className="text-inkfaint" /> Admin Toolbox
           </h2>
           <button onClick={onClose} className="text-2xl text-inkfaint leading-none">×</button>
         </div>
