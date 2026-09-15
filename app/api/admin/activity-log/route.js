@@ -11,7 +11,7 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("admin_activity_log")
-    .select("id, action, details, created_at, users(display_name)")
+    .select("id, action, details, created_at, users!actor_id(display_name)")
     .order("created_at", { ascending: false })
     .limit(50);
 

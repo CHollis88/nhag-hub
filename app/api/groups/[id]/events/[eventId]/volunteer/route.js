@@ -11,7 +11,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("group_event_volunteers")
-    .select("user_id, created_at, users(display_name)")
+    .select("user_id, created_at, users!user_id(display_name)")
     .eq("event_id", eventId)
     .order("created_at", { ascending: true });
 

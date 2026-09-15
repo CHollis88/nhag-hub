@@ -1,109 +1,30 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import BottomNav from "./components/BottomNav";
-import Sidebar from "./components/Sidebar";
-import HomeTab from "./components/HomeTab";
-import NewsTab from "./components/NewsTab";
-import EventsTab from "./components/EventsTab";
-import BibleTab from "./components/BibleTab";
-import SermonsTab from "./components/SermonsTab";
-import CalendarTab from "./components/CalendarTab";
-import GroupShell from "./components/GroupShell";
-import SettingsView from "./components/SettingsView";
-import HelpView from "./components/HelpView";
-import AttributionView from "./components/AttributionView";
-import AdminToolboxView from "./components/AdminToolboxView";
-import DirectoryView from "./components/DirectoryView";
-import NotificationsView from "./components/NotificationsView";
-import NotifyBanner, { shouldShowNotifyBanner } from "./components/NotifyBanner";
-import ProfileView from "./components/ProfileView";
-import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle } from "lucide-react";
-import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
-import { hasNewContent, markSeen } from "@/lib/lastSeen";
+import { useState } from "react";
 
-function AuthCard({ children }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-navydeep">
-      <div className="max-w-[420px] w-full p-8 rounded-2xl text-center bg-card shadow-2xl">
-        <img
-          src="/icon-192.png"
-          alt="North Hodge Assembly of God"
-          className="w-24 h-24 mx-auto mb-4 block rounded-xl"
-        />
-        {children}
-      </div>
-    </div>
-  );
-}
-
-function EmailLinkForm({ onSent }) {
-  const [email, setEmail] = useState("");
+export default function SetupPage() {
+  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/request-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
-      onSent(email);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+
+    if (pin !== confirmPin) {
+      setError("PINs don't match.");
+      return;
     }
-  };
 
-  return (
-    <form onSubmit={submit}>
-      <input
-        type="email"
-        required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="you@example.com"
-        className="sp-input mb-3"
-      />
-      <button type="submit" disabled={loading} className="sp-btn-primary w-full">
-        {loading ? "Sending…" : "Send me a sign-in link"}
-      </button>
-      {error && <p className="text-sm mt-3 text-red-600 dark:text-red-400">{error}</p>}
-    </form>
-  );
-}
-
-// PIN is the primary, day-to-day sign-in -- it works identically in any
-// browser context, including an already-installed iOS home-screen app,
-// where a magic link cannot reach (Safari and an installed PWA have
-// separate, isolated storage on iOS, by Apple's design). Email is only
-// ever offered as the secondary path: first-time setup, or recovering a
-// forgotten PIN.
-function SignInScreen({ authError }) {
-  const [mode, setMode] = useState("pin"); // "pin" | "email"
-  const [username, setUsername] = useState("");
-  const [pin, setPin] = useState("");
-  const [error, setError] = useState(authError || "");
-  const [loading, setLoading] = useState(false);
-  const [emailSentTo, setEmailSentTo] = useState(null);
-
-  const submitPin = async (e) => {
-    e.preventDefault();
-    setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/pin-login", {
+      const res = await fetch("/api/auth/complete-signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, pin }),
+        body: JSON.stringify({ username, display_name: displayName, pin }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Something went wrong.");
@@ -114,392 +35,61 @@ function SignInScreen({ authError }) {
     }
   };
 
-  if (emailSentTo) {
-    return (
-      <AuthCard>
-        <h2 className="font-serif text-xl text-ink mb-2">Check your email</h2>
-        <p className="text-sm text-inksoft">
-          We sent a sign-in link to <strong className="text-ink">{emailSentTo}</strong>. Click it
-          to continue — it expires in 15 minutes.
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6 bg-navydeep">
+      <div className="max-w-[420px] w-full p-8 rounded-2xl bg-card">
+        <h2 className="font-serif text-xl text-ink mb-1">Finish setting up your account</h2>
+        <p className="text-sm text-inkfaint mb-5">
+          Your PIN is how you'll sign in from now on — pick one you'll remember.
         </p>
-      </AuthCard>
-    );
-  }
-
-  return (
-    <AuthCard>
-      <h2 className="font-serif text-xl text-ink mb-0.5">North Hodge Assembly of God</h2>
-      <p className="text-inkfaint text-sm mt-0 mb-4">Sign in to continue</p>
-
-      {mode === "pin" ? (
-        <>
-          <form onSubmit={submitPin}>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Username"
-              autoCapitalize="none"
-              required
-              className="sp-input mb-3"
-            />
-            <input
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-              placeholder="PIN"
-              inputMode="numeric"
-              required
-              className="sp-input mb-3"
-            />
-            <button type="submit" disabled={loading} className="sp-btn-primary w-full">
-              {loading ? "Signing in…" : "Sign In"}
-            </button>
-          </form>
-          {error && <p className="text-sm mt-3 text-red-600 dark:text-red-400">{error}</p>}
-          <button onClick={() => { setMode("email"); setError(""); }} className="text-xs text-accent underline mt-4">
-            First time here, or forgot your PIN?
-          </button>
-        </>
-      ) : (
-        <>
-          <p className="text-sm text-inksoft mb-4">
-            Enter your email — we'll send a link to sign in and set (or reset) your PIN.
-          </p>
-          <EmailLinkForm onSent={setEmailSentTo} />
-          <button onClick={() => { setMode("pin"); setError(""); }} className="text-xs text-accent underline mt-4">
-            ← Back to PIN sign-in
-          </button>
-        </>
-      )}
-    </AuthCard>
-  );
-}
-
-function AppShell({ me, refreshMe, onSignOut }) {
-  const [tab, setTab] = useState("hub");
-  const [latestContent, setLatestContent] = useState(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [attributionOpen, setAttributionOpen] = useState(false);
-  const [adminToolboxOpen, setAdminToolboxOpen] = useState(false);
-  const [directoryOpen, setDirectoryOpen] = useState(false);
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [showNotifyBanner, setShowNotifyBanner] = useState(false);
-  const [profileViewOpen, setProfileViewOpen] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [adminModeOn, setAdminModeOnState] = useState(true);
-  const isAdmin = me.user.is_church_admin;
-
-  // Register the service worker once on load -- without this, push
-  // notifications can never arrive: there's nothing installed in the
-  // browser to receive a push event and actually show it, regardless of
-  // whether the subscription/VAPID setup is otherwise correct.
-  useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
-  }, []);
-
-  // Prompt for push a moment after landing, same delay YA uses -- gives
-  // the page a beat to settle before asking, rather than an instant
-  // permission dialog on load.
-  useEffect(() => {
-    if (shouldShowNotifyBanner()) {
-      const t = setTimeout(() => setShowNotifyBanner(true), 1500);
-      return () => clearTimeout(t);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (isAdmin) setAdminModeOnState(isAdminModeOn());
-  }, [isAdmin]);
-
-  useEffect(() => {
-    fetch("/api/notifications/latest")
-      .then((r) => r.json())
-      .then(setLatestContent)
-      .catch(() => {});
-  }, []);
-
-  const loadUnreadCount = () => {
-    fetch("/api/notifications")
-      .then((r) => r.json())
-      .then((data) => setUnreadCount((data.notifications || []).filter((n) => !n.read).length))
-      .catch(() => {});
-  };
-
-  useEffect(() => {
-    loadUnreadCount();
-  }, []);
-
-  const badges = latestContent
-    ? {
-        news: hasNewContent("news", latestContent.news),
-        events: hasNewContent("events", latestContent.events),
-        sermons: hasNewContent("sermons", latestContent.sermons),
-      }
-    : {};
-
-  // Switching to a tab that had a "new" dot marks it seen, clearing the
-  // dot -- same idea as any app's unread-badge behavior. Passed anywhere
-  // setTab would otherwise go, so every entry point into a top-level tab
-  // (bottom nav, sidebar, Home's own internal links) behaves the same way.
-  const switchTab = (nextTab) => {
-    markSeen(nextTab);
-    setTab(nextTab);
-  };
-
-  const toggleAdminMode = () => {
-    const next = !adminModeOn;
-    setAdminMode(next);
-    setAdminModeOnState(next);
-  };
-  const [activeGroup, setActiveGroup] = useState(null); // { id, name, role, features } | null
-  const [bibleOverlay, setBibleOverlay] = useState(null); // { book, chapter } | null
-
-  const openGroup = (id, name, role, features) => setActiveGroup({ id, name, role, features: features || [] });
-  const backToHub = () => {
-    setActiveGroup(null);
-    setTab("hub");
-  };
-
-  // Lets Reading Plan (or anything else nested inside a group) jump into
-  // the universal Bible tab at a specific passage without losing your
-  // place in the group. activeGroup is deliberately never cleared here --
-  // closing the overlay just returns to whatever was already being shown
-  // (same group, same day, same subtab), because nothing about that state
-  // was touched.
-  const openBiblePassage = (book, chapter) => setBibleOverlay({ book, chapter });
-  const closeBibleOverlay = () => setBibleOverlay(null);
-
-  if (bibleOverlay) {
-    return (
-      <div className="h-dvh flex flex-col bg-paper overflow-hidden">
-        <header
-          className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-[#132560] text-white"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
-        >
-          <button onClick={closeBibleOverlay} className="text-sm">
-            {activeGroup ? `← Back to ${activeGroup.name}` : "← Back"}
-          </button>
-        </header>
-        <main className="flex-1">
-          <BibleTab
-            deviceId={me.user.id}
-            target={{ bookAbbr: bibleOverlay.book, startChapter: bibleOverlay.chapter }}
+        <form onSubmit={submit}>
+          <label className="block text-sm text-inksoft mb-1">Username</label>
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="jsmith"
+            required
+            className="sp-input mb-1"
           />
-        </main>
+          <p className="text-xs text-inkfaint mt-0 mb-4">
+            Lowercase letters, numbers, and underscores only. 3–20 characters.
+          </p>
+
+          <label className="block text-sm text-inksoft mb-1">Display name</label>
+          <input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Jane Smith"
+            required
+            className="sp-input mb-4"
+          />
+
+          <label className="block text-sm text-inksoft mb-1">Choose a PIN</label>
+          <input
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+            placeholder="4–8 digits"
+            inputMode="numeric"
+            required
+            className="sp-input mb-4"
+          />
+
+          <label className="block text-sm text-inksoft mb-1">Confirm PIN</label>
+          <input
+            value={confirmPin}
+            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+            placeholder="Re-enter your PIN"
+            inputMode="numeric"
+            required
+            className="sp-input mb-5"
+          />
+
+          <button type="submit" disabled={loading} className="sp-btn-primary w-full">
+            {loading ? "Saving…" : "Continue"}
+          </button>
+        </form>
+        {error && <p className="text-sm mt-3 text-red-600 dark:text-red-400">{error}</p>}
       </div>
-    );
-  }
-
-  if (activeGroup) {
-    return (
-      <GroupShell
-        group={{ ...activeGroup, isAdmin: me.user.is_church_admin }}
-        myRole={activeGroup.role}
-        currentUserId={me.user.id}
-        onBackToHub={backToHub}
-        onOpenBiblePassage={openBiblePassage}
-      />
-    );
-  }
-
-  return (
-    <div className="h-dvh flex flex-col bg-paper overflow-hidden">
-      <header
-        className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-[#132560] text-white"
-        style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
-      >
-        <div className="flex items-center gap-2.5">
-          <img src="/icon-192.png" alt="" className="w-8 h-8 rounded" />
-          <strong
-            className="font-serif tracking-wide"
-            style={{
-              color: "#fff",
-              textShadow:
-                "-1px -1px 0 #C41E28, 1px -1px 0 #C41E28, -1px 1px 0 #C41E28, 1px 1px 0 #C41E28, 2px 2px 3px rgba(0,0,0,0.7)",
-            }}
-          >
-            <span className="hidden sm:inline">North Hodge Assembly of God</span>
-            <span className="sm:hidden">NHAG</span>
-          </strong>
-        </div>
-        <div className="flex items-center gap-1.5 relative">
-          {isAdmin && adminModeOn && (
-            <button
-              onClick={() => setAdminToolboxOpen(true)}
-              aria-label="Admin Toolbox"
-              title="Admin Toolbox"
-              className="text-white/90 p-1"
-            >
-              <Wrench size={22} />
-            </button>
-          )}
-          <button
-            onClick={() => setNotificationsOpen(true)}
-            aria-label="Notifications"
-            title="Notifications"
-            className="relative text-white/90 p-1"
-          >
-            <Bell size={22} />
-            {unreadCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-white" />
-            )}
-          </button>
-          <button
-            onClick={() => setHelpOpen(true)}
-            aria-label="Help & FAQ"
-            title="Help & FAQ"
-            className="text-white/90 p-1"
-          >
-            <HelpCircle size={22} />
-          </button>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Settings"
-            title="Settings"
-            className="text-white/90 p-1"
-          >
-            <Settings size={22} />
-          </button>
-          <button
-            onClick={() => setProfileMenuOpen((o) => !o)}
-            aria-label="Profile"
-            title={me.user.display_name}
-            className="text-white/90 p-1"
-          >
-            <UserCircle size={24} />
-          </button>
-
-          {profileMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
-              <div className="absolute right-0 top-full mt-2 bg-card text-ink rounded-xl shadow-xl border border-line py-1.5 w-44 z-50">
-                <p className="px-3.5 py-1.5 text-sm text-ink font-medium truncate border-b border-linesoft mb-1">
-                  {me.user.display_name}
-                </p>
-                <button
-                  onClick={() => {
-                    setProfileMenuOpen(false);
-                    setProfileViewOpen(true);
-                  }}
-                  className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-inksoft"
-                >
-                  <KeyRound size={14} /> Edit Profile
-                </button>
-                <button
-                  onClick={onSignOut}
-                  className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-inksoft"
-                >
-                  <LogOut size={14} /> Sign out
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </header>
-
-      {showNotifyBanner && <NotifyBanner onDone={() => setShowNotifyBanner(false)} />}
-
-      <div className="flex flex-1 min-h-0">
-        <Sidebar tab={tab} setTab={switchTab} badges={badges} />
-        <main className="flex-1 overflow-y-auto">
-          {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
-          {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
-          {tab === "sermons" && <SermonsTab isAdmin={me.user.is_church_admin} />}
-          {tab === "calendar" && <CalendarTab me={me} />}
-          {tab === "hub" && (
-            <HomeTab
-              me={me}
-              refreshMe={refreshMe}
-              onOpenGroup={openGroup}
-              onGoToTab={switchTab}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onOpenDirectory={() => setDirectoryOpen(true)}
-            />
-          )}
-          {tab === "bible" && <BibleTab deviceId={me.user.id} />}
-        </main>
-      </div>
-
-      <BottomNav tab={tab} setTab={switchTab} badges={badges} />
-
-      {settingsOpen && (
-        <SettingsView
-          me={me}
-          refreshMe={refreshMe}
-          isAdmin={me.user.is_church_admin}
-          adminModeOn={adminModeOn}
-          onToggleAdminMode={toggleAdminMode}
-          onClose={() => setSettingsOpen(false)}
-          onOpenHelp={() => {
-            setSettingsOpen(false);
-            setHelpOpen(true);
-          }}
-          onOpenAttribution={() => {
-            setSettingsOpen(false);
-            setAttributionOpen(true);
-          }}
-        />
-      )}
-      {helpOpen && <HelpView onClose={() => setHelpOpen(false)} />}
-      {attributionOpen && <AttributionView onClose={() => setAttributionOpen(false)} />}
-      {adminToolboxOpen && (
-        <AdminToolboxView onClose={() => setAdminToolboxOpen(false)} onOpenGroup={openGroup} />
-      )}
-      {directoryOpen && <DirectoryView me={me} onClose={() => setDirectoryOpen(false)} />}
-      {notificationsOpen && (
-        <NotificationsView
-          onClose={() => {
-            setNotificationsOpen(false);
-            loadUnreadCount();
-          }}
-        />
-      )}
-      {profileViewOpen && (
-        <ProfileView me={me} refreshMe={refreshMe} onClose={() => setProfileViewOpen(false)} />
-      )}
     </div>
-  );
-}
-
-function HomeInner() {
-  const searchParams = useSearchParams();
-  const [me, setMe] = useState(undefined); // undefined = loading, null = signed out
-
-  const load = useCallback(async () => {
-    const res = await fetch("/api/me");
-    const data = await res.json();
-    setMe(data.user ? data : null);
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    if (me && !me.user.username && typeof window !== "undefined") {
-      window.location.href = "/setup";
-    }
-  }, [me]);
-
-  const signOut = async () => {
-    await fetch("/api/auth/sign-out", { method: "POST" });
-    setMe(null);
-  };
-
-  if (me === undefined) return null; // brief load
-  if (me === null) return <SignInScreen authError={searchParams.get("authError")} />;
-  if (!me.user.username) return null; // redirecting to /setup
-
-  return <AppShell me={me} refreshMe={load} onSignOut={signOut} />;
-}
-
-export default function Home() {
-  return (
-    <Suspense fallback={null}>
-      <HomeInner />
-    </Suspense>
   );
 }

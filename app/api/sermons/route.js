@@ -10,7 +10,7 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("sermons")
-    .select("id, title, synopsis, speaker, link_url, sermon_date, created_at, users(display_name)")
+    .select("id, title, synopsis, speaker, link_url, sermon_date, created_at, users!created_by(display_name)")
     .order("sermon_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
 
