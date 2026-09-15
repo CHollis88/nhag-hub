@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, List, CalendarDays } from "lucide-react";
 import EventCalendar from "./EventCalendar";
 import EmptyState from "./EmptyState";
+import { formatTime12h } from "@/lib/formatTime";
 
 function ReplyThread({ groupId, eventId }) {
   const [replies, setReplies] = useState(null);
@@ -167,6 +168,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
   const [repeat, setRepeat] = useState("");
   const [repeatCount, setRepeatCount] = useState(4);
   const [needsVolunteers, setNeedsVolunteers] = useState(false);
+  const [allowReplies, setAllowReplies] = useState(true);
   const [volunteersNeeded, setVolunteersNeeded] = useState(3);
   const [openThread, setOpenThread] = useState(null);
   const [expandedRsvpId, setExpandedRsvpId] = useState(null);
@@ -265,6 +267,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
         repeat: repeat || null,
         repeat_count: repeat ? repeatCount : null,
         volunteers_needed: needsVolunteers ? volunteersNeeded : null,
+        allow_replies: allowReplies,
       }),
     });
     if (res.ok) {
@@ -274,6 +277,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
       setLocation("");
       setRepeat("");
       setNeedsVolunteers(false);
+      setAllowReplies(true);
       setShowForm(false);
       load();
     }
@@ -376,6 +380,10 @@ export default function GroupEventsTab({ groupId, canManage }) {
             <input type="checkbox" checked={needsVolunteers} onChange={(e) => setNeedsVolunteers(e.target.checked)} />
             This event needs volunteers
           </label>
+          <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+            <input type="checkbox" checked={allowReplies} onChange={(e) => setAllowReplies(e.target.checked)} />
+            Allow replies on this event
+          </label>
           {needsVolunteers && (
             <input
               type="number"
@@ -422,7 +430,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
                 month: "long",
                 day: "numeric",
               })}
-              {ev.event_time && ` · ${ev.event_time}`}
+              {ev.event_time && ` · ${formatTime12h(ev.event_time)}`}
             </p>
             {ev.location && <p className="text-sm text-inksoft mt-1">{ev.location}</p>}
 
@@ -443,13 +451,15 @@ export default function GroupEventsTab({ groupId, canManage }) {
             />
 
             <div className="flex gap-3 mt-2 items-center flex-wrap">
-              <button onClick={() => setOpenThread(openThread === ev.id ? null : ev.id)} className="text-xs text-accent underline">
-                {openThread === ev.id ? "Hide replies" : "Replies"}
-              </button>
+              {ev.allow_replies && (
+                <button onClick={() => setOpenThread(openThread === ev.id ? null : ev.id)} className="text-xs text-accent underline">
+                  {openThread === ev.id ? "Hide replies" : "Replies"}
+                </button>
+              )}
               {canManage && <DeleteControl event={ev} onDelete={remove} />}
             </div>
 
-            {openThread === ev.id && <ReplyThread groupId={groupId} eventId={ev.id} />}
+            {ev.allow_replies && openThread === ev.id && <ReplyThread groupId={groupId} eventId={ev.id} />}
           </div>
         ))}
       </div>

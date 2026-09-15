@@ -16,6 +16,8 @@ import HelpView from "./components/HelpView";
 import AttributionView from "./components/AttributionView";
 import AdminToolboxView from "./components/AdminToolboxView";
 import DirectoryView from "./components/DirectoryView";
+import NotificationsView from "./components/NotificationsView";
+import { Bell } from "lucide-react";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
 
@@ -178,6 +180,8 @@ function AppShell({ me, refreshMe, onSignOut }) {
   const [attributionOpen, setAttributionOpen] = useState(false);
   const [adminToolboxOpen, setAdminToolboxOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [adminModeOn, setAdminModeOnState] = useState(true);
   const isAdmin = me.user.is_church_admin;
 
@@ -190,6 +194,17 @@ function AppShell({ me, refreshMe, onSignOut }) {
       .then((r) => r.json())
       .then(setLatestContent)
       .catch(() => {});
+  }, []);
+
+  const loadUnreadCount = () => {
+    fetch("/api/notifications")
+      .then((r) => r.json())
+      .then((data) => setUnreadCount((data.notifications || []).filter((n) => !n.read).length))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    loadUnreadCount();
   }, []);
 
   const badges = latestContent
@@ -297,6 +312,17 @@ function AppShell({ me, refreshMe, onSignOut }) {
             </button>
           )}
           <button
+            onClick={() => setNotificationsOpen(true)}
+            aria-label="Notifications"
+            title="Notifications"
+            className="relative border border-white/40 rounded px-2 py-1 text-xs"
+          >
+            <Bell size={14} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white" />
+            )}
+          </button>
+          <button
             onClick={() => setSettingsOpen(true)}
             aria-label="Settings"
             className="border border-white/40 rounded px-2 py-1 text-xs"
@@ -354,6 +380,14 @@ function AppShell({ me, refreshMe, onSignOut }) {
         <AdminToolboxView onClose={() => setAdminToolboxOpen(false)} onOpenGroup={openGroup} />
       )}
       {directoryOpen && <DirectoryView me={me} onClose={() => setDirectoryOpen(false)} />}
+      {notificationsOpen && (
+        <NotificationsView
+          onClose={() => {
+            setNotificationsOpen(false);
+            loadUnreadCount();
+          }}
+        />
+      )}
     </div>
   );
 }

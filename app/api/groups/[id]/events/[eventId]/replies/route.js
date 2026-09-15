@@ -32,12 +32,23 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }
 
+  const supabase = supabaseServer();
+  const { data: event, error: eventError } = await supabase
+    .from("group_events")
+    .select("allow_replies")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (eventError) return NextResponse.json({ error: eventError.message }, { status: 500 });
+  if (!event) return NextResponse.json({ error: "Event not found." }, { status: 404 });
+  if (!event.allow_replies) {
+    return NextResponse.json({ error: "Replies are turned off for this event." }, { status: 403 });
+  }
+
   const { body } = await req.json();
   if (!body?.trim()) {
     return NextResponse.json({ error: "A reply can't be empty." }, { status: 400 });
   }
 
-  const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("group_events_replies")
     .insert({ event_id: eventId, user_id: user.id, body: body.trim() })

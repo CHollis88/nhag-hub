@@ -5,17 +5,10 @@ import { CalendarRange } from "lucide-react";
 import EventCalendar from "./EventCalendar";
 import EmptyState from "./EmptyState";
 import { readableTextColor } from "@/lib/colorContrast";
+import { formatTime12h } from "@/lib/formatTime";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 const CHURCH_WIDE_COLOR = "#16296B"; // the app's own brand navy, distinct from any ministry's tile color
-
-function fmtTime(t) {
-  if (!t) return "";
-  const [h, m] = t.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
-}
 
 // A calendar's whole point is showing everything at a glance -- so unlike
 // the global Events tab (deliberately church-wide only, matching News'
@@ -137,7 +130,7 @@ export default function CalendarTab({ me }) {
               >
                 <span className="w-1.5 self-stretch flex-shrink-0" style={{ background: ev.color }} />
                 <span className="text-xs text-inkfaint w-16 flex-shrink-0">
-                  {ev.event_time ? fmtTime(ev.event_time) : "All day"}
+                  {ev.event_time ? formatTime12h(ev.event_time) : "All day"}
                 </span>
                 <span className="text-sm text-ink flex-1 truncate">{ev.title}</span>
                 <span className="text-[0.625rem] text-inkfaint flex-shrink-0">{ev.sourceName}</span>

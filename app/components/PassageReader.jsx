@@ -102,7 +102,7 @@ function VerseText({ verses, headings, highlights, notes, tags, selection, selec
               <p
                 id={`verse-${verseNum}`}
                 className={`text-[0.9375rem] md:text-base leading-relaxed text-ink scroll-mt-24 rounded ${
-                  isInActiveRange ? "bg-accent/10" : ""
+                  isInActiveRange ? "bg-accent/10 dark:bg-accent/25" : ""
                 }`}
               >
               <button

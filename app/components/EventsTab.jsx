@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, CalendarDays } from "lucide-react";
 import EmptyState from "./EmptyState";
+import { formatTime12h } from "@/lib/formatTime";
 
 function RsvpControl({ event, onRsvp, expanded, onToggleExpanded, rsvpList }) {
   const buttons = [
@@ -345,7 +346,7 @@ export default function EventsTab({ isAdmin }) {
                 month: "long",
                 day: "numeric",
               })}
-              {ev.event_time && ` · ${ev.event_time}`}
+              {ev.event_time && ` · ${formatTime12h(ev.event_time)}`}
             </p>
             {ev.location && <p className="text-sm text-inksoft mt-1">{ev.location}</p>}
 

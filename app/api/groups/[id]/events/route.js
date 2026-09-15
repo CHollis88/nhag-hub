@@ -18,7 +18,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data: events, error } = await supabase
     .from("group_events")
-    .select("id, title, event_date, event_time, location, notes, volunteers_needed, recurrence_group_id")
+    .select("id, title, event_date, event_time, location, notes, volunteers_needed, allow_replies, recurrence_group_id")
     .eq("group_id", groupId)
     .order("event_date", { ascending: true });
 
@@ -68,7 +68,7 @@ export async function POST(req, { params }) {
     );
   }
 
-  const { title, event_date, event_time, location, notes, volunteers_needed, repeat, repeat_count } = await req.json();
+  const { title, event_date, event_time, location, notes, volunteers_needed, allow_replies, repeat, repeat_count } = await req.json();
   if (!title?.trim() || !event_date) {
     return NextResponse.json({ error: "title and event_date are required." }, { status: 400 });
   }
@@ -84,6 +84,7 @@ export async function POST(req, { params }) {
     location: location || null,
     notes: notes || null,
     volunteers_needed: volunteers_needed ? Number(volunteers_needed) : null,
+    allow_replies: allow_replies === undefined ? true : Boolean(allow_replies),
     recurrence_group_id: recurrenceGroupId,
     created_by: user.id,
   }));

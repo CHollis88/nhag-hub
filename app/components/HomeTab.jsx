@@ -2,16 +2,23 @@
 
 import { useEffect, useState, useCallback } from "react";
 import HomeGetStartedCard from "./HomeGetStartedCard";
+import MinistryPreview from "./MinistryPreview";
 import { readableTextColor } from "@/lib/colorContrast";
+import { formatTime12h } from "@/lib/formatTime";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
+const CHURCH_WIDE_COLOR = "#16296B"; // same brand navy used for "Church-wide" everywhere else (Calendar)
 
-function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin }) {
+function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin, onPreview }) {
   const isMember = Boolean(myRole);
   const bg = group.tile_color || DEFAULT_TILE_COLOR;
 
   return (
-    <div className="sp-card p-0 overflow-hidden flex flex-col h-full">
+    <div
+      className="sp-card p-0 overflow-hidden flex flex-col h-full"
+      onClick={!isMember ? onPreview : undefined}
+      role={!isMember ? "button" : undefined}
+    >
       <div className="h-2 flex-shrink-0" style={{ background: bg }} />
       <div className="p-4 md:p-5 lg:p-6 flex flex-col items-center text-center flex-1">
         {group.image_url ? (
@@ -49,7 +56,13 @@ function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin }) {
           {isMember ? (
             <button onClick={onLaunch} className="sp-btn-pill w-full md:text-base md:py-2">Launch</button>
           ) : (
-            <button onClick={onRequestJoin} className="sp-btn-secondary text-xs py-1.5 w-full">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onRequestJoin();
+              }}
+              className="sp-btn-secondary text-xs py-1.5 w-full"
+            >
               Join
             </button>
           )}
@@ -59,34 +72,68 @@ function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin }) {
   );
 }
 
-function UpcomingEventsPreview({ onSeeAll }) {
+function UpcomingEventsPreview({ me, onSeeAll }) {
   const [events, setEvents] = useState(null);
 
   useEffect(() => {
-    fetch("/api/global/events")
-      .then((r) => r.json())
-      .then((data) => {
-        const today = new Date().toISOString().slice(0, 10);
-        setEvents((data.events || []).filter((e) => e.event_date >= today).slice(0, 3));
-      });
-  }, []);
+    const myGroups = (me?.memberships || []).filter((m) => m.status === "active");
+
+    Promise.all([
+      fetch("/api/global/events").then((r) => r.json()),
+      ...myGroups.map((m) => fetch(`/api/groups/${m.group_id}/events`).then((r) => r.json())),
+    ]).then(([globalRes, ...groupResults]) => {
+      const today = new Date().toISOString().slice(0, 10);
+
+      const globalEvents = (globalRes.events || []).map((ev) => ({
+        ...ev,
+        sourceName: "Church-wide",
+        color: CHURCH_WIDE_COLOR,
+      }));
+      const groupEvents = myGroups.flatMap((m, i) =>
+        (groupResults[i]?.events || []).map((ev) => ({
+          ...ev,
+          sourceName: m.group?.name || "Ministry",
+          color: m.group?.tile_color || DEFAULT_TILE_COLOR,
+        }))
+      );
+
+      const combined = [...globalEvents, ...groupEvents]
+        .filter((e) => e.event_date >= today)
+        .sort((a, b) => {
+          if (a.event_date !== b.event_date) return a.event_date.localeCompare(b.event_date);
+          return (a.event_time || "99:99").localeCompare(b.event_time || "99:99");
+        })
+        .slice(0, 3);
+
+      setEvents(combined);
+    });
+  }, [me]);
 
   if (events === null || events.length === 0) return null;
 
   return (
     <div className="mb-6">
       <div className="flex justify-between items-center mb-2">
-        <p className="text-xs uppercase tracking-wide text-inkfaint">Upcoming Events</p>
+        <p className="text-xs uppercase tracking-wide text-inkfaint">Your Upcoming Events</p>
         <button onClick={onSeeAll} className="text-xs text-accent underline">See all</button>
       </div>
       <div className="space-y-2">
         {events.map((ev) => (
-          <div key={ev.id} className="sp-card">
-            <p className="font-medium text-ink text-sm">{ev.title}</p>
-            <p className="text-xs text-inkfaint">
-              {new Date(ev.event_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-              {ev.event_time && ` · ${ev.event_time}`}
-            </p>
+          <div
+            key={`${ev.sourceName}-${ev.id}`}
+            className="flex items-center gap-3 bg-card border border-line rounded-lg pl-0 pr-3 py-2.5 overflow-hidden"
+          >
+            <span className="w-1.5 self-stretch flex-shrink-0" style={{ background: ev.color }} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-medium text-ink text-sm truncate">{ev.title}</p>
+                <span className="text-[0.625rem] text-inkfaint flex-shrink-0">{ev.sourceName}</span>
+              </div>
+              <p className="text-xs text-inkfaint">
+                {new Date(ev.event_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                {ev.event_time && ` · ${formatTime12h(ev.event_time)}`}
+              </p>
+            </div>
           </div>
         ))}
       </div>
@@ -130,6 +177,7 @@ function AnnouncementsPreview({ onSeeAll }) {
 export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenSettings, onOpenDirectory }) {
   const [groups, setGroups] = useState([]);
   const [message, setMessage] = useState("");
+  const [previewGroup, setPreviewGroup] = useState(null);
 
   const loadGroups = useCallback(async () => {
     const res = await fetch("/api/groups");
@@ -163,7 +211,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
 
       <HomeGetStartedCard onGoToTab={onGoToTab} onOpenSettings={onOpenSettings} />
 
-      <UpcomingEventsPreview onSeeAll={() => onGoToTab("events")} />
+      <UpcomingEventsPreview me={me} onSeeAll={() => onGoToTab("calendar")} />
       <AnnouncementsPreview onSeeAll={() => onGoToTab("news")} />
 
       <div className="flex items-center justify-between mb-2">
@@ -202,6 +250,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
                 leaders={g.leaders}
                 myRole={null}
                 onRequestJoin={() => requestJoin(g.id)}
+                onPreview={() => setPreviewGroup(g)}
               />
             ))}
           </div>
@@ -209,6 +258,15 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
       )}
 
       {message && <p className="text-sm text-inksoft mt-3">{message}</p>}
+
+      {previewGroup && (
+        <MinistryPreview
+          group={previewGroup}
+          leaders={previewGroup.leaders}
+          onClose={() => setPreviewGroup(null)}
+          onRequestJoin={() => requestJoin(previewGroup.id)}
+        />
+      )}
     </div>
   );
 }

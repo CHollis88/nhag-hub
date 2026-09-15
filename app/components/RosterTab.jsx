@@ -6,7 +6,7 @@ import { PLAN_LIST } from "@/lib/planRegistry";
 import { readableTextColor } from "@/lib/colorContrast";
 import EmptyState from "./EmptyState";
 
-function AppearancePanel({ groupId, onRenamed }) {
+function AppearancePanel({ groupId, onRenamed, isAdmin }) {
   const [group, setGroup] = useState(null);
   const [name, setName] = useState("");
   const [type, setType] = useState("");
@@ -66,6 +66,17 @@ function AppearancePanel({ groupId, onRenamed }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reading_plan_locked: locked, reading_plan_id: planId }),
+    });
+  };
+
+  const toggleFeature = async (key) => {
+    const current = group.features || [];
+    const next = current.includes(key) ? current.filter((f) => f !== key) : [...current, key];
+    setGroup((g) => ({ ...g, features: next }));
+    await fetch(`/api/groups/${groupId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ features: next }),
     });
   };
 
@@ -140,6 +151,28 @@ function AppearancePanel({ groupId, onRenamed }) {
         <button type="submit" className="sp-btn-secondary">Save</button>
       </form>
       {message && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{message}</p>}
+
+      {isAdmin && (
+        <div className="mt-4 pt-4 border-t border-linesoft">
+          <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Bolt-on Modules</p>
+          <label className="flex items-center gap-2 mb-1.5 text-sm text-inksoft">
+            <input
+              type="checkbox"
+              checked={(group.features || []).includes("songs_setlists")}
+              onChange={() => toggleFeature("songs_setlists")}
+            />
+            Song library + Setlists (Choir-style)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-inksoft">
+            <input
+              type="checkbox"
+              checked={(group.features || []).includes("reading_plan_journal")}
+              onChange={() => toggleFeature("reading_plan_journal")}
+            />
+            Bible Plan (Today/Plan/Journal)
+          </label>
+        </div>
+      )}
 
       {group.features?.includes("reading_plan_journal") && (
         <div className="mt-4 pt-4 border-t border-linesoft">
@@ -295,7 +328,7 @@ export default function RosterTab({ groupId, myRole, onRenamed }) {
     <div className="px-5 pt-4 pb-6">
       <h2 className="font-serif text-2xl text-ink mb-4">Roster</h2>
 
-      {canManage && <AppearancePanel groupId={groupId} onRenamed={onRenamed} />}
+      {canManage && <AppearancePanel groupId={groupId} onRenamed={onRenamed} isAdmin={myRole === "admin"} />}
 
       {canManage && pending?.length > 0 && (
         <>
