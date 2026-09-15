@@ -9,11 +9,11 @@
   --color-card: 255 255 255;
   --color-ink: 30 30 33;
   --color-inksoft: 90 90 96;
-  --color-inkfaint: 140 140 146;
+  --color-inkfaint: 110 110 116;
   --color-line: 219 219 224;
   --color-linesoft: 234 234 238;
   --color-accent: 196 30 40;
-  --color-sage: 76 128 88;
+  --color-sage: 57 96 66;
 }
 
 .dark {

@@ -310,43 +310,43 @@ function AppShell({ me, refreshMe, onSignOut }) {
             North Hodge Assembly of God
           </strong>
         </div>
-        <div className="flex items-center gap-3 relative">
+        <div className="flex items-center gap-1.5 relative">
           {isAdmin && adminModeOn && (
             <button
               onClick={() => setAdminToolboxOpen(true)}
               aria-label="Admin Toolbox"
               title="Admin Toolbox"
-              className="text-white/90"
+              className="text-white/90 p-1"
             >
-              <Wrench size={16} />
+              <Wrench size={22} />
             </button>
           )}
           <button
             onClick={() => setNotificationsOpen(true)}
             aria-label="Notifications"
             title="Notifications"
-            className="relative text-white/90"
+            className="relative text-white/90 p-1"
           >
-            <Bell size={17} />
+            <Bell size={22} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-white" />
+              <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-white" />
             )}
           </button>
           <button
             onClick={() => setSettingsOpen(true)}
             aria-label="Settings"
             title="Settings"
-            className="text-white/90"
+            className="text-white/90 p-1"
           >
-            <Settings size={17} />
+            <Settings size={22} />
           </button>
           <button
             onClick={() => setProfileMenuOpen((o) => !o)}
             aria-label="Profile"
             title={me.user.display_name}
-            className="text-white/90"
+            className="text-white/90 p-1"
           >
-            <UserCircle size={19} />
+            <UserCircle size={24} />
           </button>
 
           {profileMenuOpen && (
