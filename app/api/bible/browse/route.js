@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBrowseEntries } from "@/lib/bible";
+import { withPublicCache } from "@/lib/cacheHeaders";
 
 const VALID_SOURCES = ["easton", "smith", "hitchcock", "torrey", "webster", "strongs-hebrew", "strongs-greek"];
 
@@ -12,5 +13,5 @@ export async function GET(req) {
   }
 
   const entries = getBrowseEntries(source, letter);
-  return NextResponse.json({ entries });
+  return withPublicCache({ entries });
 }

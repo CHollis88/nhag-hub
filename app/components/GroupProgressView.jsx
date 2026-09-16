@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, Flame } from "lucide-react";
 import EmptyState from "./EmptyState";
+import { SkeletonRowList } from "./Skeleton";
 
 export default function GroupProgressView({ groupId, onClose }) {
   const [roster, setRoster] = useState(null);
@@ -35,7 +36,7 @@ export default function GroupProgressView({ groupId, onClose }) {
         </p>
 
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-        {!error && roster === null && <EmptyState icon={Flame} text="Loading…" />}
+        {!error && roster === null && <SkeletonRowList count={4} />}
         {!error && roster?.length === 0 && (
           <EmptyState icon={Flame} text="No active members yet." />
         )}

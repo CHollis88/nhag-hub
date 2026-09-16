@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { CalendarRange, Grid3x3, List } from "lucide-react";
+import { Grid3x3, List } from "lucide-react";
 import EventCalendar from "./EventCalendar";
 import WeekCalendarView from "./WeekCalendarView";
-import EmptyState from "./EmptyState";
+import { SkeletonList } from "./Skeleton";
 import { readableTextColor } from "@/lib/colorContrast";
 import { formatTime12h } from "@/lib/formatTime";
 
@@ -142,7 +142,7 @@ export default function CalendarTab({ me }) {
         </div>
       )}
 
-      {rawEvents === null && <EmptyState icon={CalendarRange} text="Loading…" />}
+      {rawEvents === null && <SkeletonList count={3} />}
       {rawEvents !== null && (
         viewMode === "week" ? (
           <WeekCalendarView events={visibleEvents} selectedDate={selectedDate} onSelectDate={setSelectedDate} />

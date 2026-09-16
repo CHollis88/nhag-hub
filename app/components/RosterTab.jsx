@@ -1,10 +1,10 @@
 "use client";
 
-import { Users } from "lucide-react";
 import { useEffect, useState, useCallback, useRef } from "react";
+import Image from "next/image";
 import { PLAN_LIST } from "@/lib/planRegistry";
 import { readableTextColor } from "@/lib/colorContrast";
-import EmptyState from "./EmptyState";
+import { SkeletonRowList } from "./Skeleton";
 import GroupProgressView from "./GroupProgressView";
 
 function AppearancePanel({ groupId, onRenamed, isAdmin }) {
@@ -106,7 +106,13 @@ function AppearancePanel({ groupId, onRenamed, isAdmin }) {
       <p className="text-xs uppercase tracking-wide text-inkfaint mb-3">Ministry appearance</p>
       <div className="flex items-center gap-4 mb-3">
         {group.image_url ? (
-          <img src={group.image_url} alt="" className="w-16 h-16 rounded-xl object-cover" />
+          <Image
+            src={group.image_url}
+            alt=""
+            width={64}
+            height={64}
+            className="w-16 h-16 rounded-xl object-cover"
+          />
         ) : (
           <div
             className="w-16 h-16 rounded-xl flex items-center justify-center font-serif text-2xl"
@@ -359,7 +365,7 @@ export default function RosterTab({ groupId, myRole, onRenamed }) {
       )}
 
       <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Members</p>
-      {active === null && <EmptyState icon={Users} text="Loading…" />}
+      {active === null && <SkeletonRowList count={5} />}
       <div className="space-y-2">
         {active?.map((m) => (
           <div key={m.id} className="sp-card flex justify-between items-center">

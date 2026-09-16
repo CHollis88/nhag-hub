@@ -69,12 +69,21 @@ self.addEventListener("push", (event) => {
   const { title, body, url } = payload;
 
   event.waitUntil(
-    self.registration.showNotification(title || "NHAG", {
-      body: body || "",
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      data: { url: url || "/" },
-    })
+    Promise.all([
+      self.registration.showNotification(title || "NHAG", {
+        body: body || "",
+        icon: "/icon-192.png",
+        badge: "/icon-192.png",
+        data: { url: url || "/" },
+      }),
+      // Also tell any open tab of the app right away, so its unread badge
+      // updates the instant a push arrives instead of waiting on the
+      // polling interval. If no tab is open this is a no-op -- the person
+      // will just see the up-to-date count next time they open the app.
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((clientsArr) => clientsArr.forEach((c) => c.postMessage({ type: "NEW_NOTIFICATION" }))),
+    ])
   );
 });
 

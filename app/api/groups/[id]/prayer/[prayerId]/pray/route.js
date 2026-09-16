@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isActiveGroupMember } from "@/lib/groupAuth";
+import { notifyGroupMember } from "@/lib/push";
 
 // Toggles: tapping "I'm praying" again removes it and decrements the
 // count, so the count always reflects how many people currently have it
@@ -28,7 +29,7 @@ export async function POST(req, { params }) {
 
   const { data: current, error: fetchError } = await supabase
     .from("group_prayer")
-    .select("pray_count")
+    .select("pray_count, created_by")
     .eq("id", prayerId)
     .single();
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
@@ -60,6 +61,20 @@ export async function POST(req, { params }) {
     .update({ pray_count: (current.pray_count || 0) + 1 })
     .eq("id", prayerId);
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+
+  // Only the prayer's own author needs to know someone's supporting
+  // their request -- not the whole group, and not the author themselves
+  // if they're the one who tapped it (praying for your own request
+  // doesn't need a notification). created_by can be null for a request
+  // whose author account was later deleted (schema: `on delete set
+  // null`), so this is skipped gracefully in that case too.
+  if (current.created_by && current.created_by !== user.id) {
+    notifyGroupMember(groupId, current.created_by, {
+      title: "Someone is praying for your request",
+      body: "Tap to view.",
+      url: "/",
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ ok: true, praying: true });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { withPublicCache } from "@/lib/cacheHeaders";
 
 let cache = null;
 
@@ -9,5 +10,5 @@ export async function GET() {
     const filePath = path.join(process.cwd(), "data", "bible", "new-christian-glossary.json");
     cache = JSON.parse(fs.readFileSync(filePath, "utf-8"));
   }
-  return NextResponse.json({ entries: cache });
+  return withPublicCache({ entries: cache });
 }

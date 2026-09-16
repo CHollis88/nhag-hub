@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroup } from "@/lib/push";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
@@ -44,7 +45,7 @@ export async function GET(req, { params }) {
     i_prayed: prayedIds.has(p.id),
   }));
 
-  return NextResponse.json({ prayer: sanitized });
+  return withPrivateCache({ prayer: sanitized });
 }
 
 // Unlike News/Events, any active member can submit a prayer request --

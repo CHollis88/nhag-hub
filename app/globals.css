@@ -135,8 +135,7 @@ body {
 }
 
 @layer components {
-  .sp-card {
-    @apply bg-card border border-line rounded-2xl p-4;
+  .sp-card {    @apply bg-card border border-line rounded-2xl p-4;
   }
   .sp-input {
     @apply w-full min-w-0 border border-line rounded-lg px-3 py-2.5 text-sm bg-card text-ink;
@@ -166,5 +165,32 @@ body {
   }
   .sp-pill-outline.active {
     @apply bg-sage/15 text-sage border-transparent;
+  }
+}
+
+/* Tab-switch fade: a short (150ms) fade + slight rise applied to a tab's
+   content when it mounts, so switching tabs reads as an intentional
+   transition rather than content abruptly popping in. Kept as a plain
+   CSS animation (no added dependency) triggered by remounting the tab
+   content on a `key` change -- see TabTransition.jsx. Respects
+   prefers-reduced-motion, since a moving screen can be genuinely
+   uncomfortable for some people, and the fade is a nice-to-have, not
+   something anyone should be forced to sit through. */
+@keyframes tab-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.tab-fade-in {
+  animation: tab-fade-in 150ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tab-fade-in {
+    animation: none;
   }
 }

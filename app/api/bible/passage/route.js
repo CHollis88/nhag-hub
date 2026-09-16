@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isValidBook, getKjvChapter, getPericopes } from "@/lib/bible";
+import { withPublicCache } from "@/lib/cacheHeaders";
 
 export async function GET(req) {
   const book = req.nextUrl.searchParams.get("book");
@@ -12,5 +13,5 @@ export async function GET(req) {
   const verses = getKjvChapter(book, chapter);
   if (!verses) return NextResponse.json({ error: "Chapter not found." }, { status: 404 });
   const headings = getPericopes(book, chapter);
-  return NextResponse.json({ book, chapter, verses, headings });
+  return withPublicCache({ book, chapter, verses, headings });
 }

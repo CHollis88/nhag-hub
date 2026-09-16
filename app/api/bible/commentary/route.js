@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isValidBook, getCommentary } from "@/lib/bible";
+import { withPublicCache } from "@/lib/cacheHeaders";
 
 export async function GET(req) {
   const book = req.nextUrl.searchParams.get("book");
@@ -10,5 +11,5 @@ export async function GET(req) {
   }
 
   const notes = getCommentary(book, chapter);
-  return NextResponse.json({ book, chapter, notes });
+  return withPublicCache({ book, chapter, notes });
 }

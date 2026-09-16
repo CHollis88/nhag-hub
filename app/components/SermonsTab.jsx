@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { ExternalLink, Search, Mic } from "lucide-react";
 import EmptyState from "./EmptyState";
+import { SkeletonList } from "./Skeleton";
 
 function fmtDate(d) {
   return new Date(d + "T00:00:00").toLocaleDateString(undefined, {
@@ -138,7 +139,7 @@ export default function SermonsTab({ isAdmin }) {
         </div>
       )}
 
-      {sermons === null && <EmptyState icon={Mic} text="Loading…" />}
+      {sermons === null && <SkeletonList count={3} />}
       {sermons?.length === 0 && <EmptyState icon={Mic} text="No sermons posted yet." />}
       {sermons?.length > 0 && filtered.length === 0 && (
         <EmptyState icon={Search} text="No sermons match that search." />

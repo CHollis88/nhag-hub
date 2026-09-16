@@ -8,6 +8,8 @@ import GroupNewsTab from "./GroupNewsTab";
 import GroupEventsTab from "./GroupEventsTab";
 import GroupPrayerTab from "./GroupPrayerTab";
 import RosterTab from "./RosterTab";
+import { SkeletonList } from "./Skeleton";
+import TabTransition from "./TabTransition";
 import SongsTab from "./SongsTab";
 import SetlistsTab from "./SetlistsTab";
 import TodayTab from "./TodayTab";
@@ -172,59 +174,62 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
       <div className="flex flex-1 min-h-0">
         <GroupSidebar tab={tab} setTab={setTab} prependTabs={prependTabs} appendTabs={appendTabs} />
         <main className="flex-1 overflow-y-auto">
-          {hasReadingPlan && !readingPlanLoaded && ["today", "plan", "journal"].includes(tab) ? (
-            <div className="px-5 pt-4"><p className="text-sm text-inkfaint">Loading…</p></div>
-          ) : (
-            <>
-              {tab === "today" && (
-                <TodayTab
-                  plan={activePlan}
-                  progress={progress}
-                  setProgress={setProgress}
-                  activePlanId={activePlanId}
-                  dayNum={dayNum}
-                  setDayNum={setDayNum}
-                  setTab={setTab}
-                  onOpenBiblePassage={onOpenBiblePassage}
-                />
-              )}
-              {tab === "plan" && (
-                <PlanTab
-                  plan={activePlan}
-                  progress={progress}
-                  dayNum={dayNum}
-                  setDayNum={setDayNum}
-                  setTab={setTab}
-                  planLocked={planLocked}
-                  onSwitchPlan={switchPlan}
-                />
-              )}
-              {tab === "journal" && (
-                <JournalTab
-                  plan={activePlan}
-                  activePlanId={activePlanId}
-                  dayNum={dayNum}
-                  setDayNum={setDayNum}
-                  journal={journal}
-                  setJournal={setJournal}
-                />
-              )}
-            </>
-          )}
-          {tab === "news" && (
-            <GroupNewsTab groupId={group.id} canManage={canManage} showClassOption={!features.includes("songs_setlists")} />
-          )}
-          {tab === "events" && <GroupEventsTab groupId={group.id} canManage={canManage} />}
-          {tab === "prayer" && (
-            <GroupPrayerTab groupId={group.id} canManage={canManage} currentUserId={currentUserId} />
-          )}
-          {tab === "roster" && <RosterTab groupId={group.id} myRole={effectiveRole} onRenamed={setDisplayName} />}
-          {features.includes("songs_setlists") && tab === "songs" && (
-            <SongsTab groupId={group.id} canManage={canManage} />
-          )}
-          {features.includes("songs_setlists") && tab === "setlists" && (
-            <SetlistsTab groupId={group.id} canManage={canManage} />
-          )}
+          <TabTransition tabKey={tab}>
+            {hasReadingPlan && !readingPlanLoaded && ["today", "plan", "journal"].includes(tab) ? (
+              <div className="px-5 pt-4"><SkeletonList count={2} /></div>
+
+            ) : (
+              <>
+                {tab === "today" && (
+                  <TodayTab
+                    plan={activePlan}
+                    progress={progress}
+                    setProgress={setProgress}
+                    activePlanId={activePlanId}
+                    dayNum={dayNum}
+                    setDayNum={setDayNum}
+                    setTab={setTab}
+                    onOpenBiblePassage={onOpenBiblePassage}
+                  />
+                )}
+                {tab === "plan" && (
+                  <PlanTab
+                    plan={activePlan}
+                    progress={progress}
+                    dayNum={dayNum}
+                    setDayNum={setDayNum}
+                    setTab={setTab}
+                    planLocked={planLocked}
+                    onSwitchPlan={switchPlan}
+                  />
+                )}
+                {tab === "journal" && (
+                  <JournalTab
+                    plan={activePlan}
+                    activePlanId={activePlanId}
+                    dayNum={dayNum}
+                    setDayNum={setDayNum}
+                    journal={journal}
+                    setJournal={setJournal}
+                  />
+                )}
+              </>
+            )}
+            {tab === "news" && (
+              <GroupNewsTab groupId={group.id} canManage={canManage} showClassOption={!features.includes("songs_setlists")} />
+            )}
+            {tab === "events" && <GroupEventsTab groupId={group.id} canManage={canManage} />}
+            {tab === "prayer" && (
+              <GroupPrayerTab groupId={group.id} canManage={canManage} currentUserId={currentUserId} />
+            )}
+            {tab === "roster" && <RosterTab groupId={group.id} myRole={effectiveRole} onRenamed={setDisplayName} />}
+            {features.includes("songs_setlists") && tab === "songs" && (
+              <SongsTab groupId={group.id} canManage={canManage} />
+            )}
+            {features.includes("songs_setlists") && tab === "setlists" && (
+              <SetlistsTab groupId={group.id} canManage={canManage} />
+            )}
+          </TabTransition>
         </main>
       </div>
 

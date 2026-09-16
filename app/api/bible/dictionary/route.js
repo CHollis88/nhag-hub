@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchDictionary, getDictionaryEntry } from "@/lib/bible";
+import { withPublicCache } from "@/lib/cacheHeaders";
 
 export async function GET(req) {
   const q = req.nextUrl.searchParams.get("q");
@@ -8,13 +9,13 @@ export async function GET(req) {
   if (exact) {
     const entry = getDictionaryEntry(exact);
     if (!entry) return NextResponse.json({ error: "No entry found." }, { status: 404 });
-    return NextResponse.json({ entry });
+    return withPublicCache({ entry });
   }
 
   if (!q || !q.trim()) {
-    return NextResponse.json({ easton: [], webster: [], hitchcock: [], smith: [], torrey: [] });
+    return withPublicCache({ easton: [], webster: [], hitchcock: [], smith: [], torrey: [] });
   }
 
   const results = searchDictionary(q);
-  return NextResponse.json(results);
+  return withPublicCache(results);
 }

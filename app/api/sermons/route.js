@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { notifyGlobal } from "@/lib/push";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 export async function GET(req) {
   const user = await getCurrentUser(req);
@@ -15,7 +16,7 @@ export async function GET(req) {
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ sermons: data });
+  return withPrivateCache({ sermons: data });
 }
 
 // Admin-only to post -- same as the rest of church-wide content (there's

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Bell, BellOff } from "lucide-react";
 import EmptyState from "./EmptyState";
+import { SkeletonRowList } from "./Skeleton";
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -58,7 +59,7 @@ export default function NotificationsView({ onClose }) {
           </button>
         )}
 
-        {notifications === null && <EmptyState icon={Bell} text="Loading…" />}
+        {notifications === null && <SkeletonRowList count={5} />}
         {notifications?.length === 0 && (
           <EmptyState icon={BellOff} text="Nothing here yet." />
         )}

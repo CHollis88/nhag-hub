@@ -1,25 +1,35 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense } from "react";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import BottomNav from "./components/BottomNav";
 import Sidebar from "./components/Sidebar";
+// HomeTab stays a static import: it's the default tab, shown on first paint,
+// so lazy-loading it would just trade an instant render for a loading flash.
 import HomeTab from "./components/HomeTab";
-import NewsTab from "./components/NewsTab";
-import EventsTab from "./components/EventsTab";
-import BibleTab from "./components/BibleTab";
-import SermonsTab from "./components/SermonsTab";
-import CalendarTab from "./components/CalendarTab";
-import GroupShell from "./components/GroupShell";
-import SettingsView from "./components/SettingsView";
-import HelpView from "./components/HelpView";
-import AttributionView from "./components/AttributionView";
-import AdminToolboxView from "./components/AdminToolboxView";
-import DirectoryView from "./components/DirectoryView";
-import NotificationsView from "./components/NotificationsView";
+import TabSkeleton from "./components/TabSkeleton";
+import TabTransition from "./components/TabTransition";
 import NotifyBanner, { shouldShowNotifyBanner } from "./components/NotifyBanner";
-import ProfileView from "./components/ProfileView";
-import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle } from "lucide-react";
+
+// Everything below here is only ever shown after a tab switch or an explicit
+// open action, so it's a code-splitting candidate: keeps it out of the initial
+// JS bundle and loads it the first time it's actually needed.
+const NewsTab = dynamic(() => import("./components/NewsTab"), { loading: () => <TabSkeleton /> });
+const EventsTab = dynamic(() => import("./components/EventsTab"), { loading: () => <TabSkeleton /> });
+const BibleTab = dynamic(() => import("./components/BibleTab"), { loading: () => <TabSkeleton /> });
+const SermonsTab = dynamic(() => import("./components/SermonsTab"), { loading: () => <TabSkeleton /> });
+const CalendarTab = dynamic(() => import("./components/CalendarTab"), { loading: () => <TabSkeleton /> });
+const GroupShell = dynamic(() => import("./components/GroupShell"), { loading: () => <TabSkeleton /> });
+const SettingsView = dynamic(() => import("./components/SettingsView"));
+const HelpView = dynamic(() => import("./components/HelpView"));
+const AttributionView = dynamic(() => import("./components/AttributionView"));
+const AdminToolboxView = dynamic(() => import("./components/AdminToolboxView"));
+const DirectoryView = dynamic(() => import("./components/DirectoryView"));
+const NotificationsView = dynamic(() => import("./components/NotificationsView"));
+const ProfileView = dynamic(() => import("./components/ProfileView"));
+import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle, RotateCw } from "lucide-react";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
 
@@ -176,6 +186,12 @@ function SignInScreen({ authError }) {
 
 function AppShell({ me, refreshMe, onSignOut }) {
   const [tab, setTab] = useState("hub");
+  // Bumped by the refresh button (below) to force the current tab to
+  // remount -- refetching its data from scratch and replaying the
+  // tab-fade-in transition -- without a full location.reload(), which
+  // would needlessly throw away the app shell/bundle that's already
+  // loaded and cached.
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const [latestContent, setLatestContent] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -214,23 +230,53 @@ function AppShell({ me, refreshMe, onSignOut }) {
     if (isAdmin) setAdminModeOnState(isAdminModeOn());
   }, [isAdmin]);
 
-  useEffect(() => {
-    fetch("/api/notifications/latest")
-      .then((r) => r.json())
-      .then(setLatestContent)
-      .catch(() => {});
-  }, []);
-
-  const loadUnreadCount = () => {
+  // Notifications must stay accurate in real time -- not just on first
+  // load. Three ways this now stays fresh:
+  //  1. Poll every 45s while the tab is visible (paused in the
+  //     background so we're not burning requests/battery on a hidden tab).
+  //  2. Refetch immediately the moment the tab becomes visible again
+  //     (covers "I backgrounded the app for 10 minutes, came back").
+  //  3. Refetch immediately when the service worker tells us a push just
+  //     arrived (see the postMessage in public/sw.js) -- so the badge
+  //     updates the instant something happens, not up to 45s later.
+  const loadUnreadCount = useCallback(() => {
     fetch("/api/notifications")
       .then((r) => r.json())
       .then((data) => setUnreadCount((data.notifications || []).filter((n) => !n.read).length))
       .catch(() => {});
-  };
+  }, []);
+
+  const refreshNotifications = useCallback(() => {
+    fetch("/api/notifications/latest")
+      .then((r) => r.json())
+      .then(setLatestContent)
+      .catch(() => {});
+    loadUnreadCount();
+  }, [loadUnreadCount]);
 
   useEffect(() => {
-    loadUnreadCount();
-  }, []);
+    refreshNotifications();
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") refreshNotifications();
+    }, 45000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") refreshNotifications();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    const onSwMessage = (event) => {
+      if (event.data?.type === "NEW_NOTIFICATION") refreshNotifications();
+    };
+    navigator.serviceWorker?.addEventListener?.("message", onSwMessage);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      navigator.serviceWorker?.removeEventListener?.("message", onSwMessage);
+    };
+  }, [refreshNotifications]);
 
   const badges = latestContent
     ? {
@@ -312,7 +358,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
       >
         <div className="flex items-center gap-2.5">
-          <img src="/icon-192.png" alt="" className="w-8 h-8 rounded" />
+          <Image src="/icon-192.png" alt="" width={32} height={32} className="w-8 h-8 rounded" />
           <strong
             className="font-serif tracking-wide"
             style={{
@@ -336,6 +382,17 @@ function AppShell({ me, refreshMe, onSignOut }) {
               <Wrench size={22} />
             </button>
           )}
+          <button
+            onClick={() => {
+              setRefreshNonce((n) => n + 1);
+              refreshNotifications();
+            }}
+            aria-label="Refresh"
+            title="Refresh"
+            className="text-white/90 p-1"
+          >
+            <RotateCw size={20} />
+          </button>
           <button
             onClick={() => setNotificationsOpen(true)}
             aria-label="Notifications"
@@ -405,21 +462,23 @@ function AppShell({ me, refreshMe, onSignOut }) {
       <div className="flex flex-1 min-h-0">
         <Sidebar tab={tab} setTab={switchTab} badges={badges} />
         <main className="flex-1 overflow-y-auto">
-          {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
-          {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
-          {tab === "sermons" && <SermonsTab isAdmin={me.user.is_church_admin} />}
-          {tab === "calendar" && <CalendarTab me={me} />}
-          {tab === "hub" && (
-            <HomeTab
-              me={me}
-              refreshMe={refreshMe}
-              onOpenGroup={openGroup}
-              onGoToTab={switchTab}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onOpenDirectory={() => setDirectoryOpen(true)}
-            />
-          )}
-          {tab === "bible" && <BibleTab deviceId={me.user.id} />}
+          <TabTransition tabKey={`${tab}-${refreshNonce}`}>
+            {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
+            {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
+            {tab === "sermons" && <SermonsTab isAdmin={me.user.is_church_admin} />}
+            {tab === "calendar" && <CalendarTab me={me} />}
+            {tab === "hub" && (
+              <HomeTab
+                me={me}
+                refreshMe={refreshMe}
+                onOpenGroup={openGroup}
+                onGoToTab={switchTab}
+                onOpenSettings={() => setSettingsOpen(true)}
+                onOpenDirectory={() => setDirectoryOpen(true)}
+              />
+            )}
+            {tab === "bible" && <BibleTab deviceId={me.user.id} />}
+          </TabTransition>
         </main>
       </div>
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search, Megaphone, Pencil } from "lucide-react";
-import EmptyState from "./EmptyState";
+import { Search, Pencil } from "lucide-react";
+import { SkeletonList } from "./Skeleton";
 
 function ReplyThread({ groupId, newsId }) {
   const [replies, setReplies] = useState(null);
@@ -190,7 +190,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
         </form>
       )}
 
-      {news === null && <EmptyState icon={Megaphone} text="Loading…" />}
+      {news === null && <SkeletonList count={3} />}
       {news !== null && (
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />

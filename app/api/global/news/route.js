@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { notifyGlobal } from "@/lib/push";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 const VALID_CATEGORIES = ["announcement", "pastor_message"];
 
@@ -19,7 +20,7 @@ export async function GET(req) {
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ news: data });
+  return withPrivateCache({ news: data });
 }
 
 // Church-wide announcements are admin-only to post, per the project's

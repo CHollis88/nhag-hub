@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Heart, Pencil, RefreshCw } from "lucide-react";
-import EmptyState from "./EmptyState";
+import { SkeletonList } from "./Skeleton";
 
 export default function GroupPrayerTab({ groupId, canManage }) {
   const [prayer, setPrayer] = useState(null);
@@ -108,7 +108,7 @@ export default function GroupPrayerTab({ groupId, canManage }) {
         <button type="submit" className="sp-btn-primary">Submit</button>
       </form>
 
-      {prayer === null && !loadError && <EmptyState icon={Heart} text="Loading…" />}
+      {prayer === null && !loadError && <SkeletonList count={3} />}
       {loadError && (
         <div className="sp-card border-red-200 dark:border-red-900 mb-2">
           <p className="text-sm text-red-600 dark:text-red-400 mb-2">{loadError}</p>

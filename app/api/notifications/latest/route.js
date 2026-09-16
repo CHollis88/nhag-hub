@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 // Just the single latest created_at per content type -- cheap enough to
 // call on every app load without worrying about cost, unlike fetching
@@ -18,7 +19,7 @@ export async function GET(req) {
     supabase.from("sermons").select("created_at").order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
-  return NextResponse.json({
+  return withNoStore({
     news: news.data?.created_at || null,
     events: events.data?.created_at || null,
     sermons: sermons.data?.created_at || null,

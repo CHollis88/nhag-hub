@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 export async function GET(req) {
   const user = await getCurrentUser(req);
@@ -15,5 +16,7 @@ export async function GET(req) {
     .limit(50);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ notifications: data });
+  // Never cached -- notifications must always reflect the true current
+  // state (unread count, latest items) rather than a stale browser copy.
+  return withNoStore({ notifications: data });
 }

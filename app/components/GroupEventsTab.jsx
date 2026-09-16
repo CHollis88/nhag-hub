@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, List, CalendarDays, Pencil } from "lucide-react";
 import EventCalendar from "./EventCalendar";
-import EmptyState from "./EmptyState";
+import { SkeletonList } from "./Skeleton";
 import { formatTime12h } from "@/lib/formatTime";
 
 function ReplyThread({ groupId, eventId }) {
@@ -240,15 +240,38 @@ export default function GroupEventsTab({ groupId, canManage }) {
   // Tapping an already-selected status clears the RSVP entirely (back to
   // "no response"), rather than only ever letting you switch between
   // Yes/Maybe/No with no way to unselect.
+  //
+  // Same optimistic-update pattern as the global EventsTab: update local
+  // state immediately, roll back if the request fails.
   const rsvp = async (eventId, status) => {
     const current = events.find((ev) => ev.id === eventId);
-    const isUnselecting = current?.my_rsvp === status;
-    await fetch(`/api/groups/${groupId}/events/${eventId}/rsvp`, {
-      method: isUnselecting ? "DELETE" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: isUnselecting ? undefined : JSON.stringify({ status }),
-    });
-    load();
+    if (!current) return;
+    const isUnselecting = current.my_rsvp === status;
+    const newStatus = isUnselecting ? null : status;
+
+    const previousEvents = events;
+    setEvents((prev) =>
+      prev.map((ev) => {
+        if (ev.id !== eventId) return ev;
+        const summary = { ...ev.rsvp_summary };
+        if (ev.my_rsvp) summary[ev.my_rsvp] = Math.max(0, (summary[ev.my_rsvp] || 0) - 1);
+        if (newStatus) summary[newStatus] = (summary[newStatus] || 0) + 1;
+        return { ...ev, my_rsvp: newStatus, rsvp_summary: summary };
+      })
+    );
+
+    try {
+      const res = await fetch(`/api/groups/${groupId}/events/${eventId}/rsvp`, {
+        method: isUnselecting ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: isUnselecting ? undefined : JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("RSVP failed");
+    } catch {
+      setEvents(previousEvents);
+      return;
+    }
+
     if (expandedRsvpId === eventId) loadRsvpList(eventId);
   };
 
@@ -269,19 +292,38 @@ export default function GroupEventsTab({ groupId, canManage }) {
   };
 
   const signUpVolunteer = async (eventId) => {
+    const previousEvents = events;
+    setEvents((prev) =>
+      prev.map((ev) =>
+        ev.id === eventId ? { ...ev, i_volunteered: true, volunteer_count: (ev.volunteer_count || 0) + 1 } : ev
+      )
+    );
+
     const res = await fetch(`/api/groups/${groupId}/events/${eventId}/volunteer`, { method: "POST" });
-    const data = await res.json();
     if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setEvents(previousEvents);
       alert(data.error);
       return;
     }
-    load();
     if (expandedVolunteerId === eventId) loadVolunteerList(eventId);
   };
 
   const cancelVolunteer = async (eventId) => {
-    await fetch(`/api/groups/${groupId}/events/${eventId}/volunteer`, { method: "DELETE" });
-    load();
+    const previousEvents = events;
+    setEvents((prev) =>
+      prev.map((ev) =>
+        ev.id === eventId
+          ? { ...ev, i_volunteered: false, volunteer_count: Math.max(0, (ev.volunteer_count || 0) - 1) }
+          : ev
+      )
+    );
+
+    const res = await fetch(`/api/groups/${groupId}/events/${eventId}/volunteer`, { method: "DELETE" });
+    if (!res.ok) {
+      setEvents(previousEvents);
+      return;
+    }
     if (expandedVolunteerId === eventId) loadVolunteerList(eventId);
   };
 
@@ -461,7 +503,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
         </form>
       )}
 
-      {events === null && <EmptyState icon={CalendarDays} text="Loading…" />}
+      {events === null && <SkeletonList count={3} />}
       {events !== null && (
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />

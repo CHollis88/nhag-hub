@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroup } from "@/lib/push";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 const VALID_KINDS = ["announcement", "class", "discuss"];
 
@@ -24,7 +25,7 @@ export async function GET(req, { params }) {
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ news: data });
+  return withPrivateCache({ news: data });
 }
 
 // Leader (own group) or admin only -- per the permission matrix, Members

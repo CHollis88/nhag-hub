@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { cleanOccurrences } from "@/lib/lexiconFormat";
@@ -156,30 +156,52 @@ function SearchTab() {
   const [strongsResult, setStrongsResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const search = async (q) => {
-    setQuery(q);
+  // The input itself updates instantly on every keystroke (state below),
+  // but the actual network request is debounced -- typing "faith" used to
+  // fire 5 separate fetches (one per letter), which is wasted server load
+  // and causes visible flicker as each response lands out of order. This
+  // waits 300ms after the person stops typing before searching, and a
+  // request-id guard (latestRequestId) makes sure that if an older,
+  // slower request somehow resolves after a newer one, it's ignored
+  // rather than overwriting fresher results with stale ones.
+  const latestRequestId = useRef(0);
+
+  useEffect(() => {
+    const q = query;
     if (!q.trim()) {
       setResults(null);
       setStrongsResult(null);
+      setLoading(false);
       return;
     }
-    setLoading(true);
-    setStrongsResult(null);
 
-    if (/^[GH]\d+$/i.test(q.trim())) {
-      try {
-        const d = await api.getLexiconEntry(q.trim().toUpperCase());
-        setStrongsResult({ id: q.trim().toUpperCase(), entry: d.entry });
-        setResults(null);
-      } catch {
-        setStrongsResult(null);
+    setLoading(true);
+    const requestId = ++latestRequestId.current;
+
+    const t = setTimeout(async () => {
+      setStrongsResult(null);
+
+      if (/^[GH]\d+$/i.test(q.trim())) {
+        try {
+          const d = await api.getLexiconEntry(q.trim().toUpperCase());
+          if (requestId !== latestRequestId.current) return;
+          setStrongsResult({ id: q.trim().toUpperCase(), entry: d.entry });
+          setResults(null);
+        } catch {
+          if (requestId !== latestRequestId.current) return;
+          setStrongsResult(null);
+        }
+      } else {
+        const d = await api.searchDictionary(q);
+        if (requestId !== latestRequestId.current) return;
+        setResults(d);
       }
-    } else {
-      const d = await api.searchDictionary(q);
-      setResults(d);
-    }
-    setLoading(false);
-  };
+
+      if (requestId === latestRequestId.current) setLoading(false);
+    }, 300);
+
+    return () => clearTimeout(t);
+  }, [query]);
 
   const hasAnyResults = results && SOURCES.some(({ key }) => (results[key] || []).length > 0);
 
@@ -189,7 +211,7 @@ function SearchTab() {
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
         <input
           value={query}
-          onChange={(e) => search(e.target.value)}
+          onChange={(e) => setQuery(e.target.value)}
           placeholder="Search a word (e.g. 'faith') or Strong's number (e.g. G26)"
           className="sp-input pl-9"
         />

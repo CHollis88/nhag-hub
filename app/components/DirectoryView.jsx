@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+import Image from "next/image";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { readableTextColor } from "@/lib/colorContrast";
 import EmptyState from "./EmptyState";
+import { SkeletonList } from "./Skeleton";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 
@@ -30,7 +32,13 @@ function DirectoryEntry({ group, leaders, isMember }) {
     <div className="sp-card p-0 overflow-hidden">
       <button onClick={toggle} className="w-full flex items-center gap-3 p-3 text-left">
         {group.image_url ? (
-          <img src={group.image_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+          <Image
+            src={group.image_url}
+            alt=""
+            width={40}
+            height={40}
+            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+          />
         ) : (
           <div
             className="w-10 h-10 rounded-lg flex-shrink-0 flex items-center justify-center font-serif text-sm"
@@ -126,7 +134,7 @@ export default function DirectoryView({ me, onClose }) {
           </div>
         )}
 
-        {groups === null && <EmptyState icon={Search} text="Loading…" />}
+        {groups === null && <SkeletonList count={4} />}
         {groups?.length > 0 && filtered.length === 0 && (
           <EmptyState icon={Search} text="No ministries match that search." />
         )}

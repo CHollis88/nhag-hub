@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroup } from "@/lib/push";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 import { generateOccurrenceDates } from "@/lib/recurrence";
 import crypto from "crypto";
 
@@ -53,7 +54,7 @@ export async function GET(req, { params }) {
     })
   );
 
-  return NextResponse.json({ events: withExtras });
+  return withPrivateCache({ events: withExtras });
 }
 
 export async function POST(req, { params }) {

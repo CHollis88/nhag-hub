@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isActiveGroupMember } from "@/lib/groupAuth";
+import { notifyGroupMember } from "@/lib/push";
 
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
@@ -39,7 +40,7 @@ export async function POST(req, { params }) {
   const supabase = supabaseServer();
   const { data: post, error: postError } = await supabase
     .from("group_news")
-    .select("kind")
+    .select("kind, title, created_by")
     .eq("id", newsId)
     .maybeSingle();
 
@@ -61,5 +62,18 @@ export async function POST(req, { params }) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Only the post's own author needs to know their Discuss post got a
+  // reply -- not the whole group, and not the author themselves if
+  // they're replying to their own post. created_by can be null if that
+  // author's account was later deleted (schema: `on delete set null`).
+  if (post.created_by && post.created_by !== user.id) {
+    notifyGroupMember(groupId, post.created_by, {
+      title: "New reply to your post",
+      body: post.title ? `On "${post.title}"` : "Tap to view.",
+      url: "/",
+    }).catch(() => {});
+  }
+
   return NextResponse.json({ reply: data });
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Search, Plus, Music, FileText, Guitar, FileMusic, Mic2, Trash2, Pencil, ExternalLink } from "lucide-react";
-import EmptyState from "./EmptyState";
+import { SkeletonRowList } from "./Skeleton";
 import SongForm from "./SongForm";
 
 const LINK_BUTTONS = [
@@ -123,7 +123,7 @@ export default function SongsTab({ groupId, canManage }) {
     load();
   };
 
-  if (songs === null) return <div className="px-5 pt-4"><EmptyState icon={Music} text="Loading…" /></div>;
+  if (songs === null) return <div className="px-5 pt-4"><SkeletonRowList count={5} /></div>;
 
   return (
     <div className="px-5 pt-4 pb-6">

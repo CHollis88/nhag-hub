@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { readableTextColor } from "@/lib/colorContrast";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
@@ -25,7 +26,13 @@ export default function MinistryPreview({ group, leaders, onClose, onRequestJoin
 
         <div className="flex flex-col items-center text-center mb-5">
           {group.image_url ? (
-            <img src={group.image_url} alt="" className="w-20 h-20 rounded-xl object-cover mb-3" />
+            <Image
+              src={group.image_url}
+              alt=""
+              width={80}
+              height={80}
+              className="w-20 h-20 rounded-xl object-cover mb-3"
+            />
           ) : (
             <div
               className="w-20 h-20 rounded-xl flex items-center justify-center font-serif text-3xl mb-3"

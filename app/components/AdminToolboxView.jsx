@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Wrench, Search } from "lucide-react";
+import { SkeletonRowList } from "./Skeleton";
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -253,7 +254,7 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
         </button>
         {logOpen && (
           <div className="space-y-1.5">
-            {activityLog === null && <p className="text-sm text-inkfaint">Loading…</p>}
+            {activityLog === null && <SkeletonRowList count={3} />}
             {activityLog?.length === 0 && <p className="text-sm text-inkfaint">No admin activity yet.</p>}
             {activityLog?.map((entry) => (
               <div key={entry.id} className="sp-card py-2.5">

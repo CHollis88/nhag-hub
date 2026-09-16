@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, ListMusic, Trash2, Pencil } from "lucide-react";
-import EmptyState from "./EmptyState";
+import { Plus, Trash2, Pencil } from "lucide-react";
+import { SkeletonList } from "./Skeleton";
 import SetlistForm from "./SetlistForm";
 
 function fmtDate(d) {
@@ -89,7 +89,7 @@ export default function SetlistsTab({ groupId, canManage }) {
     load();
   };
 
-  if (setlists === null) return <div className="px-5 pt-4"><EmptyState icon={ListMusic} text="Loading…" /></div>;
+  if (setlists === null) return <div className="px-5 pt-4"><SkeletonList count={3} /></div>;
 
   return (
     <div className="px-5 pt-4 pb-6">
