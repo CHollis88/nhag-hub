@@ -12,7 +12,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("global_event_rsvps")
-    .select("status, updated_at, users!user_id(display_name)")
+    .select("status, updated_at, users(display_name)")
     .eq("event_id", params.id)
     .order("updated_at", { ascending: true });
 

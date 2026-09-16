@@ -15,7 +15,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("group_news_replies")
-    .select("id, body, created_at, users!user_id(display_name)")
+    .select("id, body, created_at, users(display_name)")
     .eq("news_id", newsId)
     .order("created_at", { ascending: true });
 

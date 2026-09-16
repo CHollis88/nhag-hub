@@ -33,7 +33,7 @@ export async function GET(req) {
   // group_members, no uniqueness constraint on role within a group).
   const { data: leaderRows } = await supabase
     .from("group_members")
-    .select("group_id, users!user_id(display_name)")
+    .select("group_id, users(display_name)")
     .eq("role", "leader")
     .eq("status", "active");
 
