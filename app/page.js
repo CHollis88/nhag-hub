@@ -359,7 +359,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
       >
         <div className="flex items-center gap-2.5">
-          <Image src="/icon-192.png" alt="" width={32} height={32} className="w-8 h-8 rounded" />
+          <Image src="/header-logo.png" alt="" width={32} height={32} className="w-8 h-8 rounded" />
           <strong
             className="font-serif tracking-wide"
             style={{
