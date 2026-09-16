@@ -5,6 +5,7 @@ import PassageReader from "./PassageReader";
 import ConcordanceSearch from "./ConcordanceSearch";
 import MyNotesView from "./MyNotesView";
 import GlossaryView from "./GlossaryView";
+import TabTransition from "./TabTransition";
 
 const MODES = [
   { id: "read", label: "Read" },
@@ -47,16 +48,18 @@ export default function BibleTab({ target, deviceId }) {
         ))}
       </div>
 
-      {mode === "read" && (
-        <PassageReader
-          initialBook={readTarget?.bookAbbr}
-          initialChapter={readTarget?.startChapter}
-          deviceId={deviceId}
-        />
-      )}
-      {mode === "concordance" && <ConcordanceSearch />}
-      {mode === "glossary" && <GlossaryView />}
-      {mode === "notes" && <MyNotesView deviceId={deviceId} onOpenPassage={openPassage} />}
+      <TabTransition tabKey={mode}>
+        {mode === "read" && (
+          <PassageReader
+            initialBook={readTarget?.bookAbbr}
+            initialChapter={readTarget?.startChapter}
+            deviceId={deviceId}
+          />
+        )}
+        {mode === "concordance" && <ConcordanceSearch />}
+        {mode === "glossary" && <GlossaryView />}
+        {mode === "notes" && <MyNotesView deviceId={deviceId} onOpenPassage={openPassage} />}
+      </TabTransition>
     </div>
   );
 }

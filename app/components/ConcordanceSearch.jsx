@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { cleanOccurrences } from "@/lib/lexiconFormat";
+import TabTransition from "./TabTransition";
 
 const SOURCES = [
   { key: "easton", label: "Easton's Bible Dictionary", subtitle: "General Bible dictionary — people, places, and terms" },
@@ -309,7 +310,7 @@ export default function ConcordanceSearch() {
         </button>
       </div>
 
-      {mode === "search" ? <SearchTab /> : <BrowseTab />}
+      <TabTransition tabKey={mode}>{mode === "search" ? <SearchTab /> : <BrowseTab />}</TabTransition>
     </div>
   );
 }

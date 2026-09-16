@@ -7,7 +7,11 @@ export default function SetlistForm({ initial, allSongs, onCancel, onSave }) {
   const [serviceDate, setServiceDate] = useState(initial?.service_date || "");
   const [service, setService] = useState(initial?.service || "AM");
   const [entries, setEntries] = useState(
-    initial?.songs?.map((s) => ({ song_id: s.group_songs?.id, title: s.group_songs?.title, note: s.note || "" })) || []
+    initial?.songs?.map((s) => ({
+      song_id: s.group_songs?.id || s.program_songs?.id,
+      title: s.group_songs?.title || s.program_songs?.title,
+      note: s.note || "",
+    })) || []
   );
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);

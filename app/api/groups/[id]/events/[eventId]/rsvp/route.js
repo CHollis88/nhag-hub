@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isActiveGroupMember } from "@/lib/groupAuth";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 const VALID_STATUSES = ["yes", "no", "maybe"];
 
@@ -25,7 +26,7 @@ export async function GET(req, { params }) {
     .order("updated_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ rsvps: data });
+  return withPrivateCache({ rsvps: data });
 }
 
 // Any active member can RSVP to their own group's events -- this isn't

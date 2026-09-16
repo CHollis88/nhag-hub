@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 // Adapted from the Young Adults app's device_id version -- same table
 // shape and behavior, but keyed to a real signed-in user.id instead of an
@@ -27,7 +28,7 @@ export async function GET(req) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ highlights: data });
+  return withPrivateCache({ highlights: data });
 }
 
 export async function POST(req) {

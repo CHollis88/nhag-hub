@@ -4,8 +4,9 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { logActivity } from "@/lib/activityLog";
 import { PLANS, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
-const VALID_FEATURES = ["songs_setlists", "reading_plan_journal"];
+const VALID_FEATURES = ["songs_setlists", "reading_plan_journal", "programs"];
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
 // Single-group detail fetch -- used by RosterTab's appearance panel to
@@ -29,7 +30,7 @@ export async function GET(req, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Group not found." }, { status: 404 });
-  return NextResponse.json({ group: data });
+  return withPrivateCache({ group: data });
 }
 
 export async function PATCH(req, { params }) {
@@ -39,7 +40,8 @@ export async function PATCH(req, { params }) {
   }
 
   const { id } = await params;
-  const { name, type, features, tile_color, description, reading_plan_locked, reading_plan_id } = await req.json();
+  const { name, type, features, tile_color, description, reading_plan_locked, reading_plan_id, hidden, hide_restricts_access } =
+    await req.json();
 
   const updates = { updated_at: new Date().toISOString() };
 
@@ -120,6 +122,21 @@ export async function PATCH(req, { params }) {
       }
       updates.reading_plan_id = reading_plan_id;
     }
+  }
+
+  // Hiding a ministry -- and whether that also cuts off existing
+  // members' access -- is admin-only. This is a bigger deal than the
+  // ministry's own cosmetic choices (name/color/etc, which a leader can
+  // set): it's the admin deciding whether a ministry is discoverable at
+  // all, and separately, whether it's effectively taken offline for
+  // people already in it. See migration_023 and lib/groupAuth.js for
+  // where hide_restricts_access is actually enforced.
+  if (hidden !== undefined || hide_restricts_access !== undefined) {
+    if (!user.is_church_admin) {
+      return NextResponse.json({ error: "Church Admin access required for that change." }, { status: 403 });
+    }
+    if (hidden !== undefined) updates.hidden = Boolean(hidden);
+    if (hide_restricts_access !== undefined) updates.hide_restricts_access = Boolean(hide_restricts_access);
   }
 
   const supabase = supabaseServer();

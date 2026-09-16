@@ -84,7 +84,7 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
   const [pendingCounts, setPendingCounts] = useState({});
 
   const loadGroups = useCallback(async () => {
-    const res = await fetch("/api/groups");
+    const res = await fetch("/api/groups", { cache: "no-store" });
     const data = await res.json();
     if (res.ok) setGroups(data.groups);
   }, []);
@@ -143,6 +143,36 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
     loadGroups();
   };
 
+  const toggleHidden = async (group) => {
+    setMessage("");
+    const res = await fetch(`/api/groups/${group.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hidden: !group.hidden }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(data.error);
+      return;
+    }
+    loadGroups();
+  };
+
+  const toggleRestrictsAccess = async (group) => {
+    setMessage("");
+    const res = await fetch(`/api/groups/${group.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hide_restricts_access: !group.hide_restricts_access }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setMessage(data.error);
+      return;
+    }
+    loadGroups();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end z-[60]" onClick={onClose}>
       <div
@@ -186,22 +216,45 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
         <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Manage ministries</p>
         <div className="space-y-2">
           {groups.map((g) => (
-            <div key={g.id} className="sp-card flex justify-between items-center">
-              <span className="text-sm text-ink">
-                {g.name} {g.type && <span className="text-inkfaint">({g.type})</span>}
-                {pendingCounts[g.id] > 0 && (
-                  <span className="ml-2 text-xs bg-accent text-white rounded-full px-2 py-0.5">
-                    {pendingCounts[g.id]} pending
-                  </span>
+            <div key={g.id} className="sp-card">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-ink">
+                  {g.name} {g.type && <span className="text-inkfaint">({g.type})</span>}
+                  {pendingCounts[g.id] > 0 && (
+                    <span className="ml-2 text-xs bg-accent text-white rounded-full px-2 py-0.5">
+                      {pendingCounts[g.id]} pending
+                    </span>
+                  )}
+                  {g.hidden && (
+                    <span className="ml-2 text-xs bg-inkfaint/20 text-inkfaint rounded-full px-2 py-0.5">
+                      Hidden{g.hide_restricts_access ? " · access restricted" : ""}
+                    </span>
+                  )}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => manage(g)} className="sp-btn-secondary text-xs py-1.5 px-3">
+                    Manage
+                  </button>
+                  <button onClick={() => deleteGroup(g)} className="text-xs text-inkfaint underline">
+                    Delete
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 mt-2.5 pt-2.5 border-t border-linesoft">
+                <label className="flex items-center gap-1.5 text-xs text-inksoft">
+                  <input type="checkbox" checked={Boolean(g.hidden)} onChange={() => toggleHidden(g)} />
+                  Hide from Directory
+                </label>
+                {g.hidden && (
+                  <label className="flex items-center gap-1.5 text-xs text-inksoft">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(g.hide_restricts_access)}
+                      onChange={() => toggleRestrictsAccess(g)}
+                    />
+                    Also restrict current members' access
+                  </label>
                 )}
-              </span>
-              <div className="flex items-center gap-2">
-                <button onClick={() => manage(g)} className="sp-btn-secondary text-xs py-1.5 px-3">
-                  Manage
-                </button>
-                <button onClick={() => deleteGroup(g)} className="text-xs text-inkfaint underline">
-                  Delete
-                </button>
               </div>
             </div>
           ))}

@@ -9,7 +9,7 @@ import { formatTime12h } from "@/lib/formatTime";
 const DEFAULT_TILE_COLOR = "#4A5568";
 const CHURCH_WIDE_COLOR = "#16296B"; // same brand navy used for "Church-wide" everywhere else (Calendar)
 
-function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin, onPreview }) {
+function MinistryTile({ group, leaders, myRole, isPending, onLaunch, onRequestJoin, onPreview }) {
   const isMember = Boolean(myRole);
   const bg = group.tile_color || DEFAULT_TILE_COLOR;
 
@@ -55,6 +55,20 @@ function MinistryTile({ group, leaders, myRole, onLaunch, onRequestJoin, onPrevi
         <div className="mt-auto pt-3 md:pt-4 w-full">
           {isMember ? (
             <button onClick={onLaunch} className="sp-btn-pill w-full md:text-base md:py-2">Launch</button>
+          ) : isPending ? (
+            // Disabled on purpose -- a second tap here used to silently
+            // re-send the same join request and get rejected by the
+            // server (already-pending, 409) with no visual cue beforehand
+            // that one was already sent. This makes the already-pending
+            // state visible instead of indistinguishable from "not yet
+            // requested."
+            <button
+              disabled
+              onClick={(e) => e.stopPropagation()}
+              className="sp-btn-secondary text-xs py-1.5 w-full opacity-60 cursor-default"
+            >
+              Pending
+            </button>
           ) : (
             <button
               onClick={(e) => {
@@ -180,7 +194,11 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
   const [previewGroup, setPreviewGroup] = useState(null);
 
   const loadGroups = useCallback(async () => {
-    const res = await fetch("/api/groups");
+    // no-store: this fires every time HomeTab mounts, including every
+    // time the refresh button remounts it -- a refresh has to be a real
+    // network hit, not risk being served from a 30s browser cache of a
+    // slightly-earlier response.
+    const res = await fetch("/api/groups", { cache: "no-store" });
     const data = await res.json();
     if (res.ok) setGroups(data.groups);
   }, []);
@@ -193,6 +211,9 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
     me.memberships.filter((m) => m.status === "active").map((m) => [m.group_id, m])
   );
   const myGroupIds = new Set(Object.keys(membershipByGroupId));
+  const pendingGroupIds = new Set(
+    me.memberships.filter((m) => m.status === "pending").map((m) => m.group_id)
+  );
 
   const requestJoin = async (groupId) => {
     setMessage("");
@@ -249,6 +270,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
                 group={g}
                 leaders={g.leaders}
                 myRole={null}
+                isPending={pendingGroupIds.has(g.id)}
                 onRequestJoin={() => requestJoin(g.id)}
                 onPreview={() => setPreviewGroup(g)}
               />
@@ -263,6 +285,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
         <MinistryPreview
           group={previewGroup}
           leaders={previewGroup.leaders}
+          isPending={pendingGroupIds.has(previewGroup.id)}
           onClose={() => setPreviewGroup(null)}
           onRequestJoin={() => requestJoin(previewGroup.id)}
         />

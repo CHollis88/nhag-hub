@@ -10,7 +10,7 @@ const DEFAULT_TILE_COLOR = "#4A5568";
 // member-only everywhere else in the app. This isn't a lesser version of
 // the real thing; it's the actual public face of a ministry, same idea
 // as a church bulletin blurb before you show up to a class.
-export default function MinistryPreview({ group, leaders, onClose, onRequestJoin }) {
+export default function MinistryPreview({ group, leaders, isPending, onClose, onRequestJoin }) {
   const bg = group.tile_color || DEFAULT_TILE_COLOR;
 
   return (
@@ -60,15 +60,21 @@ export default function MinistryPreview({ group, leaders, onClose, onRequestJoin
           </div>
         )}
 
-        <button
-          onClick={() => {
-            onRequestJoin();
-            onClose();
-          }}
-          className="sp-btn-primary w-full"
-        >
-          Request to Join
-        </button>
+        {isPending ? (
+          <button disabled className="sp-btn-primary w-full opacity-60 cursor-default">
+            Request Pending
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              onRequestJoin();
+              onClose();
+            }}
+            className="sp-btn-primary w-full"
+          >
+            Request to Join
+          </button>
+        )}
       </div>
     </div>
   );

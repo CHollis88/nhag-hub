@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 // Admin-only. Unlike /api/users/lookup (deliberately narrow, exact-match
 // only, for the "add someone to my group" flow), this genuinely lists
@@ -20,5 +21,5 @@ export async function GET(req) {
     .order("display_name");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ users: data });
+  return withPrivateCache({ users: data });
 }

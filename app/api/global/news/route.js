@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { notifyGlobal } from "@/lib/push";
+import { notifyGlobal, notifyAllLeaders } from "@/lib/push";
 import { withPrivateCache } from "@/lib/cacheHeaders";
+import { isAnyGroupLeader } from "@/lib/groupAuth";
 
 const VALID_CATEGORIES = ["announcement", "pastor_message"];
 
@@ -15,24 +16,49 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("global_news")
-    .select("id, title, body, category, pinned, created_at, users(display_name)")
+    .select("id, title, body, category, audience, pinned, created_at, users(display_name)")
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withPrivateCache({ news: data });
+
+  // A 'leaders' audience post is filtered out here (application layer)
+  // for anyone who isn't a leader of some ministry or a Church Admin --
+  // same "shouldn't even know it exists" reasoning as group_news's
+  // 'leader' kind.
+  const canSeeLeaderPosts = await isAnyGroupLeader(user);
+  const visible = canSeeLeaderPosts ? data : data.filter((n) => n.audience !== "leaders");
+
+  return withPrivateCache({ news: visible });
 }
 
 // Church-wide announcements are admin-only to post, per the project's
-// decision. category distinguishes a general Announcement from a Message
+// decision -- EXCEPT audience='leaders', a new capability Cam asked for
+// specifically: any active leader (of any group) can post a church-wide
+// leaders-only note, not just a Church Admin. The 'everyone' audience
+// keeps the original admin-only rule unchanged.
+// category distinguishes a general Announcement from a Message
 // from the Pastor -- same table, just a label the UI groups by.
 export async function POST(req) {
   const user = await getCurrentUser(req);
-  if (!user?.is_church_admin) {
-    return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { title, body, category, audience } = await req.json();
+  const finalAudience = audience === "leaders" ? "leaders" : "everyone";
+
+  const authorized = finalAudience === "leaders" ? await isAnyGroupLeader(user) : user.is_church_admin;
+  if (!authorized) {
+    return NextResponse.json(
+      {
+        error:
+          finalAudience === "leaders"
+            ? "Only a ministry leader or Church Admin can post to the leaders channel."
+            : "Church Admin access required.",
+      },
+      { status: 403 }
+    );
   }
 
-  const { title, body, category } = await req.json();
   if (!title?.trim() || !body?.trim()) {
     return NextResponse.json({ error: "title and body are required." }, { status: 400 });
   }
@@ -41,17 +67,27 @@ export async function POST(req) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("global_news")
-    .insert({ title: title.trim(), body: body.trim(), category: finalCategory, created_by: user.id })
-    .select("id, title, body, category, created_at")
+    .insert({
+      title: title.trim(),
+      body: body.trim(),
+      category: finalCategory,
+      audience: finalAudience,
+      created_by: user.id,
+    })
+    .select("id, title, body, category, audience, created_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  notifyGlobal({
-    title: finalCategory === "pastor_message" ? "Message from the Pastor" : "Church News",
-    body: title.trim(),
-    url: "/",
-  }).catch(() => {});
+  if (finalAudience === "leaders") {
+    notifyAllLeaders({ title: "Leaders Only", body: title.trim(), url: "/" }).catch(() => {});
+  } else {
+    notifyGlobal({
+      title: finalCategory === "pastor_message" ? "Message from the Pastor" : "Church News",
+      body: title.trim(),
+      url: "/",
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ news: data });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings } from "lucide-react";
+import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings, LayoutGrid } from "lucide-react";
 import GroupBottomNav from "./GroupBottomNav";
 import GroupSidebar from "./GroupSidebar";
 import GroupNewsTab from "./GroupNewsTab";
@@ -12,6 +12,7 @@ import { SkeletonList } from "./Skeleton";
 import TabTransition from "./TabTransition";
 import SongsTab from "./SongsTab";
 import SetlistsTab from "./SetlistsTab";
+import ProgramsTab from "./ProgramsTab";
 import TodayTab from "./TodayTab";
 import PlanTab from "./PlanTab";
 import JournalTab from "./JournalTab";
@@ -26,6 +27,7 @@ const APPEND_FEATURE_TABS = {
     { key: "songs", label: "Songs", icon: Music },
     { key: "setlists", label: "Setlists", icon: ListMusic },
   ],
+  programs: [{ key: "programs", label: "Programs", icon: LayoutGrid }],
 };
 
 // Tabs that come FIRST, before News/Events/Prayer -- per the project's
@@ -47,7 +49,7 @@ const PREPEND_FEATURE_TABS = {
 // the only way out, by design. Every group gets News/Events/Prayer/Roster
 // for free; optional modules (Songs/Setlists, Today/Plan/Journal) are
 // bolted on per-group via `features`, not tied to a fixed "type".
-export default function GroupShell({ group, myRole, currentUserId, onBackToHub, onOpenBiblePassage }) {
+export default function GroupShell({ group, myRole, currentUserId, onBackToHub, onOpenBiblePassage, refreshMe }) {
   const features = group.features || [];
   const hasReadingPlan = features.includes("reading_plan_journal");
   const [tab, setTab] = useState(hasReadingPlan ? "today" : "news");
@@ -222,12 +224,25 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
             {tab === "prayer" && (
               <GroupPrayerTab groupId={group.id} canManage={canManage} currentUserId={currentUserId} />
             )}
-            {tab === "roster" && <RosterTab groupId={group.id} myRole={effectiveRole} onRenamed={setDisplayName} />}
+            {tab === "roster" && (
+              <RosterTab
+                groupId={group.id}
+                myRole={effectiveRole}
+                onRenamed={setDisplayName}
+                onLeave={() => {
+                  refreshMe();
+                  onBackToHub();
+                }}
+              />
+            )}
             {features.includes("songs_setlists") && tab === "songs" && (
               <SongsTab groupId={group.id} canManage={canManage} />
             )}
             {features.includes("songs_setlists") && tab === "setlists" && (
               <SetlistsTab groupId={group.id} canManage={canManage} />
+            )}
+            {features.includes("programs") && tab === "programs" && (
+              <ProgramsTab groupId={group.id} canManage={canManage} />
             )}
           </TabTransition>
         </main>

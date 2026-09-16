@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 export async function GET(req, { params }) {
   const { id } = await params;
@@ -15,7 +16,7 @@ export async function GET(req, { params }) {
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ volunteers: data });
+  return withPrivateCache({ volunteers: data });
 }
 
 // Enforces the volunteers_needed cap server-side -- once full, further

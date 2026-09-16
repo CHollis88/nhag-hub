@@ -13,15 +13,23 @@ const FAQS = [
   },
   {
     q: "How do I join a ministry?",
-    a: "From the Home tab, tap a ministry under \"Other ministries\" to see what it's about — its description and who leads it — then tap \"Request to Join\" from there. That ministry's leader (or a Church Admin) will need to approve it before you're fully in.",
+    a: "From the Home tab, tap a ministry under \"Other ministries\" to see what it's about — its description and who leads it — then tap \"Request to Join\" from there. That ministry's leader (or a Church Admin) will need to approve it before you're fully in. While you're waiting, that ministry's card shows \"Pending\" instead of \"Join,\" so you always know where a request stands.",
   },
   {
     q: "What happens when I tap \"Launch\" on a ministry?",
-    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: a Song library and Setlists, or a Bible Plan bolt-on with Today, Plan, and Journal, leading the list. Tap \"← Home\" at the top to leave and go back.",
+    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: a Song library and Setlists, a Programs tab for organizing things like a seasonal cantata or special production (each program gets its own Songs, Setlist, and Documents), or a Bible Plan bolt-on with Today, Plan, and Journal, leading the list. Tap \"← Home\" at the top to leave and go back.",
+  },
+  {
+    q: "Can I leave a ministry?",
+    a: "Yes — any member, leader included, can leave a ministry on their own from that ministry's Roster tab, no approval needed. You'll lose access to its News, Events, and Prayer right away, and would need to request to join again later if you change your mind.",
   },
   {
     q: "Who can post, edit, or delete News, Events, or Prayer requests?",
     a: "Posting News or Events in a ministry is limited to that ministry's leaders or a Church Admin — and the same people can edit or delete a post afterward if something needs fixing or removing. Prayer requests work differently: anyone in the group can submit one, and only the person who wrote it can edit it, though a leader or admin can still remove one if needed.",
+  },
+  {
+    q: "What are \"Leaders Only\" posts?",
+    a: "A way for leaders to share something meant for other leaders, not the general membership. Inside a ministry, any leader of that ministry can post a Leaders Only note that only that ministry's own leaders and admins can see — regular members won't know it's there. There's also a church-wide leaders channel in Church News: any active leader of any ministry (not just Church Admins) can post there, and it's visible to every ministry leader across the church, plus admins.",
   },
   {
     q: "Can I pin an announcement?",
@@ -50,6 +58,10 @@ const FAQS = [
   {
     q: "How does Bible Plan work, and can I pick which plan I'm on?",
     a: "Bible Plan is an optional bolt-on a ministry's leader can turn on, giving that ministry Today, Plan, and Journal tabs. There are four plans to choose from — the original year-long plan, Whole Bible in 6 or 9 months, and New Testament in 90 Days. A ministry's leader decides whether everyone follows one locked-in plan together, or each person picks their own. If you're a leader, you can also check the whole class's progress from the Roster tab. If notifications are on for a Bible Plan ministry, you'll also get a daily reading reminder.",
+  },
+  {
+    q: "What is Programs, and how does it work?",
+    a: "Programs is another optional bolt-on a ministry's leader can turn on — useful for organizing something like a seasonal cantata, a special production, or any project that needs its own Songs, Setlist, and Documents separate from the ministry's everyday ones. Each program shows up as its own card; tap one to open it. A program's Songs and Setlist are entirely its own library, not shared with the ministry's main Songs tab, so planning a special event never mixes into everyday repertoire. Documents lets a leader upload PDFs (sheet music, schedules, scripts) specific to that program. A ministry's leaders can create programs, and can hide a program that's finished or not ready yet — a hidden program just doesn't show up in the grid for regular members, though leaders and admins can still see and manage it.",
   },
   {
     q: "How does the Bible tab work?",
@@ -90,7 +102,7 @@ const FAQS = [
   },
   {
     q: "I'm a Church Admin — where's the Admin Toolbox?",
-    a: "Tap the toolbox icon in the header (only Admins see it). From there you can create ministries, manage or delete any ministry, promote or remove other people's admin access, search the full user directory, and see a log of recent admin activity. You can also hide the toolbox icon and toggle from your own view in Settings if you'd rather not see it day-to-day — that's just a personal display choice and never actually changes your access.",
+    a: "Tap the toolbox icon in the header (only Admins see it). From there you can create ministries, manage or delete any ministry, promote or remove other people's admin access, search the full user directory, and see a log of recent admin activity. You can also hide a ministry from the Directory and Home's \"other ministries\" list — and separately choose whether hiding it also cuts off access for people already in it, or just keeps new people from finding it. You can also hide the toolbox icon and toggle from your own view in Settings if you'd rather not see it day-to-day — that's just a personal display choice and never actually changes your access.",
   },
 ];
 

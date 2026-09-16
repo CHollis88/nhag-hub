@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BookOpen, ChevronDown, Cross, Search, X } from "lucide-react";
 import { api } from "@/lib/api";
 import EmptyState from "./EmptyState";
+import TabTransition from "./TabTransition";
 
 function BeliefItem({ number, title, body }) {
   const [open, setOpen] = useState(false);
@@ -107,69 +108,71 @@ export default function GlossaryView() {
         </button>
       </div>
 
-      {tab === "glossary" ? (
-        <>
-          <p className="text-sm text-inkfaint mb-4">
-            Plain-language explanations of common church and Bible terms.
-          </p>
+      <TabTransition tabKey={tab}>
+        {tab === "glossary" ? (
+          <>
+            <p className="text-sm text-inkfaint mb-4">
+              Plain-language explanations of common church and Bible terms.
+            </p>
 
-          <div className="relative mb-5">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search terms…"
-              className="sp-input text-sm pl-9 pr-9"
-            />
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-inkfaint"
-                aria-label="Clear search"
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
-
-          {filtered.length === 0 ? (
-            <EmptyState icon={Search} text={`No terms match "${query}".`} />
-          ) : (
-            Object.entries(grouped).map(([category, items]) => (
-              <div key={category} className="mb-6">
-                <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">{category}</p>
-                <div className="space-y-2">
-                  {items.map((e) => (
-                    <div key={e.term} className="sp-card">
-                      <p className="font-serif text-base text-ink font-semibold mb-1">{e.term}</p>
-                      <p className="text-sm text-inksoft leading-relaxed">{e.definition}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))
-          )}
-
-          {!query && (
-            <div className="flex items-center gap-2 text-xs text-inkfaint mt-2">
-              <BookOpen size={14} />
-              <span>{entries.length} terms</span>
+            <div className="relative mb-5">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search terms…"
+                className="sp-input text-sm pl-9 pr-9"
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-inkfaint"
+                  aria-label="Clear search"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="flex items-center gap-2 mb-1">
-            <Cross size={16} className="text-accent" />
-            <h2 className="font-serif text-xl text-ink">What We Believe</h2>
-          </div>
-          <p className="text-sm text-inkfaint mb-4">
-            The Assemblies of God Statement of Fundamental Truths — our official 16 doctrines.
-          </p>
-          <WhatWeBelieveContent />
-        </>
-      )}
+
+            {filtered.length === 0 ? (
+              <EmptyState icon={Search} text={`No terms match "${query}".`} />
+            ) : (
+              Object.entries(grouped).map(([category, items]) => (
+                <div key={category} className="mb-6">
+                  <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">{category}</p>
+                  <div className="space-y-2">
+                    {items.map((e) => (
+                      <div key={e.term} className="sp-card">
+                        <p className="font-serif text-base text-ink font-semibold mb-1">{e.term}</p>
+                        <p className="text-sm text-inksoft leading-relaxed">{e.definition}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+
+            {!query && (
+              <div className="flex items-center gap-2 text-xs text-inkfaint mt-2">
+                <BookOpen size={14} />
+                <span>{entries.length} terms</span>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-1">
+              <Cross size={16} className="text-accent" />
+              <h2 className="font-serif text-xl text-ink">What We Believe</h2>
+            </div>
+            <p className="text-sm text-inkfaint mb-4">
+              The Assemblies of God Statement of Fundamental Truths — our official 16 doctrines.
+            </p>
+            <WhatWeBelieveContent />
+          </>
+        )}
+      </TabTransition>
     </div>
   );
 }

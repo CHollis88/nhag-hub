@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { PLANS } from "@/lib/planRegistry";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 export async function GET(req) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
-  return NextResponse.json({ active_reading_plan: user.active_reading_plan || "foundations" });
+  return withPrivateCache({ active_reading_plan: user.active_reading_plan || "foundations" });
 }
 
 export async function PATCH(req) {

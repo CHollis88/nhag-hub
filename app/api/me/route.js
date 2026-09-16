@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -17,28 +18,48 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data: memberships, error } = await supabase
     .from("group_members")
-    .select("group_id, role, status, groups(id, name, type, features, image_url, tile_color)")
+    .select("group_id, role, status, groups(id, name, type, features, image_url, tile_color, hidden, hide_restricts_access)")
     .eq("user_id", user.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      display_name: user.display_name,
-      is_church_admin: user.is_church_admin,
+  // A group hidden with hide_restricts_access=true is meant to be fully
+  // offline for everyone except a Church Admin (see lib/groupAuth.js and
+  // /api/groups's GET) -- so it's dropped from a non-admin's own
+  // memberships too. Otherwise Home would still show an active "Launch"
+  // tile for it that 403s the moment it's tapped. hidden=true alone
+  // (discovery-only) does NOT drop it here -- an existing member keeps
+  // full access, only OTHER people's discovery of it is affected.
+  const visibleMemberships = user.is_church_admin
+    ? memberships || []
+    : (memberships || []).filter((m) => !(m.groups?.hidden && m.groups?.hide_restricts_access));
+
+  return withPrivateCache(
+    {
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        display_name: user.display_name,
+        is_church_admin: user.is_church_admin,
+      },
+      memberships: visibleMemberships.map((m) => ({
+        group_id: m.group_id,
+        role: m.role,
+        status: m.status,
+        group: m.groups,
+      })),
     },
-    memberships: (memberships || []).map((m) => ({
-      group_id: m.group_id,
-      role: m.role,
-      status: m.status,
-      group: m.groups,
-    })),
-  });
+    // Short TTL, not the default 60s -- membership status (pending →
+    // active) is exactly the kind of thing a person is anxiously
+    // checking right after a leader approves them, so this errs toward
+    // freshness over cache-hit-rate. The explicit `no-store` fetch used
+    // by the refresh button (see page.js's `load()`) bypasses this
+    // entirely anyway; this header just governs ordinary repeat loads.
+    { maxAge: 20, staleWhileRevalidate: 60 }
+  );
 }
 
 // Editing your own name/username -- same validation rules as initial

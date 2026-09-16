@@ -171,6 +171,14 @@ function AppearancePanel({ groupId, onRenamed, isAdmin }) {
             />
             Song library + Setlists (Choir-style)
           </label>
+          <label className="flex items-center gap-2 mb-1.5 text-sm text-inksoft">
+            <input
+              type="checkbox"
+              checked={(group.features || []).includes("programs")}
+              onChange={() => toggleFeature("programs")}
+            />
+            Programs (Songs/Setlist/Documents per program)
+          </label>
           <label className="flex items-center gap-2 text-sm text-inksoft">
             <input
               type="checkbox"
@@ -230,7 +238,7 @@ function AppearancePanel({ groupId, onRenamed, isAdmin }) {
 // just a UI on top of the group_members data and API routes that already
 // exist from Foundation. Every member can view the roster; only a leader
 // of this group (or a Church Admin) sees and can act on the pending queue.
-export default function RosterTab({ groupId, myRole, onRenamed }) {
+export default function RosterTab({ groupId, myRole, onRenamed, onLeave }) {
   const [active, setActive] = useState(null);
   const [pending, setPending] = useState(null);
   const [addUsername, setAddUsername] = useState("");
@@ -239,7 +247,22 @@ export default function RosterTab({ groupId, myRole, onRenamed }) {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkResults, setBulkResults] = useState(null);
   const [message, setMessage] = useState("");
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const canManage = myRole === "leader" || myRole === "admin";
+
+  const leaveGroup = async () => {
+    setLeaving(true);
+    const res = await fetch(`/api/groups/${groupId}/leave`, { method: "DELETE" });
+    if (res.ok) {
+      onLeave();
+    } else {
+      setLeaving(false);
+      setConfirmingLeave(false);
+      const data = await res.json().catch(() => ({}));
+      setMessage(data.error || "Couldn't leave the group.");
+    }
+  };
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}/members`);
@@ -440,6 +463,39 @@ export default function RosterTab({ groupId, myRole, onRenamed }) {
           )}
         </>
       )}
+
+      {/* Self-service leave: visible to any member, leader or not, per
+          Cam's explicit request. A confirm step guards it since
+          re-joining requires another approval, not an instant undo. */}
+      <div className="mt-8 pt-5 border-t border-linesoft">
+        {!confirmingLeave ? (
+          <button
+            onClick={() => setConfirmingLeave(true)}
+            className="text-xs text-red-600 dark:text-red-400 underline"
+          >
+            Leave this ministry
+          </button>
+        ) : (
+          <div className="sp-card">
+            <p className="text-sm text-ink mb-3">
+              Leave this ministry? You'll lose access to its News, Events, and Prayer, and would need to
+              request to join again later.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={leaveGroup}
+                disabled={leaving}
+                className="sp-btn-secondary text-red-600 dark:text-red-400 flex-1"
+              >
+                {leaving ? "Leaving…" : "Yes, leave"}
+              </button>
+              <button onClick={() => setConfirmingLeave(false)} className="sp-btn-secondary flex-1">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

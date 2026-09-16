@@ -54,17 +54,19 @@ const KIND_LABELS = {
   announcement: null, // no badge -- the plain, default case
   class: { text: "Class", className: "bg-sage/15 text-sage" },
   discuss: { text: "Discuss", className: "bg-navy/10 text-navy dark:bg-blue-400/15 dark:text-blue-300" },
+  leader: { text: "Leaders Only", className: "bg-accent/15 text-accent" },
 };
 
 const FORM_COPY = {
   announcement: { title: "Title", body: "What's the news?" },
   class: { title: "Class title (e.g. this week's topic)", body: "Drop your notes from class here" },
   discuss: { title: "Discussion title (e.g. a passage)", body: "Questions for the group to discuss" },
+  leader: { title: "Title", body: "Only this group's leaders and admins will see this" },
 };
 
 export default function GroupNewsTab({ groupId, canManage, showClassOption = true }) {
   const [news, setNews] = useState(null);
-  const [formKind, setFormKind] = useState(null); // null | "announcement" | "class" | "discuss"
+  const [formKind, setFormKind] = useState(null); // null | "announcement" | "class" | "discuss" | "leader"
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [openThread, setOpenThread] = useState(null);
@@ -161,6 +163,9 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
             </button>
             <button onClick={() => setFormKind("announcement")} className="sp-btn-pill">
               Post
+            </button>
+            <button onClick={() => setFormKind("leader")} className="sp-btn-pill bg-accent">
+              Leaders Only
             </button>
           </div>
         )}

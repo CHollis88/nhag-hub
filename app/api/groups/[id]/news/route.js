@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
-import { notifyGroup } from "@/lib/push";
+import { notifyGroup, notifyGroupLeaders } from "@/lib/push";
 import { withPrivateCache } from "@/lib/cacheHeaders";
 
-const VALID_KINDS = ["announcement", "class", "discuss"];
+const VALID_KINDS = ["announcement", "class", "discuss", "leader"];
 
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
@@ -25,7 +25,15 @@ export async function GET(req, { params }) {
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withPrivateCache({ news: data });
+
+  // 'leader' posts are filtered out here (application layer, same
+  // pattern as 'discuss' reply permission) for anyone who isn't a
+  // leader/admin of THIS group -- a member should never even see that a
+  // leader-only post exists, not just be blocked from opening it.
+  const canSeeLeaderPosts = await canManageGroup(user, groupId);
+  const visible = canSeeLeaderPosts ? data : data.filter((n) => n.kind !== "leader");
+
+  return withPrivateCache({ news: visible });
 }
 
 // Leader (own group) or admin only -- per the permission matrix, Members
@@ -60,8 +68,17 @@ export async function POST(req, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const kindLabel = finalKind === "class" ? "Class Notes" : finalKind === "discuss" ? "Discussion" : "Group News";
-  notifyGroup(groupId, { title: kindLabel, body: title.trim(), url: "/" }).catch(() => {});
+  const kindLabel =
+    finalKind === "class" ? "Class Notes" : finalKind === "discuss" ? "Discussion" : finalKind === "leader" ? "Leaders Only" : "Group News";
+  // A 'leader' post notifies only this group's own leaders/admins, not
+  // the whole membership -- same reasoning as everything else in this
+  // kind system being visibility-scoped at read time; the notification
+  // should match who's actually allowed to see the content.
+  if (finalKind === "leader") {
+    notifyGroupLeaders(groupId, { title: kindLabel, body: title.trim(), url: "/" }).catch(() => {});
+  } else {
+    notifyGroup(groupId, { title: kindLabel, body: title.trim(), url: "/" }).catch(() => {});
+  }
 
   return NextResponse.json({ news: data });
 }

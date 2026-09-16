@@ -16,14 +16,14 @@ const LINK_BUTTONS = [
   ["full_mix_url", "Full Mix", Mic2],
 ];
 
-function SongRow({ groupId, song, canManage, onUpdated }) {
+function SongRow({ baseUrl, song, canManage, onUpdated }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
 
   const availableLinks = LINK_BUTTONS.filter(([key]) => song[key]);
 
   const saveEdit = async (fields) => {
-    await fetch(`/api/groups/${groupId}/songs/${song.id}`, {
+    await fetch(`${baseUrl}/${song.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(fields),
@@ -34,7 +34,7 @@ function SongRow({ groupId, song, canManage, onUpdated }) {
 
   const remove = async () => {
     if (!confirm("Delete this song? It will also be removed from any setlists it's in.")) return;
-    await fetch(`/api/groups/${groupId}/songs/${song.id}`, { method: "DELETE" });
+    await fetch(`${baseUrl}/${song.id}`, { method: "DELETE" });
     onUpdated();
   };
 
@@ -89,20 +89,28 @@ function SongRow({ groupId, song, canManage, onUpdated }) {
   );
 }
 
-export default function SongsTab({ groupId, canManage }) {
+export default function SongsTab({ groupId, canManage, baseUrl }) {
   const [songs, setSongs] = useState(null);
   const [query, setQuery] = useState("");
   const [showForm, setShowForm] = useState(false);
 
+  // Defaults to the group's own song library URL so every existing
+  // caller (Choir's Songs tab) behaves exactly as before -- Programs
+  // passes its own program-scoped URL instead (see ProgramsTab.jsx),
+  // reusing this same well-tested list/search/edit UI rather than
+  // forking it, since a program's song library is a separate table but
+  // an identical shape and behavior.
+  const url = baseUrl || `/api/groups/${groupId}/songs`;
+
   const load = async () => {
-    const res = await fetch(`/api/groups/${groupId}/songs`);
+    const res = await fetch(url);
     const data = await res.json();
     if (res.ok) setSongs(data.songs);
   };
 
   useEffect(() => {
     load();
-  }, [groupId]);
+  }, [url]);
 
   const filtered = useMemo(() => {
     if (!songs) return [];
@@ -114,7 +122,7 @@ export default function SongsTab({ groupId, canManage }) {
   }, [songs, query]);
 
   const create = async (fields) => {
-    await fetch(`/api/groups/${groupId}/songs`, {
+    await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(fields),
@@ -156,7 +164,7 @@ export default function SongsTab({ groupId, canManage }) {
 
       <div className="space-y-2">
         {filtered.map((song) => (
-          <SongRow key={song.id} groupId={groupId} song={song} canManage={canManage} onUpdated={load} />
+          <SongRow key={song.id} baseUrl={url} song={song} canManage={canManage} onUpdated={load} />
         ))}
       </div>
 

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup } from "@/lib/groupAuth";
 import { getPlan, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 // Leader/admin-only view of how the whole class is doing on the Bible
 // Plan -- mirrors the Young Adults app's own "Group Progress" screen.
@@ -37,7 +38,7 @@ export async function GET(req, { params }) {
   if (membersError) return NextResponse.json({ error: membersError.message }, { status: 500 });
 
   const userIds = members.map((m) => m.user_id);
-  if (userIds.length === 0) return NextResponse.json({ roster: [] });
+  if (userIds.length === 0) return withPrivateCache({ roster: [] }, { maxAge: 20, staleWhileRevalidate: 60 });
 
   const { data: progressRows, error: progressError } = await supabase
     .from("reading_progress")
@@ -64,5 +65,7 @@ export async function GET(req, { params }) {
     })
     .sort((a, b) => b.doneCount - a.doneCount);
 
-  return NextResponse.json({ roster, planLocked: group.reading_plan_locked });
+  // Short TTL -- this is a leader checking on their class's progress,
+  // wants it current, same reasoning as /api/me and the pending queue.
+  return withPrivateCache({ roster, planLocked: group.reading_plan_locked }, { maxAge: 20, staleWhileRevalidate: 60 });
 }

@@ -54,17 +54,22 @@ function PromotionQueue() {
   );
 }
 
-export default function NewsTab({ isAdmin }) {
+export default function NewsTab({ isAdmin, isAnyLeader }) {
   const [news, setNews] = useState(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("announcement");
+  const [audience, setAudience] = useState(isAdmin ? "everyone" : "leaders");
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
   const [query, setQuery] = useState("");
+
+  // Anyone who can post at all -- an admin (the 'everyone' audience) or
+  // any ministry leader (the 'leaders' audience, migration_024).
+  const canPostAnything = isAdmin || isAnyLeader;
 
   const load = useCallback(async () => {
     const res = await fetch("/api/global/news");
@@ -82,7 +87,7 @@ export default function NewsTab({ isAdmin }) {
     const res = await fetch("/api/global/news", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body, category }),
+      body: JSON.stringify({ title, body, category, audience }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -92,6 +97,7 @@ export default function NewsTab({ isAdmin }) {
     setTitle("");
     setBody("");
     setCategory("announcement");
+    setAudience(isAdmin ? "everyone" : "leaders");
     setShowForm(false);
     load();
   };
@@ -137,7 +143,7 @@ export default function NewsTab({ isAdmin }) {
     <div className="px-5 pt-4 pb-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-serif text-2xl text-ink">Church News</h2>
-        {isAdmin && (
+        {canPostAnything && (
           <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
             {showForm ? "Cancel" : "+ Add"}
           </button>
@@ -146,24 +152,54 @@ export default function NewsTab({ isAdmin }) {
 
       {isAdmin && <PromotionQueue />}
 
-      {isAdmin && showForm && (
+      {canPostAnything && showForm && (
         <form onSubmit={submit} className="sp-card mb-4">
-          <div className="flex gap-2 mb-2">
-            <button
-              type="button"
-              onClick={() => setCategory("announcement")}
-              className={category === "announcement" ? "sp-pill-outline active" : "sp-pill-outline"}
-            >
-              Announcement
-            </button>
-            <button
-              type="button"
-              onClick={() => setCategory("pastor_message")}
-              className={category === "pastor_message" ? "sp-pill-outline active" : "sp-pill-outline"}
-            >
-              Message from the Pastor
-            </button>
-          </div>
+          {/* Audience picker only shown when there's an actual choice --
+              an admin can post either way; a leader who isn't an admin
+              can ONLY post to the leaders channel, so there's no
+              decision to make and no picker to show them. */}
+          {isAdmin && isAnyLeader && (
+            <div className="flex gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setAudience("everyone")}
+                className={audience === "everyone" ? "sp-pill-outline active" : "sp-pill-outline"}
+              >
+                Everyone
+              </button>
+              <button
+                type="button"
+                onClick={() => setAudience("leaders")}
+                className={audience === "leaders" ? "sp-pill-outline active" : "sp-pill-outline"}
+              >
+                Leaders Only
+              </button>
+            </div>
+          )}
+          {isAdmin && !isAnyLeader && audience === "leaders" && setAudience("everyone")}
+          {!isAdmin && (
+            <p className="text-xs text-inkfaint mb-2">
+              Posting to the church-wide leaders channel — visible to every ministry leader and admin.
+            </p>
+          )}
+          {isAdmin && audience === "everyone" && (
+            <div className="flex gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setCategory("announcement")}
+                className={category === "announcement" ? "sp-pill-outline active" : "sp-pill-outline"}
+              >
+                Announcement
+              </button>
+              <button
+                type="button"
+                onClick={() => setCategory("pastor_message")}
+                className={category === "pastor_message" ? "sp-pill-outline active" : "sp-pill-outline"}
+              >
+                Message from the Pastor
+              </button>
+            </div>
+          )}
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -179,7 +215,9 @@ export default function NewsTab({ isAdmin }) {
             rows={3}
             className="sp-textarea mb-2"
           />
-          <button type="submit" className="sp-btn-primary">Post to everyone</button>
+          <button type="submit" className="sp-btn-primary">
+            {audience === "leaders" ? "Post to leaders" : "Post to everyone"}
+          </button>
           {error && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{error}</p>}
         </form>
       )}
@@ -230,6 +268,11 @@ export default function NewsTab({ isAdmin }) {
                   {n.category === "pastor_message" && (
                     <span className="text-[0.625rem] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
                       Pastor's Message
+                    </span>
+                  )}
+                  {n.audience === "leaders" && (
+                    <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
+                      Leaders Only
                     </span>
                   )}
                   <h3 className="font-medium text-ink">{n.title}</h3>

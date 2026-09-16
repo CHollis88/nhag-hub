@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroupMember } from "@/lib/push";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
@@ -21,7 +22,7 @@ export async function GET(req, { params }) {
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ replies: data });
+  return withPrivateCache({ replies: data });
 }
 
 // Any active member (not just leaders) can reply -- but only to a

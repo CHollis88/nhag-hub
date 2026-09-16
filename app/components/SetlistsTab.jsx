@@ -14,24 +14,30 @@ function fmtDate(d) {
   });
 }
 
-export default function SetlistsTab({ groupId, canManage }) {
+export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
   const [setlists, setSetlists] = useState(null);
   const [songs, setSongs] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
 
+  // Same reuse pattern as SongsTab: defaults to the group's own
+  // setlists URL so Choir's existing Setlists tab is unaffected;
+  // Programs passes its own program-scoped URLs (see ProgramsTab.jsx).
+  const url = baseUrl || `/api/groups/${groupId}/setlists`;
+  const songLibraryUrl = songsUrl || `/api/groups/${groupId}/songs`;
+
   const load = async () => {
-    const res = await fetch(`/api/groups/${groupId}/setlists`);
+    const res = await fetch(url);
     const data = await res.json();
     if (res.ok) setSetlists(data.setlists);
   };
 
   useEffect(() => {
     load();
-    fetch(`/api/groups/${groupId}/songs`)
+    fetch(songLibraryUrl)
       .then((r) => r.json())
       .then((d) => setSongs(d.songs || []));
-  }, [groupId]);
+  }, [url, songLibraryUrl]);
 
   // The form hands back the whole intended song list (with notes, in
   // order) in one go, matching the real Choir app's UX -- reorder/add/
@@ -41,7 +47,7 @@ export default function SetlistsTab({ groupId, canManage }) {
   // calls against the existing add/remove endpoints -- same end result,
   // no new API surface needed.
   const create = async ({ service_date, service, songs: entries }) => {
-    const res = await fetch(`/api/groups/${groupId}/setlists`, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ service_date, service }),
@@ -49,7 +55,7 @@ export default function SetlistsTab({ groupId, canManage }) {
     const data = await res.json();
     if (!res.ok) return;
     for (const entry of entries) {
-      await fetch(`/api/groups/${groupId}/setlists/${data.setlist.id}/songs`, {
+      await fetch(`${url}/${data.setlist.id}/songs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ song_id: entry.song_id, note: entry.note }),
@@ -60,7 +66,7 @@ export default function SetlistsTab({ groupId, canManage }) {
   };
 
   const saveEdit = async ({ service_date, service, songs: entries }) => {
-    await fetch(`/api/groups/${groupId}/setlists/${editing.id}`, {
+    await fetch(`${url}/${editing.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ service_date, service }),
@@ -68,12 +74,12 @@ export default function SetlistsTab({ groupId, canManage }) {
     // Replace the whole song list: remove every existing entry, then
     // re-add the form's current list fresh, in order.
     for (const existingEntry of editing.songs) {
-      await fetch(`/api/groups/${groupId}/setlists/${editing.id}/songs/${existingEntry.id}`, {
+      await fetch(`${url}/${editing.id}/songs/${existingEntry.id}`, {
         method: "DELETE",
       });
     }
     for (const entry of entries) {
-      await fetch(`/api/groups/${groupId}/setlists/${editing.id}/songs`, {
+      await fetch(`${url}/${editing.id}/songs`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ song_id: entry.song_id, note: entry.note }),
@@ -85,7 +91,7 @@ export default function SetlistsTab({ groupId, canManage }) {
 
   const remove = async (id) => {
     if (!confirm("Delete this whole setlist?")) return;
-    await fetch(`/api/groups/${groupId}/setlists/${id}`, { method: "DELETE" });
+    await fetch(`${url}/${id}`, { method: "DELETE" });
     load();
   };
 
@@ -134,7 +140,7 @@ export default function SetlistsTab({ groupId, canManage }) {
                 {s.songs.map((song, i) => (
                   <li key={song.id} className="flex items-baseline gap-2 text-sm">
                     <span className="text-inkfaint w-4 flex-shrink-0">{i + 1}.</span>
-                    <span className="text-ink flex-1">{song.group_songs?.title}</span>
+                    <span className="text-ink flex-1">{song.group_songs?.title || song.program_songs?.title}</span>
                     {song.note && <span className="text-inkfaint text-xs">{song.note}</span>}
                   </li>
                 ))}

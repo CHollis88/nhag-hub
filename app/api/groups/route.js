@@ -2,18 +2,35 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { logActivity } from "@/lib/activityLog";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 // Recognized feature keys. There's no fixed set of ministry "types" --
 // type is just a free-text label -- but features are a controlled set
 // since each one corresponds to real UI/tabs the app knows how to render.
 // Adding a new feature later means adding a key here, not a schema change.
-const VALID_FEATURES = ["songs_setlists", "reading_plan_journal"];
+const VALID_FEATURES = ["songs_setlists", "reading_plan_journal", "programs"];
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
 // Any signed-in user can list all groups — this powers "browse groups you're
 // not in yet, to request joining." It intentionally does not filter by
 // membership; that filtering happens client-side against /api/me's
 // memberships list, since seeing that a group exists is not sensitive.
+//
+// Hidden ministries (migration_023) ARE filtered here, though, since
+// that's the whole point of hiding one: a Church Admin can hide a group
+// from discovery, and separately choose whether it also cuts off
+// existing members' access. Two cases:
+//   hidden=true, hide_restricts_access=false -- excluded from this list
+//     for anyone NOT already an active member (so it disappears from
+//     "browse other ministries" but a current member still sees it and
+//     can Launch it)
+//   hidden=true, hide_restricts_access=true -- excluded for EVERYONE
+//     except a Church Admin (matches lib/groupAuth.js denying
+//     canManageGroup/isActiveGroupMember too, so a group hidden this way
+//     is fully offline, not just missing from the browse list -- no
+//     point showing a tile that 403s the moment you tap Launch)
+// Church Admins always see every group regardless, so they can find and
+// un-hide one.
 export async function GET(req) {
   const user = await getCurrentUser(req);
   if (!user) {
@@ -23,7 +40,7 @@ export async function GET(req) {
   const supabase = supabaseServer();
   const { data: groups, error } = await supabase
     .from("groups")
-    .select("id, name, type, features, image_url, tile_color, description, created_at")
+    .select("id, name, type, features, image_url, tile_color, description, created_at, hidden, hide_restricts_access")
     .order("name", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -44,7 +61,24 @@ export async function GET(req) {
   }
 
   const withLeaders = groups.map((g) => ({ ...g, leaders: leadersByGroup[g.id] || [] }));
-  return NextResponse.json({ groups: withLeaders });
+
+  let visible = withLeaders;
+  if (!user.is_church_admin) {
+    const { data: myMemberships } = await supabase
+      .from("group_members")
+      .select("group_id")
+      .eq("user_id", user.id)
+      .eq("status", "active");
+    const myActiveGroupIds = new Set((myMemberships || []).map((m) => m.group_id));
+
+    visible = withLeaders.filter((g) => {
+      if (!g.hidden) return true;
+      if (g.hide_restricts_access) return false;
+      return myActiveGroupIds.has(g.id);
+    });
+  }
+
+  return withPrivateCache({ groups: visible }, { maxAge: 30, staleWhileRevalidate: 120 });
 }
 
 export async function POST(req) {

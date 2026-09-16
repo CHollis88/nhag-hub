@@ -347,6 +347,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
         currentUserId={me.user.id}
         onBackToHub={backToHub}
         onOpenBiblePassage={openBiblePassage}
+        refreshMe={refreshMe}
       />
     );
   }
@@ -384,6 +385,24 @@ function AppShell({ me, refreshMe, onSignOut }) {
           )}
           <button
             onClick={() => {
+              // A "refresh" needs to hit three things, not just the
+              // current tab's own content:
+              //  1. refreshMe() -- re-fetches /api/me, which is the
+              //     actual source of each ministry card's Request/
+              //     Pending/Launch button state. Bumping refreshNonce
+              //     alone remounts HomeTab and makes IT refetch
+              //     /api/groups fresh, but `me` itself is a prop passed
+              //     down from further up the tree -- without this call
+              //     it stays the same stale object, which is exactly
+              //     why tapping refresh after a join request or an
+              //     approval didn't change the card (this was a real
+              //     bug: refreshMe was already available here as a
+              //     prop and simply never got called).
+              //  2. refreshNonce -- remounts the current tab's content
+              //     so its own data (events, news, groups list, etc.)
+              //     refetches too.
+              //  3. refreshNotifications() -- updates the bell badge.
+              refreshMe();
               setRefreshNonce((n) => n + 1);
               refreshNotifications();
             }}
@@ -463,7 +482,12 @@ function AppShell({ me, refreshMe, onSignOut }) {
         <Sidebar tab={tab} setTab={switchTab} badges={badges} />
         <main className="flex-1 overflow-y-auto">
           <TabTransition tabKey={`${tab}-${refreshNonce}`}>
-            {tab === "news" && <NewsTab isAdmin={me.user.is_church_admin} />}
+            {tab === "news" && (
+              <NewsTab
+                isAdmin={me.user.is_church_admin}
+                isAnyLeader={me.memberships.some((m) => m.status === "active" && m.role === "leader")}
+              />
+            )}
             {tab === "events" && <EventsTab isAdmin={me.user.is_church_admin} />}
             {tab === "sermons" && <SermonsTab isAdmin={me.user.is_church_admin} />}
             {tab === "calendar" && <CalendarTab me={me} />}
@@ -528,7 +552,11 @@ function HomeInner() {
   const [me, setMe] = useState(undefined); // undefined = loading, null = signed out
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/me");
+    // cache: "no-store" here specifically -- this is the manual/initial
+    // load path (also reused by the refresh button via refreshMe), and
+    // a refresh must always hit the network for real, never be silently
+    // served from the browser's cache of a previous /api/me response.
+    const res = await fetch("/api/me", { cache: "no-store" });
     const data = await res.json();
     setMe(data.user ? data : null);
   }, []);
