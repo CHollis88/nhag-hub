@@ -22,6 +22,7 @@ import SettingsView from "./SettingsView";
 import HelpView from "./HelpView";
 import AttributionView from "./AttributionView";
 import { getPlan, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
+import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
 
 // Tabs that append after the shared News/Events/Prayer/Roster set.
 const APPEND_FEATURE_TABS = {
@@ -31,7 +32,6 @@ const APPEND_FEATURE_TABS = {
   ],
   programs: [{ key: "programs", label: "Programs", icon: LayoutGrid }],
   direct_messages: [{ key: "dm", label: "Messages", icon: MessageCircle }],
-  group_chat: [{ key: "chat", label: "Chat", icon: MessagesSquare }],
 };
 
 // Tabs that come FIRST, before News/Events/Prayer -- per the project's
@@ -73,9 +73,27 @@ export default function GroupShell({
   const [displayName, setDisplayName] = useState(group.name);
   const effectiveRole = group.isAdmin ? "admin" : myRole;
   const canManage = effectiveRole === "leader" || effectiveRole === "admin";
+  // Hides the bottom tab bar while an on-screen keyboard is open (see
+  // the hook for why) -- most noticeable in Messages/Chat, where a
+  // compose bar sits right above where the nav normally is, but this
+  // covers any text entry in any tab, not just those two.
+  const keyboardVisible = useKeyboardVisible();
+
+  // Chat's two channels (migration_027) are now independently toggleable
+  // (Cam's decision) -- a ministry can turn on Leaders Only without also
+  // turning on Members, or vice versa. That means whether the Chat tab
+  // even appears now depends on role, not just the feature array: a
+  // regular member should never see the tab at all if only the leaders
+  // channel is on, since they have no access to it either way.
+  const hasChatMembers = features.includes("chat_members");
+  const hasChatLeaders = features.includes("chat_leaders");
+  const showChatTab = hasChatMembers || (canManage && hasChatLeaders);
 
   const prependTabs = features.flatMap((f) => PREPEND_FEATURE_TABS[f] || []);
-  const appendTabs = features.flatMap((f) => APPEND_FEATURE_TABS[f] || []);
+  const appendTabs = [
+    ...features.flatMap((f) => APPEND_FEATURE_TABS[f] || []),
+    ...(showChatTab ? [{ key: "chat", label: "Chat", icon: MessagesSquare }] : []),
+  ];
 
   // Today/Plan/Journal are personal to the signed-in user (see
   // migration_006_reading_plan_journal.sql), not stored per-group --
@@ -259,13 +277,20 @@ export default function GroupShell({
               <ProgramsTab groupId={group.id} canManage={canManage} />
             )}
             {features.includes("direct_messages") && tab === "dm" && (
-              <DirectMessagesTab groupId={group.id} currentUserId={currentUserId} initialThreadId={initialThreadId} />
+              <DirectMessagesTab
+                groupId={group.id}
+                currentUserId={currentUserId}
+                canManage={canManage}
+                initialThreadId={initialThreadId}
+              />
             )}
-            {features.includes("group_chat") && tab === "chat" && (
+            {showChatTab && tab === "chat" && (
               <GroupChatTab
                 groupId={group.id}
                 currentUserId={currentUserId}
                 canManage={canManage}
+                hasMembersChannel={hasChatMembers}
+                hasLeadersChannel={hasChatLeaders}
                 initialChannel={initialChannel}
               />
             )}
@@ -273,7 +298,9 @@ export default function GroupShell({
         </main>
       </div>
 
-      <GroupBottomNav tab={tab} setTab={setTab} prependTabs={prependTabs} appendTabs={appendTabs} />
+      {!keyboardVisible && (
+        <GroupBottomNav tab={tab} setTab={setTab} prependTabs={prependTabs} appendTabs={appendTabs} />
+      )}
 
       {settingsOpen && (
         <SettingsView

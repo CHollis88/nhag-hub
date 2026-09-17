@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { isActiveGroupMember } from "@/lib/groupAuth";
+import { isActiveGroupMember, canManageGroup } from "@/lib/groupAuth";
 import { withPrivateCache } from "@/lib/cacheHeaders";
 
 // Direct Messages (migration_026, feature key "direct_messages"). A
-// member picks one or more of the group's own leaders and starts a
-// thread. Per Cam's explicit decision, this is member-initiated only --
-// there's no "leader starts a DM to a member" flow here -- and a
-// thread's identity is its exact participant set: messaging Leader A
-// alone and later messaging Leader A + Leader B together are two
-// different threads, never merged.
+// regular member picks one or more of the group's own leaders and
+// starts a thread; a leader or Church Admin can start one with anyone
+// active in the group. A thread's identity is its exact participant
+// set: messaging Leader A alone and later messaging Leader A + Leader B
+// together are two different threads, never merged.
 
 // Lists every DM thread in this group that I'm a participant of, newest
 // activity first, with the other participants' names, an unread count,
@@ -90,7 +89,7 @@ export async function GET(req, { params }) {
 }
 
 // Starts a new thread, or returns an existing one with the exact same
-// participant set (me + the chosen leader(s)) if one already exists.
+// participant set (me + whoever I picked) if one already exists.
 export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -103,23 +102,31 @@ export async function POST(req, { params }) {
   const { participant_ids } = await req.json();
   const chosenIds = Array.isArray(participant_ids) ? [...new Set(participant_ids)].filter((id) => id !== user.id) : [];
   if (!chosenIds.length) {
-    return NextResponse.json({ error: "Pick at least one leader to message." }, { status: 400 });
+    return NextResponse.json({ error: "Pick at least one person to message." }, { status: 400 });
   }
 
   const supabase = supabaseServer();
 
-  // Every chosen participant must be an active leader of THIS group --
-  // DMs here are member-to-leader(s), not member-to-member.
-  const { data: leaderRows } = await supabase
+  // A regular member can only message this group's leaders. A leader or
+  // Church Admin can message anyone active in the group -- per Cam's
+  // decision, a leader should be able to reach out to a member directly,
+  // not just reply once a member messages them first.
+  const isManager = await canManageGroup(user, groupId);
+  const memberRowsQuery = supabase
     .from("group_members")
     .select("user_id")
     .eq("group_id", groupId)
-    .eq("role", "leader")
     .eq("status", "active")
     .in("user_id", chosenIds);
+  if (!isManager) memberRowsQuery.eq("role", "leader");
 
-  if ((leaderRows || []).length !== chosenIds.length) {
-    return NextResponse.json({ error: "You can only message this group's leaders." }, { status: 400 });
+  const { data: eligibleRows } = await memberRowsQuery;
+
+  if ((eligibleRows || []).length !== chosenIds.length) {
+    return NextResponse.json(
+      { error: isManager ? "One or more of those people aren't active in this group." : "You can only message this group's leaders." },
+      { status: 400 }
+    );
   }
 
   const fullSet = new Set([user.id, ...chosenIds]);

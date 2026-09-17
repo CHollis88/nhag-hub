@@ -96,3 +96,32 @@ export async function POST(req, { params }) {
 
   return NextResponse.json({ message: { ...message, reactions: [] } });
 }
+
+// "Clear chat" -- wipes every message (and their reactions) in this
+// thread, but keeps the thread and its participants intact, so it's
+// still there to message into again. Distinct from DELETE on the thread
+// itself (see [threadId]/route.js), which removes the conversation
+// entirely. Any participant can clear it -- same reasoning as deleting
+// the thread outright: this is a private space between the people in
+// it, not a ministry-wide asset, so it isn't leader/admin-gated.
+export async function DELETE(req, { params }) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { threadId } = await params;
+  const supabase = supabaseServer();
+
+  if (!(await isParticipant(supabase, threadId, user.id))) {
+    return NextResponse.json({ error: "You're not part of this conversation." }, { status: 403 });
+  }
+
+  const { data: messages } = await supabase.from("group_dm_messages").select("id").eq("thread_id", threadId);
+  const messageIds = (messages || []).map((m) => m.id);
+  if (messageIds.length) {
+    await supabase.from("message_reactions").delete().eq("message_type", "dm").in("message_id", messageIds);
+  }
+
+  const { error } = await supabase.from("group_dm_messages").delete().eq("thread_id", threadId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

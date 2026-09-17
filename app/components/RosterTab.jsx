@@ -195,13 +195,21 @@ function AppearancePanel({ groupId, onRenamed, isAdmin }) {
             />
             Messages (member to leader, private)
           </label>
+          <label className="flex items-center gap-2 mb-1.5 text-sm text-inksoft">
+            <input
+              type="checkbox"
+              checked={(group.features || []).includes("chat_members")}
+              onChange={() => toggleFeature("chat_members")}
+            />
+            Chat — Members channel
+          </label>
           <label className="flex items-center gap-2 text-sm text-inksoft">
             <input
               type="checkbox"
-              checked={(group.features || []).includes("group_chat")}
-              onChange={() => toggleFeature("group_chat")}
+              checked={(group.features || []).includes("chat_leaders")}
+              onChange={() => toggleFeature("chat_leaders")}
             />
-            Chat (Members + Leaders Only channels)
+            Chat — Leaders Only channel
           </label>
         </div>
       )}

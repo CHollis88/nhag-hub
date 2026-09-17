@@ -11,7 +11,8 @@ const VALID_FEATURES = [
   "reading_plan_journal",
   "programs",
   "direct_messages",
-  "group_chat",
+  "chat_members",
+  "chat_leaders",
 ];
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 

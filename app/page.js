@@ -32,6 +32,7 @@ const ProfileView = dynamic(() => import("./components/ProfileView"));
 import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle, RotateCw } from "lucide-react";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
+import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
 
 function AuthCard({ children }) {
   return (
@@ -205,6 +206,11 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [adminModeOn, setAdminModeOnState] = useState(true);
   const isAdmin = me.user.is_church_admin;
+  // Hides the bottom tab bar while an on-screen keyboard is open, same
+  // reasoning as GroupShell's own use of this hook -- keeps it from
+  // getting squeezed up alongside whatever's focused (a search field, a
+  // form input) when the keyboard opens.
+  const keyboardVisible = useKeyboardVisible();
 
   // Register the service worker once on load -- without this, push
   // notifications can never arrive: there's nothing installed in the
@@ -576,7 +582,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
         </main>
       </div>
 
-      <BottomNav tab={tab} setTab={switchTab} badges={badges} />
+      {!keyboardVisible && <BottomNav tab={tab} setTab={switchTab} badges={badges} />}
 
       {settingsOpen && (
         <SettingsView

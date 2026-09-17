@@ -100,3 +100,44 @@ export async function POST(req, { params }) {
 
   return NextResponse.json({ message: { ...message, reactions: [] } });
 }
+
+// "Clear chat" -- wipes every message (and their reactions) in this one
+// channel, keeping the channel itself (and the other channel, if the
+// ministry has both) untouched. Leader/admin-gated regardless of which
+// channel: unlike a DM thread, a Chat channel is a ministry-wide asset,
+// not a private space between two people, so a regular member shouldn't
+// be able to wipe its history even for the Members channel they can
+// otherwise post in.
+export async function DELETE(req, { params }) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { id: groupId, channel } = await params;
+  if (!VALID_CHANNELS.includes(channel)) {
+    return NextResponse.json({ error: "Invalid channel." }, { status: 400 });
+  }
+  if (!(await canManageGroup(user, groupId))) {
+    return NextResponse.json({ error: "Only this group's leaders or a Church Admin can clear chat." }, { status: 403 });
+  }
+
+  const supabase = supabaseServer();
+  const { data: messages } = await supabase
+    .from("group_chat_messages")
+    .select("id")
+    .eq("group_id", groupId)
+    .eq("channel", channel);
+
+  const messageIds = (messages || []).map((m) => m.id);
+  if (messageIds.length) {
+    await supabase.from("message_reactions").delete().eq("message_type", "group_chat").in("message_id", messageIds);
+  }
+
+  const { error } = await supabase
+    .from("group_chat_messages")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("channel", channel);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

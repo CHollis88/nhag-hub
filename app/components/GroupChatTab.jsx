@@ -3,13 +3,30 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import MessageThreadView from "./MessageThreadView";
 
-// Group Chat (feature key "group_chat"). Two channels, both built now
-// per Cam's decision even though only "leaders" is expected to see real
-// use at first: "members" (everyone active in the group) and "leaders"
-// (that group's own leaders/admins only). Regular members only ever see
-// the members channel; a leader/admin can switch between both.
-export default function GroupChatTab({ groupId, currentUserId, canManage, initialChannel }) {
-  const [channel, setChannel] = useState(initialChannel === "leaders" && canManage ? "leaders" : "members");
+// Group Chat (feature keys "chat_members" and "chat_leaders" -- each
+// independently toggleable per Cam's decision, e.g. a ministry can turn
+// on Leaders Only without turning on Members chat at all). "members"
+// (everyone active in the group) and "leaders" (that group's own
+// leaders/admins only). Regular members only ever see the members
+// channel; a leader/admin can switch between both when both are on.
+export default function GroupChatTab({
+  groupId,
+  currentUserId,
+  canManage,
+  hasMembersChannel,
+  hasLeadersChannel,
+  initialChannel,
+}) {
+  // Only a leader/admin with BOTH channels turned on ever sees a
+  // switcher -- with just one channel enabled there's nothing to switch
+  // between, so it defaults straight to whichever one actually exists.
+  const canSwitch = canManage && hasMembersChannel && hasLeadersChannel;
+  const defaultChannel = hasMembersChannel ? "members" : "leaders";
+  const [channel, setChannel] = useState(() => {
+    if (initialChannel === "leaders" && canManage && hasLeadersChannel) return "leaders";
+    if (initialChannel === "members" && hasMembersChannel) return "members";
+    return defaultChannel;
+  });
   const [messages, setMessages] = useState(null);
   const [muted, setMuted] = useState(false);
   const pollRef = useRef(null);
@@ -63,9 +80,18 @@ export default function GroupChatTab({ groupId, currentUserId, canManage, initia
     });
   };
 
+  // Leader/admin-only, regardless of channel -- wipes this channel's
+  // messages but leaves the channel itself (and the other one, if the
+  // ministry has both) on and usable.
+  const clearChat = async () => {
+    if (!confirm(`Clear all messages in ${channel === "leaders" ? "Leaders Only" : "Members"} chat? This can't be undone.`)) return;
+    await fetch(`/api/groups/${groupId}/chat/${channel}/messages`, { method: "DELETE" });
+    loadMessages();
+  };
+
   return (
     <div className="h-full flex flex-col">
-      {canManage && (
+      {canSwitch && (
         <div className="flex gap-2 px-5 pt-4">
           <button
             onClick={() => setChannel("members")}
@@ -81,7 +107,11 @@ export default function GroupChatTab({ groupId, currentUserId, canManage, initia
           </button>
         </div>
       )}
-      {!canManage && <h2 className="font-serif text-2xl text-ink px-5 pt-4">Chat</h2>}
+      {!canSwitch && (
+        <h2 className="font-serif text-2xl text-ink px-5 pt-4">
+          {channel === "leaders" ? "Leaders Chat" : "Chat"}
+        </h2>
+      )}
       <MessageThreadView
         messages={messages}
         currentUserId={currentUserId}
@@ -89,6 +119,7 @@ export default function GroupChatTab({ groupId, currentUserId, canManage, initia
         onReact={react}
         muted={muted}
         onToggleMute={toggleMute}
+        onClear={canManage ? clearChat : undefined}
         emptyText={channel === "leaders" ? "No leader chat yet — say hello." : "No messages yet — say hello."}
       />
     </div>

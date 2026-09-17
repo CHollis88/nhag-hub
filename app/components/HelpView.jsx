@@ -69,7 +69,7 @@ const FAQS = [
   },
   {
     q: "What is Chat, and who can see it?",
-    a: "Chat is a separate optional bolt-on from Messages — a shared conversation for the whole ministry rather than a private one-to-one. Every ministry with Chat turned on gets a Members channel that any active member can post and read in. Ministries also get a Leaders Only channel automatically, visible only to that ministry's own leaders and Church Admins — regular members won't see it or know it's there. A ministry's leaders can switch between both from the Chat tab; regular members only ever see the Members channel. Same reactions and mute behavior as Messages.",
+    a: "Chat is a separate optional bolt-on from Messages — a shared conversation for the whole ministry rather than a private one-to-one. It's actually two independent bolt-ons: a Members channel any active member can post and read in, and a Leaders Only channel visible only to that ministry's own leaders and Church Admins. A ministry's leader can turn either one on without the other — for example, enabling just Leaders Only for internal coordination without opening up a general members channel. If both are turned on, a ministry's leaders can switch between them from the Chat tab; regular members only ever see the Members channel, and never see or know about a Leaders Only channel even if it's the only one enabled. Same reactions and mute behavior as Messages.",
   },
   {
     q: "How does the Bible tab work?",

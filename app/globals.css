@@ -80,6 +80,21 @@
   box-sizing: border-box;
 }
 
+/* iOS Safari auto-zooms the page when a focused input's font-size is
+   under 16px -- jarring mid-typing, and it was happening on every text
+   field in the app (sp-input renders at text-sm, 14px at the default
+   text-size setting). max(1rem, 16px) fixes the zoom by never going
+   below 16px, while still letting the Text Size preference (which
+   scales the html root's font-size, see the text-scale-* rules below)
+   grow inputs larger than 16px for anyone who's set a bigger size --
+   the accessibility preference still wins whenever it asks for more
+   than the zoom-safe minimum. */
+input,
+textarea,
+select {
+  font-size: max(1rem, 16px);
+}
+
 /* Text size preference (Settings > Text Size). Since Tailwind's text-sm,
    text-base, etc. are all relative to the root font-size, adjusting this
    one value scales reading text consistently everywhere it's used. */
@@ -139,6 +154,11 @@ body {
   }
   .sp-input {
     @apply w-full min-w-0 border border-line rounded-lg px-3 py-2.5 text-sm bg-card text-ink;
+    /* Overrides the text-sm above -- .sp-input's class specificity would
+       otherwise beat the plain `input` rule near the top of this file,
+       leaving every field styled with this class still zoom-prone. See
+       that rule's comment for the full explanation. */
+    font-size: max(1rem, 16px);
   }
   .sp-input:focus {
     @apply outline-none ring-2;

@@ -5,18 +5,21 @@ import { ArrowLeft, MessageCirclePlus } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import MessageThreadView from "./MessageThreadView";
 
-// Direct Messages (feature key "direct_messages"). Member picks one or
-// more of the group's leaders to start a private thread with -- per
-// Cam's decision, member-initiated only, and a new participant set is
-// always a new thread rather than reusing/merging an existing one.
-export default function DirectMessagesTab({ groupId, currentUserId, initialThreadId }) {
+// Direct Messages (feature key "direct_messages"). A regular member
+// picks one or more of the group's leaders to start a private thread
+// with; a leader or admin can additionally pick any active member (or
+// another leader) -- per Cam's decision, leaders should be able to
+// reach out to a member directly too, not just reply once a member
+// messages them first. A new participant set is always a new thread
+// rather than reusing/merging an existing one.
+export default function DirectMessagesTab({ groupId, currentUserId, canManage, initialThreadId }) {
   const [threads, setThreads] = useState(null);
   const [openThreadId, setOpenThreadId] = useState(null);
   const [messages, setMessages] = useState(null);
   const [muted, setMuted] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [leaders, setLeaders] = useState([]);
-  const [selectedLeaderIds, setSelectedLeaderIds] = useState([]);
+  const [recipients, setRecipients] = useState([]);
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState([]);
   const pollRef = useRef(null);
   const deepLinkOpenedRef = useRef(false);
 
@@ -40,26 +43,35 @@ export default function DirectMessagesTab({ groupId, currentUserId, initialThrea
     openThread(initialThreadId);
   }, [threads, initialThreadId]);
 
-  const loadLeaders = useCallback(async () => {
+  // A leader/admin can message anyone active in the group; a regular
+  // member can only message this group's leaders (server-side, the
+  // dm-threads POST route enforces this exact same split -- this is
+  // just which names the picker offers, not the actual authority check).
+  const loadRecipients = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}/members`);
     const data = await res.json();
     if (res.ok) {
-      setLeaders((data.active || []).filter((m) => m.role === "leader" && m.user_id !== currentUserId));
+      const active = data.active || [];
+      setRecipients(
+        canManage
+          ? active.filter((m) => m.user_id !== currentUserId)
+          : active.filter((m) => m.role === "leader" && m.user_id !== currentUserId)
+      );
     }
-  }, [groupId, currentUserId]);
+  }, [groupId, currentUserId, canManage]);
 
   const openPicker = () => {
-    setSelectedLeaderIds([]);
+    setSelectedRecipientIds([]);
     setPickerOpen(true);
-    loadLeaders();
+    loadRecipients();
   };
 
   const startThread = async () => {
-    if (!selectedLeaderIds.length) return;
+    if (!selectedRecipientIds.length) return;
     const res = await fetch(`/api/groups/${groupId}/dm-threads`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ participant_ids: selectedLeaderIds }),
+      body: JSON.stringify({ participant_ids: selectedRecipientIds }),
     });
     const data = await res.json();
     if (res.ok) {
@@ -129,6 +141,23 @@ export default function DirectMessagesTab({ groupId, currentUserId, initialThrea
     loadThreads();
   };
 
+  // Wipes the messages but keeps the conversation itself -- so it's
+  // still there in your list, just empty, ready to use again.
+  const clearChat = async () => {
+    if (!confirm("Clear this conversation's messages? This can't be undone.")) return;
+    await fetch(`/api/groups/${groupId}/dm-threads/${openThreadId}/messages`, { method: "DELETE" });
+    loadMessages(openThreadId);
+  };
+
+  // Removes the conversation entirely -- for everyone in it, not just
+  // you -- and returns to the thread list.
+  const deleteConversation = async () => {
+    if (!confirm("Delete this conversation for everyone in it? This can't be undone.")) return;
+    await fetch(`/api/groups/${groupId}/dm-threads/${openThreadId}`, { method: "DELETE" });
+    setOpenThreadId(null);
+    loadThreads();
+  };
+
   if (openThreadId) {
     const thread = threads?.find((t) => t.id === openThreadId);
     return (
@@ -148,6 +177,8 @@ export default function DirectMessagesTab({ groupId, currentUserId, initialThrea
           onReact={react}
           muted={muted}
           onToggleMute={toggleMute}
+          onClear={clearChat}
+          onDelete={deleteConversation}
         />
       </div>
     );
@@ -165,7 +196,9 @@ export default function DirectMessagesTab({ groupId, currentUserId, initialThrea
       {threads === null && <SkeletonList count={3} />}
       {threads?.length === 0 && (
         <p className="text-sm text-inkfaint">
-          No conversations yet. Tap "New" to message this ministry's leaders.
+          {canManage
+            ? 'No conversations yet. Tap "New" to message someone in this ministry.'
+            : 'No conversations yet. Tap "New" to message this ministry\'s leaders.'}
         </p>
       )}
       <div className="space-y-2">
@@ -197,31 +230,38 @@ export default function DirectMessagesTab({ groupId, currentUserId, initialThrea
             className="bg-card rounded-t-2xl w-full max-h-[70vh] overflow-y-auto p-6"
           >
             <div className="flex justify-between items-center mb-3 gap-2">
-              <h3 className="font-serif text-lg text-ink m-0 min-w-0 truncate">Message a leader</h3>
+              <h3 className="font-serif text-lg text-ink m-0 min-w-0 truncate">
+                {canManage ? "New message" : "Message a leader"}
+              </h3>
               <button onClick={() => setPickerOpen(false)} className="text-2xl text-inkfaint leading-none flex-shrink-0">
                 ×
               </button>
             </div>
-            {leaders.length === 0 && <p className="text-sm text-inkfaint">This ministry has no other leaders yet.</p>}
+            {recipients.length === 0 && (
+              <p className="text-sm text-inkfaint">
+                {canManage ? "No one else is active in this ministry yet." : "This ministry has no other leaders yet."}
+              </p>
+            )}
             <div className="space-y-1.5 mb-4">
-              {leaders.map((l) => (
-                <label key={l.user_id} className="flex items-center gap-2 text-sm text-inksoft">
+              {recipients.map((r) => (
+                <label key={r.user_id} className="flex items-center gap-2 text-sm text-inksoft">
                   <input
                     type="checkbox"
-                    checked={selectedLeaderIds.includes(l.user_id)}
+                    checked={selectedRecipientIds.includes(r.user_id)}
                     onChange={(e) =>
-                      setSelectedLeaderIds((prev) =>
-                        e.target.checked ? [...prev, l.user_id] : prev.filter((id) => id !== l.user_id)
+                      setSelectedRecipientIds((prev) =>
+                        e.target.checked ? [...prev, r.user_id] : prev.filter((id) => id !== r.user_id)
                       )
                     }
                   />
-                  {l.users?.display_name}
+                  {r.users?.display_name}
+                  {canManage && r.role === "leader" && <span className="text-inkfaint text-xs">· Leader</span>}
                 </label>
               ))}
             </div>
             <button
               onClick={startThread}
-              disabled={!selectedLeaderIds.length}
+              disabled={!selectedRecipientIds.length}
               className="sp-btn-primary w-full disabled:opacity-50"
             >
               Start conversation
