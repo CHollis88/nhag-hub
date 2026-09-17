@@ -17,7 +17,7 @@ const FAQS = [
   },
   {
     q: "What happens when I tap \"Launch\" on a ministry?",
-    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: a Song library and Setlists, a Programs tab for organizing things like a seasonal cantata or special production (each program gets its own Songs, Setlist, and Documents), or a Bible Plan bolt-on with Today, Plan, and Journal, leading the list. Tap \"← Home\" at the top to leave and go back.",
+    a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: a Song library and Setlists, a Programs tab for organizing things like a seasonal cantata or special production (each program gets its own Songs, Setlist, and Documents), Messages for private conversation with that ministry's leaders, Chat for a shared conversation with the whole ministry, or a Bible Plan bolt-on with Today, Plan, and Journal, leading the list. Tap \"← Home\" at the top to leave and go back.",
   },
   {
     q: "Can I leave a ministry?",
@@ -64,6 +64,14 @@ const FAQS = [
     a: "Programs is another optional bolt-on a ministry's leader can turn on — useful for organizing something like a seasonal cantata, a special production, or any project that needs its own Songs, Setlist, and Documents separate from the ministry's everyday ones. Each program shows up as its own card; tap one to open it. A program's Songs and Setlist are entirely its own library, not shared with the ministry's main Songs tab, so planning a special event never mixes into everyday repertoire. Documents lets a leader upload PDFs (sheet music, schedules, scripts) specific to that program. A ministry's leaders can create programs, and can hide a program that's finished or not ready yet — a hidden program just doesn't show up in the grid for regular members, though leaders and admins can still see and manage it.",
   },
   {
+    q: "What is Messages, and how do I message a leader?",
+    a: "Messages is an optional bolt-on a ministry's leader (or a Church Admin) can turn on. It's for private, one-to-one or small-group conversation between a member and that ministry's own leader(s) — not a general chat. From the Messages tab, tap \"New,\" pick one or more leaders, and start typing. If you later message a different combination of leaders, that starts a brand-new conversation rather than adding to an old one, so each combination of people keeps its own thread. You can react to any message with 👍 ❤️ 🙏 or 😂, and mute a conversation's notifications any time — muting only turns off alerts, it never hides how many new messages are waiting when you open the app.",
+  },
+  {
+    q: "What is Chat, and who can see it?",
+    a: "Chat is a separate optional bolt-on from Messages — a shared conversation for the whole ministry rather than a private one-to-one. Every ministry with Chat turned on gets a Members channel that any active member can post and read in. Ministries also get a Leaders Only channel automatically, visible only to that ministry's own leaders and Church Admins — regular members won't see it or know it's there. A ministry's leaders can switch between both from the Chat tab; regular members only ever see the Members channel. Same reactions and mute behavior as Messages.",
+  },
+  {
     q: "How does the Bible tab work?",
     sections: [
       {
@@ -90,7 +98,7 @@ const FAQS = [
   },
   {
     q: "How do notifications work?",
-    a: "You can turn on push notifications for your device in Settings, then choose what you want to hear about: church-wide News, Events, and Sermons, and separately for each ministry you're in. Tap the bell icon in the header any time to see your full notification history, not just what came through as a push. Tabs with something new since you last checked them also show a small dot.",
+    a: "You can turn on push notifications for your device in Settings, then choose what you want to hear about: church-wide News, Events, and Sermons, and separately for each ministry you're in. Tap the bell icon in the header any time to see your full notification history, not just what came through as a push. Tabs with something new since you last checked them also show a small dot. Messages and Chat have their own mute switch inside each conversation — muting silences alerts for just that conversation, but you'll still see how many new messages are waiting the next time you open it.",
   },
   {
     q: "Can I make the text bigger?",
@@ -102,7 +110,7 @@ const FAQS = [
   },
   {
     q: "I'm a Church Admin — where's the Admin Toolbox?",
-    a: "Tap the toolbox icon in the header (only Admins see it). From there you can create ministries, manage or delete any ministry, promote or remove other people's admin access, search the full user directory, and see a log of recent admin activity. You can also hide a ministry from the Directory and Home's \"other ministries\" list — and separately choose whether hiding it also cuts off access for people already in it, or just keeps new people from finding it. You can also hide the toolbox icon and toggle from your own view in Settings if you'd rather not see it day-to-day — that's just a personal display choice and never actually changes your access.",
+    a: "Tap the toolbox icon in the header (only Admins see it). From there you can create ministries, manage or delete any ministry, promote or remove other people's admin access, search the full user directory, and see a log of recent admin activity. You can also hide a ministry from the Directory and Home's \"other ministries\" list — and separately choose whether hiding it also cuts off access for people already in it, or just keeps new people from finding it. \"Block ministries\" next to any user lets you go further and block specific ministries for just that one person — useful if someone shouldn't be discovering or joining certain ministries at all; it removes their membership immediately if they're already in one. \"Set up an account without email\" lets you create a working account for someone who can't manage email of their own — you choose their username and PIN directly, and they sign in with just those two, no email step ever involved. You can also hide the toolbox icon and toggle from your own view in Settings if you'd rather not see it day-to-day — that's just a personal display choice and never actually changes your access.",
   },
 ];
 

@@ -98,14 +98,22 @@ export default function DirectoryView({ me, onClose }) {
 
   const myGroupIds = new Set(me.memberships.filter((m) => m.status === "active").map((m) => m.group_id));
 
+  // /api/groups returns every group unfiltered to a Church Admin (so the
+  // Admin Toolbox can find and un-hide one) -- but the Directory is a
+  // browsing view like any member's, so a hidden ministry should stay out
+  // of it here too unless the viewer is already a member of it.
+  const visibleGroups = useMemo(
+    () => (groups || []).filter((g) => !g.hidden || myGroupIds.has(g.id)),
+    [groups, myGroupIds]
+  );
+
   const filtered = useMemo(() => {
-    if (!groups) return [];
-    if (!query.trim()) return groups;
+    if (!query.trim()) return visibleGroups;
     const q = query.toLowerCase();
-    return groups.filter(
+    return visibleGroups.filter(
       (g) => g.name.toLowerCase().includes(q) || (g.leaders || []).some((l) => l.toLowerCase().includes(q))
     );
-  }, [groups, query]);
+  }, [visibleGroups, query]);
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end z-[60]" onClick={onClose}>
@@ -122,7 +130,7 @@ export default function DirectoryView({ me, onClose }) {
           otherwise just its leaders are shown.
         </p>
 
-        {groups !== null && groups.length > 3 && (
+        {groups !== null && visibleGroups.length > 3 && (
           <div className="relative mb-3">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
             <input
@@ -135,7 +143,7 @@ export default function DirectoryView({ me, onClose }) {
         )}
 
         {groups === null && <SkeletonList count={4} />}
-        {groups?.length > 0 && filtered.length === 0 && (
+        {visibleGroups.length > 0 && filtered.length === 0 && (
           <EmptyState icon={Search} text="No ministries match that search." />
         )}
         <div className="space-y-2">

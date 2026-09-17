@@ -8,7 +8,13 @@ import { withPrivateCache } from "@/lib/cacheHeaders";
 // type is just a free-text label -- but features are a controlled set
 // since each one corresponds to real UI/tabs the app knows how to render.
 // Adding a new feature later means adding a key here, not a schema change.
-const VALID_FEATURES = ["songs_setlists", "reading_plan_journal", "programs"];
+const VALID_FEATURES = [
+  "songs_setlists",
+  "reading_plan_journal",
+  "programs",
+  "direct_messages",
+  "group_chat",
+];
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
 // Any signed-in user can list all groups — this powers "browse groups you're
@@ -71,7 +77,19 @@ export async function GET(req) {
       .eq("status", "active");
     const myActiveGroupIds = new Set((myMemberships || []).map((m) => m.group_id));
 
+    // Per-user hiding (migration_029): a specific ministry blocked for
+    // this specific person -- e.g. one member who shouldn't be
+    // discovering or joining certain ministries. Independent of the
+    // group-level `hidden` flag above; a group can be globally visible
+    // but blocked for just this one user.
+    const { data: userHidden } = await supabase
+      .from("user_hidden_groups")
+      .select("group_id")
+      .eq("user_id", user.id);
+    const userHiddenIds = new Set((userHidden || []).map((r) => r.group_id));
+
     visible = withLeaders.filter((g) => {
+      if (userHiddenIds.has(g.id)) return false;
       if (!g.hidden) return true;
       if (g.hide_restricts_access) return false;
       return myActiveGroupIds.has(g.id);

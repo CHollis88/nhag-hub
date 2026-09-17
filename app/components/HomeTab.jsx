@@ -86,6 +86,54 @@ function MinistryTile({ group, leaders, myRole, isPending, onLaunch, onRequestJo
   );
 }
 
+// Deliberately a different shape from MinistryTile above -- a compact,
+// muted row rather than a full card -- so browsing ministries you're NOT
+// in never looks visually identical to (or as prominent as) the ones
+// you're actually part of. Per Cam's decision, this distinction matters:
+// "your ministries" are what you launch into daily; "other ministries" is
+// just discovery, so it should read as secondary at a glance.
+function BrowseMinistryRow({ group, leaders, isPending, onRequestJoin, onPreview }) {
+  const bg = group.tile_color || DEFAULT_TILE_COLOR;
+
+  return (
+    <div
+      className="flex items-center gap-3 bg-paper border border-linesoft rounded-lg px-3 py-2.5 opacity-90"
+      onClick={onPreview}
+      role="button"
+    >
+      {group.image_url ? (
+        <img src={group.image_url} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0 grayscale-[30%]" />
+      ) : (
+        <div
+          className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center font-serif text-sm opacity-80"
+          style={{ background: bg, color: readableTextColor(bg) }}
+        >
+          {group.name?.[0]?.toUpperCase() || "?"}
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-inksoft truncate">{group.name}</p>
+        {leaders?.length > 0 && (
+          <p className="text-xs text-inkfaint truncate">{leaders.join(", ")}</p>
+        )}
+      </div>
+      {isPending ? (
+        <span className="text-xs text-inkfaint flex-shrink-0 opacity-70">Pending</span>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRequestJoin();
+          }}
+          className="text-xs text-accent underline flex-shrink-0"
+        >
+          Request to Join
+        </button>
+      )}
+    </div>
+  );
+}
+
 function UpcomingEventsPreview({ me, onSeeAll }) {
   const [events, setEvents] = useState(null);
 
@@ -224,7 +272,13 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
   };
 
   const myGroups = groups.filter((g) => myGroupIds.has(g.id));
-  const otherGroups = groups.filter((g) => !myGroupIds.has(g.id));
+  // Church Admins get every group back from /api/groups (including hidden
+  // ones), so they can find and un-hide them from the Admin Toolbox. But
+  // this "Other ministries" browse list is Cam-as-a-member browsing, not
+  // Cam-as-admin managing -- a hidden ministry should disappear from here
+  // for an admin exactly like it does for anyone else, since management
+  // of hidden ministries already has its own dedicated place (Toolbox).
+  const otherGroups = groups.filter((g) => !myGroupIds.has(g.id) && !g.hidden);
 
   return (
     <div className="px-5 pt-4 pb-6">
@@ -263,13 +317,12 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
       {otherGroups.length > 0 && (
         <>
           <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Other ministries</p>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-3">
+          <div className="space-y-1.5">
             {otherGroups.map((g) => (
-              <MinistryTile
+              <BrowseMinistryRow
                 key={g.id}
                 group={g}
                 leaders={g.leaders}
-                myRole={null}
                 isPending={pendingGroupIds.has(g.id)}
                 onRequestJoin={() => requestJoin(g.id)}
                 onPreview={() => setPreviewGroup(g)}

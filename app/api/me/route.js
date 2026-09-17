@@ -32,9 +32,25 @@ export async function GET(req) {
   // tile for it that 403s the moment it's tapped. hidden=true alone
   // (discovery-only) does NOT drop it here -- an existing member keeps
   // full access, only OTHER people's discovery of it is affected.
+  //
+  // Per-user hiding (migration_029) already removes the membership row
+  // itself at the moment an admin applies it, so this filter is a
+  // defensive backstop, not the primary enforcement -- it keeps this
+  // response consistent with /api/groups if a pending row ever survives.
+  let userHiddenIds = new Set();
+  if (!user.is_church_admin) {
+    const { data: userHidden } = await supabase
+      .from("user_hidden_groups")
+      .select("group_id")
+      .eq("user_id", user.id);
+    userHiddenIds = new Set((userHidden || []).map((r) => r.group_id));
+  }
+
   const visibleMemberships = user.is_church_admin
     ? memberships || []
-    : (memberships || []).filter((m) => !(m.groups?.hidden && m.groups?.hide_restricts_access));
+    : (memberships || []).filter(
+        (m) => !(m.groups?.hidden && m.groups?.hide_restricts_access) && !userHiddenIds.has(m.group_id)
+      );
 
   return withPrivateCache(
     {

@@ -6,7 +6,13 @@ import { logActivity } from "@/lib/activityLog";
 import { PLANS, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
 import { withPrivateCache } from "@/lib/cacheHeaders";
 
-const VALID_FEATURES = ["songs_setlists", "reading_plan_journal", "programs"];
+const VALID_FEATURES = [
+  "songs_setlists",
+  "reading_plan_journal",
+  "programs",
+  "direct_messages",
+  "group_chat",
+];
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
 // Single-group detail fetch -- used by RosterTab's appearance panel to

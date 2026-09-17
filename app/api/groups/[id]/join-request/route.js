@@ -23,6 +23,19 @@ export async function POST(req, { params }) {
 
   const supabase = supabaseServer();
 
+  // Defense in depth: a per-user hidden ministry (migration_029) is
+  // already kept out of Home/Directory discovery, but block the request
+  // directly too, in case it's ever hit without going through the UI.
+  const { data: userHidden } = await supabase
+    .from("user_hidden_groups")
+    .select("group_id")
+    .eq("user_id", user.id)
+    .eq("group_id", groupId)
+    .maybeSingle();
+  if (userHidden) {
+    return NextResponse.json({ error: "This ministry isn't available to join." }, { status: 403 });
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from("group_members")
     .select("id, status")

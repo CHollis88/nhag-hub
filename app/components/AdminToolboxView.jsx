@@ -23,6 +23,9 @@ const ACTION_LABELS = {
   admin_demoted: "Removed admin access",
   promotion_approved: "Approved a promotion",
   promotion_rejected: "Rejected a promotion",
+  user_ministry_blocked: "Blocked a ministry for a user",
+  user_ministry_unblocked: "Unblocked a ministry for a user",
+  no_email_account_created: "Created a no-email account",
 };
 
 // Opened on demand from Settings, rather than always rendered inline on
@@ -74,6 +77,68 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
       return;
     }
     loadUsers();
+  };
+
+  // No-email account creation -- for a member (e.g. a disabled student)
+  // who can't manage email but can still sign in with a username + PIN
+  // on their own device. Bypasses the magic-link flow entirely; the
+  // server generates a placeholder address just to satisfy the DB's
+  // not-null email constraint, and it's never used for anything.
+  const [newAcctUsername, setNewAcctUsername] = useState("");
+  const [newAcctDisplayName, setNewAcctDisplayName] = useState("");
+  const [newAcctPin, setNewAcctPin] = useState("");
+  const [acctMessage, setAcctMessage] = useState("");
+
+  const createNoEmailAccount = async (e) => {
+    e.preventDefault();
+    setAcctMessage("");
+    const res = await fetch("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: newAcctUsername,
+        display_name: newAcctDisplayName,
+        pin: newAcctPin,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setAcctMessage(data.error);
+      return;
+    }
+    setAcctMessage(`Account created for ${data.user.display_name}. Sign them in with username "${data.user.username}" and the PIN you set.`);
+    setNewAcctUsername("");
+    setNewAcctDisplayName("");
+    setNewAcctPin("");
+    loadUsers();
+  };
+
+  // Per-user ministry blocking -- separate from global ministry hiding
+  // above. Opens a panel for one user showing every ministry with a
+  // checkbox for "blocked for this person"; checking it also removes
+  // their membership if they're currently in it (server-side).
+  const [manageUser, setManageUser] = useState(null);
+  const [hiddenGroupIds, setHiddenGroupIds] = useState([]);
+
+  const openUserMinistryPanel = async (targetUser) => {
+    setManageUser(targetUser);
+    const res = await fetch(`/api/admin/users/${targetUser.id}/hidden-groups`);
+    const data = await res.json();
+    if (res.ok) setHiddenGroupIds(data.hidden_group_ids);
+  };
+
+  const toggleUserMinistryBlock = async (groupId, currentlyBlocked) => {
+    if (currentlyBlocked) {
+      await fetch(`/api/admin/users/${manageUser.id}/hidden-groups/${groupId}`, { method: "DELETE" });
+      setHiddenGroupIds((prev) => prev.filter((id) => id !== groupId));
+    } else {
+      await fetch(`/api/admin/users/${manageUser.id}/hidden-groups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group_id: groupId }),
+      });
+      setHiddenGroupIds((prev) => [...prev, groupId]);
+    }
   };
 
   const [groups, setGroups] = useState([]);
@@ -213,6 +278,38 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
           <button type="submit" className="sp-btn-primary">Create</button>
         </form>
 
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Set up an account without email</p>
+        <p className="text-xs text-inkfaint mb-2">
+          For someone who can't manage an email of their own but can still sign in with a username and PIN
+          on their own device — no magic link involved at all.
+        </p>
+        <form onSubmit={createNoEmailAccount} className="sp-card mb-6">
+          <input
+            value={newAcctDisplayName}
+            onChange={(e) => setNewAcctDisplayName(e.target.value)}
+            placeholder="Full name"
+            required
+            className="sp-input mb-2"
+          />
+          <input
+            value={newAcctUsername}
+            onChange={(e) => setNewAcctUsername(e.target.value)}
+            placeholder="Username (lowercase, numbers, underscores)"
+            required
+            className="sp-input mb-2"
+          />
+          <input
+            value={newAcctPin}
+            onChange={(e) => setNewAcctPin(e.target.value)}
+            placeholder="PIN (4–8 digits)"
+            inputMode="numeric"
+            required
+            className="sp-input mb-2"
+          />
+          <button type="submit" className="sp-btn-primary">Create Account</button>
+          {acctMessage && <p className="text-sm text-inksoft mt-2">{acctMessage}</p>}
+        </form>
+
         <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Manage ministries</p>
         <div className="space-y-2">
           {groups.map((g) => (
@@ -288,12 +385,20 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
               <span className="text-sm text-ink">
                 {u.display_name} <span className="text-inkfaint">(@{u.username})</span>
               </span>
-              <button
-                onClick={() => toggleAdmin(u)}
-                className={u.is_church_admin ? "sp-btn-secondary text-xs py-1.5 px-3" : "sp-btn-sage text-xs py-1.5 px-3"}
-              >
-                {u.is_church_admin ? "Remove admin" : "Make admin"}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => openUserMinistryPanel(u)}
+                  className="sp-btn-secondary text-xs py-1.5 px-3"
+                >
+                  Block ministries
+                </button>
+                <button
+                  onClick={() => toggleAdmin(u)}
+                  className={u.is_church_admin ? "sp-btn-secondary text-xs py-1.5 px-3" : "sp-btn-sage text-xs py-1.5 px-3"}
+                >
+                  {u.is_church_admin ? "Remove admin" : "Make admin"}
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -323,6 +428,40 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
           </div>
         )}
       </div>
+
+      {manageUser && (
+        <div className="fixed inset-0 bg-black/40 flex items-end z-[70]" onClick={() => setManageUser(null)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-card rounded-t-2xl w-full max-h-[75vh] overflow-y-auto p-6"
+          >
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-serif text-lg text-ink m-0">Block ministries for {manageUser.display_name}</h3>
+              <button onClick={() => setManageUser(null)} className="text-2xl text-inkfaint leading-none">×</button>
+            </div>
+            <p className="text-xs text-inkfaint mb-3">
+              Checking a ministry blocks it for this person only — they won't see it anywhere in the app,
+              can't request to join, and if they're already a member, that membership is removed right away.
+            </p>
+            <div className="space-y-1.5">
+              {groups.map((g) => {
+                const blocked = hiddenGroupIds.includes(g.id);
+                return (
+                  <label key={g.id} className="flex items-center gap-2 text-sm text-inksoft sp-card py-2">
+                    <input
+                      type="checkbox"
+                      checked={blocked}
+                      onChange={() => toggleUserMinistryBlock(g.id, blocked)}
+                    />
+                    {g.name}
+                  </label>
+                );
+              })}
+              {groups.length === 0 && <p className="text-sm text-inkfaint">No ministries created yet.</p>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
