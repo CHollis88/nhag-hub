@@ -53,10 +53,20 @@ const PREPEND_FEATURE_TABS = {
 // the only way out, by design. Every group gets News/Events/Prayer/Roster
 // for free; optional modules (Songs/Setlists, Today/Plan/Journal) are
 // bolted on per-group via `features`, not tied to a fixed "type".
-export default function GroupShell({ group, myRole, currentUserId, onBackToHub, onOpenBiblePassage, refreshMe }) {
+export default function GroupShell({
+  group,
+  myRole,
+  currentUserId,
+  onBackToHub,
+  onOpenBiblePassage,
+  refreshMe,
+  initialTab,
+  initialThreadId,
+  initialChannel,
+}) {
   const features = group.features || [];
   const hasReadingPlan = features.includes("reading_plan_journal");
-  const [tab, setTab] = useState(hasReadingPlan ? "today" : "news");
+  const [tab, setTab] = useState(initialTab || (hasReadingPlan ? "today" : "news"));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
@@ -153,12 +163,12 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
         className="sticky top-0 z-30 flex justify-between items-center px-4 py-3 bg-[#132560] text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
       >
-        <div className="flex items-center gap-3">
-          <button onClick={onBackToHub} className="text-sm">
+        <div className="flex items-center gap-3 min-w-0">
+          <button onClick={onBackToHub} className="text-sm flex-shrink-0">
             ← Home
           </button>
           <strong
-            className="font-serif tracking-wide"
+            className="font-serif tracking-wide truncate"
             style={{
               color: "#fff",
               textShadow:
@@ -171,7 +181,7 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
         <button
           onClick={() => setSettingsOpen(true)}
           aria-label="Settings"
-          className="text-white/90 p-1"
+          className="text-white/90 p-1 flex-shrink-0"
         >
           <Settings size={22} />
         </button>
@@ -249,10 +259,15 @@ export default function GroupShell({ group, myRole, currentUserId, onBackToHub, 
               <ProgramsTab groupId={group.id} canManage={canManage} />
             )}
             {features.includes("direct_messages") && tab === "dm" && (
-              <DirectMessagesTab groupId={group.id} currentUserId={currentUserId} />
+              <DirectMessagesTab groupId={group.id} currentUserId={currentUserId} initialThreadId={initialThreadId} />
             )}
             {features.includes("group_chat") && tab === "chat" && (
-              <GroupChatTab groupId={group.id} currentUserId={currentUserId} canManage={canManage} />
+              <GroupChatTab
+                groupId={group.id}
+                currentUserId={currentUserId}
+                canManage={canManage}
+                initialChannel={initialChannel}
+              />
             )}
           </TabTransition>
         </main>

@@ -24,7 +24,7 @@ export async function GET(req) {
       notifyGroup(g.id, {
         title: "Daily Reading Reminder",
         body: "Time for today's reading, prayer, and reflection.",
-        url: "/",
+        url: `/?group=${g.id}&tab=today`,
       })
     )
   );

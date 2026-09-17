@@ -75,9 +75,9 @@ export async function POST(req, { params }) {
   // kind system being visibility-scoped at read time; the notification
   // should match who's actually allowed to see the content.
   if (finalKind === "leader") {
-    notifyGroupLeaders(groupId, { title: kindLabel, body: title.trim(), url: "/" }).catch(() => {});
+    notifyGroupLeaders(groupId, { title: kindLabel, body: title.trim(), url: `/?group=${groupId}&tab=news` }).catch(() => {});
   } else {
-    notifyGroup(groupId, { title: kindLabel, body: title.trim(), url: "/" }).catch(() => {});
+    notifyGroup(groupId, { title: kindLabel, body: title.trim(), url: `/?group=${groupId}&tab=news` }).catch(() => {});
   }
 
   return NextResponse.json({ news: data });

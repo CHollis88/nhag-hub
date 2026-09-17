@@ -179,13 +179,29 @@ function AppearancePanel({ groupId, onRenamed, isAdmin }) {
             />
             Programs (Songs/Setlist/Documents per program)
           </label>
-          <label className="flex items-center gap-2 text-sm text-inksoft">
+          <label className="flex items-center gap-2 mb-1.5 text-sm text-inksoft">
             <input
               type="checkbox"
               checked={(group.features || []).includes("reading_plan_journal")}
               onChange={() => toggleFeature("reading_plan_journal")}
             />
             Bible Plan (Today/Plan/Journal)
+          </label>
+          <label className="flex items-center gap-2 mb-1.5 text-sm text-inksoft">
+            <input
+              type="checkbox"
+              checked={(group.features || []).includes("direct_messages")}
+              onChange={() => toggleFeature("direct_messages")}
+            />
+            Messages (member to leader, private)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-inksoft">
+            <input
+              type="checkbox"
+              checked={(group.features || []).includes("group_chat")}
+              onChange={() => toggleFeature("group_chat")}
+            />
+            Chat (Members + Leaders Only channels)
           </label>
         </div>
       )}

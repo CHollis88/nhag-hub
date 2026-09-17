@@ -147,9 +147,9 @@ export default function HelpView({ onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="bg-card rounded-t-2xl w-full max-h-[85vh] overflow-y-auto p-6"
       >
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="font-serif text-xl text-ink m-0">Help &amp; FAQ</h2>
-          <button onClick={onClose} className="text-2xl text-inkfaint leading-none">×</button>
+        <div className="flex justify-between items-center mb-2 gap-2">
+          <h2 className="font-serif text-xl text-ink m-0 min-w-0 truncate">Help &amp; FAQ</h2>
+          <button onClick={onClose} className="text-2xl text-inkfaint leading-none flex-shrink-0">×</button>
         </div>
         {FAQS.map((item, i) => (
           <FaqItem key={i} item={item} />

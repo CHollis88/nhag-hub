@@ -91,7 +91,7 @@ export async function POST(req) {
   notifyGlobal({
     title: "Church Event",
     body: dates.length > 1 ? `${title.trim()} (${dates.length} dates)` : title.trim(),
-    url: "/",
+    url: "/?tab=events",
   }).catch(() => {});
 
   return NextResponse.json({ events: data });

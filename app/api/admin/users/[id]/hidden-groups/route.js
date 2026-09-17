@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { logActivity } from "@/lib/activityLog";
+import { withPrivateCache } from "@/lib/cacheHeaders";
 
 // Admin-only. Lists every group blocked for this specific user
 // (migration_029) -- separate from the global `hidden` flag on groups
@@ -20,7 +21,10 @@ export async function GET(req, { params }) {
     .eq("user_id", userId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ hidden_group_ids: (data || []).map((r) => r.group_id) });
+  // Short private cache, same TTL as sibling admin-only reads
+  // (activity-log, promotion-requests) -- this panel is opened fresh
+  // each time from Admin Toolbox, not continuously polled.
+  return withPrivateCache({ hidden_group_ids: (data || []).map((r) => r.group_id) }, { maxAge: 20, staleWhileRevalidate: 60 });
 }
 
 // Blocks one ministry for this user. Per Cam's explicit decision: if the

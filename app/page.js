@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, Suspense } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
@@ -184,7 +184,7 @@ function SignInScreen({ authError }) {
   );
 }
 
-function AppShell({ me, refreshMe, onSignOut }) {
+function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [tab, setTab] = useState("hub");
   // Bumped by the refresh button (below) to force the current tab to
   // remount -- refetching its data from scratch and replaying the
@@ -303,11 +303,78 @@ function AppShell({ me, refreshMe, onSignOut }) {
   const [activeGroup, setActiveGroup] = useState(null); // { id, name, role, features } | null
   const [bibleOverlay, setBibleOverlay] = useState(null); // { book, chapter } | null
 
-  const openGroup = (id, name, role, features) => setActiveGroup({ id, name, role, features: features || [] });
+  const openGroup = (id, name, role, features, options = {}) =>
+    setActiveGroup({
+      id,
+      name,
+      role,
+      features: features || [],
+      initialTab: options.initialTab,
+      initialThreadId: options.initialThreadId,
+      initialChannel: options.initialChannel,
+    });
   const backToHub = () => {
     setActiveGroup(null);
     setTab("hub");
   };
+
+  // Routes a clicked push notification (or any other deep link) to the
+  // actual screen it's about, instead of always landing on Home. Every
+  // notify() call site across the app now builds a url like
+  // "/?group=<id>&tab=<groupTab>" (optionally &thread=/&channel=) or
+  // "/?tab=<globalTab>" or "/?admin=toolbox" -- see lib/push.js callers.
+  // Runs once, the first time `me` is available, since this only makes
+  // sense as a one-time "where did this link want me to go" resolution.
+  const deepLinkHandledRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandledRef.current || !deepLink) return;
+    deepLinkHandledRef.current = true;
+
+    (async () => {
+      const { groupId, groupTab, thread, channel, tab: globalTab, admin } = deepLink;
+
+      if (admin === "toolbox") {
+        setAdminToolboxOpen(true);
+        return;
+      }
+
+      if (groupId) {
+        const membership = me.memberships.find((m) => m.group_id === groupId);
+        if (membership) {
+          openGroup(groupId, membership.group?.name || "Ministry", membership.role, membership.group?.features, {
+            initialTab: groupTab,
+            initialThreadId: thread,
+            initialChannel: channel,
+          });
+          return;
+        }
+        // Not (or no longer) a member -- a Church Admin can still open
+        // any group for management purposes (e.g. a join-request
+        // notification pointing at a group they don't personally
+        // belong to), so look it up via the admin-visible groups list.
+        if (me.user.is_church_admin) {
+          try {
+            const res = await fetch("/api/groups");
+            const data = await res.json();
+            const g = (data.groups || []).find((x) => x.id === groupId);
+            if (g) {
+              openGroup(groupId, g.name, "admin", g.features, {
+                initialTab: groupTab,
+                initialThreadId: thread,
+                initialChannel: channel,
+              });
+              return;
+            }
+          } catch {
+            // Fall through to Home below.
+          }
+        }
+        return;
+      }
+
+      if (globalTab) switchTab(globalTab);
+    })();
+  }, [deepLink, me]);
 
   // Lets Reading Plan (or anything else nested inside a group) jump into
   // the universal Bible tab at a specific passage without losing your
@@ -348,6 +415,9 @@ function AppShell({ me, refreshMe, onSignOut }) {
         onBackToHub={backToHub}
         onOpenBiblePassage={openBiblePassage}
         refreshMe={refreshMe}
+        initialTab={activeGroup.initialTab}
+        initialThreadId={activeGroup.initialThreadId}
+        initialChannel={activeGroup.initialChannel}
       />
     );
   }
@@ -358,10 +428,10 @@ function AppShell({ me, refreshMe, onSignOut }) {
         className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-[#132560] text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
       >
-        <div className="flex items-center gap-2.5">
-          <Image src="/header-logo.png" alt="" width={32} height={32} className="w-8 h-8 rounded" />
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Image src="/header-logo.png" alt="" width={32} height={32} className="w-8 h-8 rounded flex-shrink-0" />
           <strong
-            className="font-serif tracking-wide"
+            className="font-serif tracking-wide truncate"
             style={{
               color: "#fff",
               textShadow:
@@ -372,7 +442,7 @@ function AppShell({ me, refreshMe, onSignOut }) {
             <span className="sm:hidden">NHAG</span>
           </strong>
         </div>
-        <div className="flex items-center gap-1.5 relative">
+        <div className="flex items-center gap-1.5 relative flex-shrink-0">
           {isAdmin && adminModeOn && (
             <button
               onClick={() => setAdminToolboxOpen(true)}
@@ -580,7 +650,27 @@ function HomeInner() {
   if (me === null) return <SignInScreen authError={searchParams.get("authError")} />;
   if (!me.user.username) return null; // redirecting to /setup
 
-  return <AppShell me={me} refreshMe={load} onSignOut={signOut} />;
+  // Built once per load from whatever query params got us here -- a
+  // clicked push notification's url, or any other deep link into the
+  // app. Scheme: "/?group=<id>&tab=<groupTab>" (optionally
+  // "&thread=<id>" or "&channel=members|leaders") opens that group
+  // straight to a tab; "/?tab=<globalTab>" opens a top-level tab;
+  // "/?admin=toolbox" opens the Admin Toolbox. AppShell consumes this
+  // exactly once (see its deepLinkHandledRef effect); left in the
+  // address bar afterward, harmless on refresh.
+  const deepLink =
+    searchParams.get("group") || searchParams.get("tab") || searchParams.get("admin")
+      ? {
+          groupId: searchParams.get("group"),
+          groupTab: searchParams.get("group") ? searchParams.get("tab") : null,
+          thread: searchParams.get("thread"),
+          channel: searchParams.get("channel"),
+          tab: searchParams.get("group") ? null : searchParams.get("tab"),
+          admin: searchParams.get("admin"),
+        }
+      : null;
+
+  return <AppShell me={me} refreshMe={load} onSignOut={signOut} deepLink={deepLink} />;
 }
 
 export default function Home() {

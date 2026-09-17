@@ -75,7 +75,7 @@ export async function POST(req, { params }) {
   notifyGroup(groupId, {
     title: program?.name ? `New ${program.name} Setlist` : "New Program Setlist",
     body: `${service} — ${service_date}`,
-    url: "/",
+    url: `/?group=${groupId}&tab=programs`,
   }).catch(() => {});
 
   return NextResponse.json({ setlist: { ...data, songs: [] } });

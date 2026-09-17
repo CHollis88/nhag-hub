@@ -66,7 +66,7 @@ export async function POST(req, { params }) {
   notifyAdmins({
     title: "Join Request",
     body: `${user.display_name} wants to join ${group?.name || "a ministry"}.`,
-    url: "/",
+    url: `/?group=${groupId}&tab=roster`,
   }).catch(() => {});
 
   return NextResponse.json({ request: data });

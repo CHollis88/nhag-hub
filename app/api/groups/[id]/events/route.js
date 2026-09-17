@@ -99,7 +99,7 @@ export async function POST(req, { params }) {
   notifyGroup(groupId, {
     title: "Group Event",
     body: dates.length > 1 ? `${title.trim()} (${dates.length} dates)` : title.trim(),
-    url: "/",
+    url: `/?group=${groupId}&tab=events`,
   }).catch(() => {});
 
   return NextResponse.json({ events: data });

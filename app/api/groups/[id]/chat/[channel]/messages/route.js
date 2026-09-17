@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroupChatChannel } from "@/lib/push";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 const VALID_CHANNELS = ["members", "leaders"];
 
@@ -54,7 +54,9 @@ export async function GET(req, { params }) {
 
   const withReactions = (messages || []).map((m) => ({ ...m, reactions: reactionsByMessage[m.id] || [] }));
 
-  return withPrivateCache({ messages: withReactions }, { maxAge: 5, staleWhileRevalidate: 15 });
+  // no-store -- polled every 4s while this channel is open (see
+  // GroupChatTab), same reasoning as the DM messages endpoint.
+  return withNoStore({ messages: withReactions });
 }
 
 export async function POST(req, { params }) {
@@ -93,7 +95,7 @@ export async function POST(req, { params }) {
   notifyGroupChatChannel(groupId, channel, user.id, {
     title: channel === "leaders" ? "Leaders Chat" : `${user.display_name}`,
     body: body.trim().slice(0, 140),
-    url: "/",
+    url: `/?group=${groupId}&tab=chat&channel=${channel}`,
   }).catch(() => {});
 
   return NextResponse.json({ message: { ...message, reactions: [] } });

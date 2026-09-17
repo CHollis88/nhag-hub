@@ -8,8 +8,8 @@ import MessageThreadView from "./MessageThreadView";
 // use at first: "members" (everyone active in the group) and "leaders"
 // (that group's own leaders/admins only). Regular members only ever see
 // the members channel; a leader/admin can switch between both.
-export default function GroupChatTab({ groupId, currentUserId, canManage }) {
-  const [channel, setChannel] = useState("members");
+export default function GroupChatTab({ groupId, currentUserId, canManage, initialChannel }) {
+  const [channel, setChannel] = useState(initialChannel === "leaders" && canManage ? "leaders" : "members");
   const [messages, setMessages] = useState(null);
   const [muted, setMuted] = useState(false);
   const pollRef = useRef(null);

@@ -9,7 +9,7 @@ import MessageThreadView from "./MessageThreadView";
 // more of the group's leaders to start a private thread with -- per
 // Cam's decision, member-initiated only, and a new participant set is
 // always a new thread rather than reusing/merging an existing one.
-export default function DirectMessagesTab({ groupId, currentUserId }) {
+export default function DirectMessagesTab({ groupId, currentUserId, initialThreadId }) {
   const [threads, setThreads] = useState(null);
   const [openThreadId, setOpenThreadId] = useState(null);
   const [messages, setMessages] = useState(null);
@@ -18,6 +18,7 @@ export default function DirectMessagesTab({ groupId, currentUserId }) {
   const [leaders, setLeaders] = useState([]);
   const [selectedLeaderIds, setSelectedLeaderIds] = useState([]);
   const pollRef = useRef(null);
+  const deepLinkOpenedRef = useRef(false);
 
   const loadThreads = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}/dm-threads`);
@@ -28,6 +29,16 @@ export default function DirectMessagesTab({ groupId, currentUserId }) {
   useEffect(() => {
     loadThreads();
   }, [loadThreads]);
+
+  // Deep link from a clicked push notification (see page.js) -- open the
+  // specific thread it was about, once, after the thread list itself has
+  // loaded so the header shows the right participant names and the
+  // correct mute state from the start.
+  useEffect(() => {
+    if (deepLinkOpenedRef.current || !initialThreadId || threads === null) return;
+    deepLinkOpenedRef.current = true;
+    openThread(initialThreadId);
+  }, [threads, initialThreadId]);
 
   const loadLeaders = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}/members`);
@@ -123,10 +134,10 @@ export default function DirectMessagesTab({ groupId, currentUserId }) {
     return (
       <div className="h-full flex flex-col">
         <div className="flex items-center gap-2 px-5 pt-4 pb-2">
-          <button onClick={() => setOpenThreadId(null)} className="text-inkfaint p-1">
+          <button onClick={() => setOpenThreadId(null)} className="text-inkfaint p-1 flex-shrink-0">
             <ArrowLeft size={18} />
           </button>
-          <p className="font-serif text-lg text-ink truncate">
+          <p className="font-serif text-lg text-ink truncate min-w-0 flex-1">
             {thread?.participant_names?.join(", ") || "Conversation"}
           </p>
         </div>
@@ -185,9 +196,9 @@ export default function DirectMessagesTab({ groupId, currentUserId }) {
             onClick={(e) => e.stopPropagation()}
             className="bg-card rounded-t-2xl w-full max-h-[70vh] overflow-y-auto p-6"
           >
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="font-serif text-lg text-ink m-0">Message a leader</h3>
-              <button onClick={() => setPickerOpen(false)} className="text-2xl text-inkfaint leading-none">
+            <div className="flex justify-between items-center mb-3 gap-2">
+              <h3 className="font-serif text-lg text-ink m-0 min-w-0 truncate">Message a leader</h3>
+              <button onClick={() => setPickerOpen(false)} className="text-2xl text-inkfaint leading-none flex-shrink-0">
                 ×
               </button>
             </div>

@@ -63,7 +63,7 @@ export async function POST(req, { params }) {
   notifyAdmins({
     title: "Promotion Request",
     body: `${news.groups?.name || "A ministry"} wants to promote "${news.title}" to church-wide.`,
-    url: "/",
+    url: "/?tab=news",
   }).catch(() => {});
 
   return NextResponse.json({ request: data });

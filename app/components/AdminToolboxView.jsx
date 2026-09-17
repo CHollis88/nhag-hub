@@ -244,11 +244,11 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
         onClick={(e) => e.stopPropagation()}
         className="bg-card rounded-t-2xl w-full max-h-[85vh] overflow-y-auto p-6"
       >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="font-serif text-xl text-ink m-0 flex items-center gap-2">
-            <Wrench size={18} className="text-inkfaint" /> Admin Toolbox
+        <div className="flex justify-between items-center mb-4 gap-2">
+          <h2 className="font-serif text-xl text-ink m-0 flex items-center gap-2 min-w-0 truncate">
+            <Wrench size={18} className="text-inkfaint flex-shrink-0" /> Admin Toolbox
           </h2>
-          <button onClick={onClose} className="text-2xl text-inkfaint leading-none">×</button>
+          <button onClick={onClose} className="text-2xl text-inkfaint leading-none flex-shrink-0">×</button>
         </div>
 
         <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Create a ministry</p>
@@ -435,9 +435,11 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
             onClick={(e) => e.stopPropagation()}
             className="bg-card rounded-t-2xl w-full max-h-[75vh] overflow-y-auto p-6"
           >
-            <div className="flex justify-between items-center mb-2">
-              <h3 className="font-serif text-lg text-ink m-0">Block ministries for {manageUser.display_name}</h3>
-              <button onClick={() => setManageUser(null)} className="text-2xl text-inkfaint leading-none">×</button>
+            <div className="flex justify-between items-center mb-2 gap-2">
+              <h3 className="font-serif text-lg text-ink m-0 min-w-0 truncate">
+                Block ministries for {manageUser.display_name}
+              </h3>
+              <button onClick={() => setManageUser(null)} className="text-2xl text-inkfaint leading-none flex-shrink-0">×</button>
             </div>
             <p className="text-xs text-inkfaint mb-3">
               Checking a ministry blocks it for this person only — they won't see it anywhere in the app,

@@ -52,7 +52,7 @@ export async function POST(req) {
   notifyGlobal({
     title: "New Sermon",
     body: speaker?.trim() ? `${title.trim()} — ${speaker.trim()}` : title.trim(),
-    url: "/",
+        url: "/?tab=sermons",
   }).catch(() => {});
 
   return NextResponse.json({ sermon: data });

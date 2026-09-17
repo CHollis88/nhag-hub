@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { notifyDmThread } from "@/lib/push";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 async function isParticipant(supabase, threadId, userId) {
   const { data } = await supabase
@@ -50,14 +50,18 @@ export async function GET(req, { params }) {
 
   const withReactions = (messages || []).map((m) => ({ ...m, reactions: reactionsByMessage[m.id] || [] }));
 
-  return withPrivateCache({ messages: withReactions }, { maxAge: 5, staleWhileRevalidate: 15 });
+  // no-store, not a short private cache -- this endpoint is polled every
+  // 4s while a thread is open (see DirectMessagesTab), so it needs to
+  // actually hit the network every time, same reasoning as
+  // /api/notifications' own no-store.
+  return withNoStore({ messages: withReactions });
 }
 
 export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { threadId } = await params;
+  const { id: groupId, threadId } = await params;
   const { body } = await req.json();
   if (!body || !body.trim()) {
     return NextResponse.json({ error: "Message can't be empty." }, { status: 400 });
@@ -87,7 +91,7 @@ export async function POST(req, { params }) {
   notifyDmThread(threadId, user.id, {
     title: `${user.display_name}`,
     body: body.trim().slice(0, 140),
-    url: "/",
+    url: `/?group=${groupId}&tab=dm&thread=${threadId}`,
   }).catch(() => {});
 
   return NextResponse.json({ message: { ...message, reactions: [] } });

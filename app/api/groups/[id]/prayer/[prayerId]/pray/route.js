@@ -72,7 +72,7 @@ export async function POST(req, { params }) {
     notifyGroupMember(groupId, current.created_by, {
       title: "Someone is praying for your request",
       body: "Tap to view.",
-      url: "/",
+      url: `/?group=${groupId}&tab=prayer`,
     }).catch(() => {});
   }
 

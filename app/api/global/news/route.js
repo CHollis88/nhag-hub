@@ -80,12 +80,12 @@ export async function POST(req) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (finalAudience === "leaders") {
-    notifyAllLeaders({ title: "Leaders Only", body: title.trim(), url: "/" }).catch(() => {});
+    notifyAllLeaders({ title: "Leaders Only", body: title.trim(), url: "/?tab=news" }).catch(() => {});
   } else {
     notifyGlobal({
       title: finalCategory === "pastor_message" ? "Message from the Pastor" : "Church News",
       body: title.trim(),
-      url: "/",
+      url: "/?tab=news",
     }).catch(() => {});
   }
 

@@ -76,7 +76,7 @@ export async function POST(req, { params }) {
 
   // Deliberately generic -- a prayer request's content shouldn't show up
   // in a lock-screen notification banner, even for a non-anonymous one.
-  notifyGroup(groupId, { title: "New Prayer Request", body: "Tap to view.", url: "/" }).catch(() => {});
+  notifyGroup(groupId, { title: "New Prayer Request", body: "Tap to view.", url: `/?group=${groupId}&tab=prayer` }).catch(() => {});
 
   return NextResponse.json({ prayer: data });
 }

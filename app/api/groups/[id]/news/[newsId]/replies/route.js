@@ -72,7 +72,7 @@ export async function POST(req, { params }) {
     notifyGroupMember(groupId, post.created_by, {
       title: "New reply to your post",
       body: post.title ? `On "${post.title}"` : "Tap to view.",
-      url: "/",
+      url: `/?group=${groupId}&tab=news`,
     }).catch(() => {});
   }
 
