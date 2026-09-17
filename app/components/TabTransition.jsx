@@ -15,7 +15,7 @@
 // already rely on the page scrolling as a whole.
 export default function TabTransition({ tabKey, children }) {
   return (
-    <div key={tabKey} className="tab-fade-in h-full">
+    <div key={tabKey} className="tab-fade-in h-full min-h-0 flex flex-col">
       {children}
     </div>
   );

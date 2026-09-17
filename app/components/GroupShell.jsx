@@ -23,6 +23,7 @@ import HelpView from "./HelpView";
 import AttributionView from "./AttributionView";
 import { getPlan, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
 import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
+import { useViewportHeight } from "@/lib/useViewportHeight";
 
 // Tabs that append after the shared News/Events/Prayer/Roster set.
 const APPEND_FEATURE_TABS = {
@@ -78,6 +79,15 @@ export default function GroupShell({
   // compose bar sits right above where the nav normally is, but this
   // covers any text entry in any tab, not just those two.
   const keyboardVisible = useKeyboardVisible();
+  // Real, live-updating viewport height in pixels -- see the hook for
+  // why h-dvh alone isn't enough. Bound as an inline style on the root
+  // below rather than relied on as a Tailwind class, since several
+  // mobile browsers don't shrink dvh for an on-screen keyboard at all;
+  // without this, a keyboard opening left the whole shell (compose bar,
+  // bottom nav) sized for the PRE-keyboard height, which is exactly why
+  // the compose bar could end up hidden behind the keyboard or the nav
+  // bar, or a short conversation could show a stray gap underneath it.
+  const viewportHeight = useViewportHeight();
 
   // Chat's two channels (migration_027) are now independently toggleable
   // (Cam's decision) -- a ministry can turn on Leaders Only without also
@@ -176,7 +186,7 @@ export default function GroupShell({
   };
 
   return (
-    <div className="h-dvh flex flex-col bg-paper overflow-hidden">
+    <div className="flex flex-col bg-paper overflow-hidden" style={{ height: viewportHeight }}>
       <header
         className="sticky top-0 z-30 flex justify-between items-center px-4 py-3 bg-[#132560] text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}

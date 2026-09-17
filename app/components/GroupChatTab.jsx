@@ -90,9 +90,9 @@ export default function GroupChatTab({
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full min-h-0 flex flex-col">
       {canSwitch && (
-        <div className="flex gap-2 px-5 pt-4">
+        <div className="flex gap-2 px-5 pt-4 flex-shrink-0">
           <button
             onClick={() => setChannel("members")}
             className={channel === "members" ? "sp-btn-primary text-sm py-1.5 px-3" : "sp-btn-secondary text-sm py-1.5 px-3"}
@@ -108,20 +108,22 @@ export default function GroupChatTab({
         </div>
       )}
       {!canSwitch && (
-        <h2 className="font-serif text-2xl text-ink px-5 pt-4">
+        <h2 className="font-serif text-2xl text-ink px-5 pt-4 flex-shrink-0">
           {channel === "leaders" ? "Leaders Chat" : "Chat"}
         </h2>
       )}
-      <MessageThreadView
-        messages={messages}
-        currentUserId={currentUserId}
-        onSend={send}
-        onReact={react}
-        muted={muted}
-        onToggleMute={toggleMute}
-        onClear={canManage ? clearChat : undefined}
-        emptyText={channel === "leaders" ? "No leader chat yet — say hello." : "No messages yet — say hello."}
-      />
+      <div className="flex-1 min-h-0">
+        <MessageThreadView
+          messages={messages}
+          currentUserId={currentUserId}
+          onSend={send}
+          onReact={react}
+          muted={muted}
+          onToggleMute={toggleMute}
+          onClear={canManage ? clearChat : undefined}
+          emptyText={channel === "leaders" ? "No leader chat yet — say hello." : "No messages yet — say hello."}
+        />
+      </div>
     </div>
   );
 }

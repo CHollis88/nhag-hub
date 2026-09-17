@@ -33,6 +33,7 @@ import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle, Rotat
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
 import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
+import { useViewportHeight } from "@/lib/useViewportHeight";
 
 function AuthCard({ children }) {
   return (
@@ -211,6 +212,9 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   // getting squeezed up alongside whatever's focused (a search field, a
   // form input) when the keyboard opens.
   const keyboardVisible = useKeyboardVisible();
+  // Real, live-updating viewport height -- see the hook itself for why
+  // h-dvh alone isn't a reliable stand-in for this on mobile.
+  const viewportHeight = useViewportHeight();
 
   // Register the service worker once on load -- without this, push
   // notifications can never arrive: there's nothing installed in the
@@ -393,7 +397,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
 
   if (bibleOverlay) {
     return (
-      <div className="h-dvh flex flex-col bg-paper overflow-hidden">
+      <div className="flex flex-col bg-paper overflow-hidden" style={{ height: viewportHeight }}>
         <header
           className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-[#132560] text-white"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
@@ -429,7 +433,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-paper overflow-hidden">
+    <div className="flex flex-col bg-paper overflow-hidden" style={{ height: viewportHeight }}>
       <header
         className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-[#132560] text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}

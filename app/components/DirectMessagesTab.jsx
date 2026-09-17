@@ -161,8 +161,8 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
   if (openThreadId) {
     const thread = threads?.find((t) => t.id === openThreadId);
     return (
-      <div className="h-full flex flex-col">
-        <div className="flex items-center gap-2 px-5 pt-4 pb-2">
+      <div className="h-full min-h-0 flex flex-col">
+        <div className="flex items-center gap-2 px-5 pt-4 pb-2 flex-shrink-0">
           <button onClick={() => setOpenThreadId(null)} className="text-inkfaint p-1 flex-shrink-0">
             <ArrowLeft size={18} />
           </button>
@@ -170,16 +170,18 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
             {thread?.participant_names?.join(", ") || "Conversation"}
           </p>
         </div>
-        <MessageThreadView
-          messages={messages}
-          currentUserId={currentUserId}
-          onSend={send}
-          onReact={react}
-          muted={muted}
-          onToggleMute={toggleMute}
-          onClear={clearChat}
-          onDelete={deleteConversation}
-        />
+        <div className="flex-1 min-h-0">
+          <MessageThreadView
+            messages={messages}
+            currentUserId={currentUserId}
+            onSend={send}
+            onReact={react}
+            muted={muted}
+            onToggleMute={toggleMute}
+            onClear={clearChat}
+            onDelete={deleteConversation}
+          />
+        </div>
       </div>
     );
   }

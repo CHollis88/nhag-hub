@@ -61,7 +61,7 @@ export default function MessageThreadView({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       <div className="flex justify-between items-center px-5 pt-2 relative">
         <button
           onClick={onToggleMute}
