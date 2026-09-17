@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { Send, Bell, BellOff, MoreVertical } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import MessageReactions from "./MessageReactions";
+import { useKeyboardInset } from "@/lib/useKeyboardInset";
 
 const EMOJI_SET = ["👍", "❤️", "🙏", "😂"];
 const LONG_PRESS_MS = 450;
@@ -17,6 +18,20 @@ const LONG_PRESS_MS = 450;
 // long-pressing a bubble (holding ~450ms, mouse or touch) pops the
 // 4-emoji picker up right above it -- there's no persistent "+" button
 // cluttering every message.
+//
+// The compose bar's mobile behavior (desktop is untouched -- see the
+// md: overrides below): while NOT focused, it sits in normal flow at
+// the bottom of this column, same as always, with the bottom nav bar
+// showing right below it. The moment it's focused, it switches to
+// `position: fixed`, pinned exactly above the on-screen keyboard via
+// useKeyboardInset -- not to the raw bottom of the screen, which is
+// unreliable once a keyboard is involved (several mobile browsers
+// don't resize the layout viewport for it, they overlay it instead).
+// The bottom nav bar hides at the same moment (see useKeyboardVisible,
+// driven by this exact same focus event elsewhere in the tree), which
+// is what actually frees up the space the compose bar moves into.
+// Sending a message blurs the input again afterward, closing the
+// keyboard and bringing the nav bar back, per Cam's explicit call.
 export default function MessageThreadView({
   messages,
   currentUserId,
@@ -32,8 +47,11 @@ export default function MessageThreadView({
   const [sending, setSending] = useState(false);
   const [pickerForId, setPickerForId] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [composeFocused, setComposeFocused] = useState(false);
   const bottomRef = useRef(null);
   const pressTimerRef = useRef(null);
+  const inputRef = useRef(null);
+  const keyboardInset = useKeyboardInset();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
@@ -46,6 +64,11 @@ export default function MessageThreadView({
     await onSend(body.trim());
     setBody("");
     setSending(false);
+    // Dismisses the keyboard and, via the blur handler below, brings the
+    // bottom nav bar back -- per Cam's explicit call that it should
+    // return once a message is sent, not just whenever the person
+    // happens to tap away.
+    inputRef.current?.blur();
   };
 
   const startPress = (messageId) => {
@@ -113,7 +136,9 @@ export default function MessageThreadView({
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-3 space-y-4">
+      <div
+        className={`flex-1 overflow-y-auto px-5 py-3 space-y-4 ${composeFocused ? "pb-20 md:pb-3" : ""}`}
+      >
         {messages === null && <SkeletonList count={3} />}
         {messages?.length === 0 && <p className="text-sm text-inkfaint text-center mt-6">{emptyText}</p>}
         {messages?.map((m) => {
@@ -171,10 +196,21 @@ export default function MessageThreadView({
         <div ref={bottomRef} />
       </div>
 
-      <form onSubmit={submit} className="flex items-center gap-2 px-5 py-3 border-t border-linesoft flex-shrink-0">
+      <form
+        onSubmit={submit}
+        className={`flex items-center gap-2 px-5 py-3 border-t border-linesoft bg-paper flex-shrink-0 ${
+          composeFocused
+            ? "fixed inset-x-0 z-30 md:static md:inset-auto md:z-auto"
+            : "static"
+        }`}
+        style={composeFocused ? { bottom: keyboardInset, paddingBottom: keyboardInset > 0 ? undefined : "calc(0.75rem + env(safe-area-inset-bottom))" } : undefined}
+      >
         <input
+          ref={inputRef}
           value={body}
           onChange={(e) => setBody(e.target.value)}
+          onFocus={() => setComposeFocused(true)}
+          onBlur={() => setComposeFocused(false)}
           placeholder="Message..."
           className="sp-input flex-1"
         />

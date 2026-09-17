@@ -2,7 +2,7 @@
 // Handles: push notifications, notification click routing, and a light
 // offline cache for the app shell so it still opens with no connection.
 
-const CACHE_NAME = "nhag-hub-v2";
+const CACHE_NAME = "nhag-hub-v3";
 const APP_SHELL = ["/", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
