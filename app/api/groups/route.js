@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { logActivity } from "@/lib/activityLog";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 // Recognized feature keys. There's no fixed set of ministry "types" --
 // type is just a free-text label -- but features are a controlled set
@@ -97,7 +97,7 @@ export async function GET(req) {
     });
   }
 
-  return withPrivateCache({ groups: visible }, { maxAge: 30, staleWhileRevalidate: 120 });
+  return withNoStore({ groups: visible });
 }
 
 export async function POST(req) {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings, LayoutGrid, MessageCircle, MessagesSquare } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings, LayoutGrid, MessageCircle, MessagesSquare, RotateCw } from "lucide-react";
 import GroupBottomNav from "./GroupBottomNav";
 import GroupSidebar from "./GroupSidebar";
 import GroupNewsTab from "./GroupNewsTab";
@@ -21,9 +21,12 @@ import JournalTab from "./JournalTab";
 import SettingsView from "./SettingsView";
 import HelpView from "./HelpView";
 import AttributionView from "./AttributionView";
+import PatchNotesView from "./PatchNotesView";
+import { PATCH_NOTES } from "@/lib/patchNotes";
 import { getPlan, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
 import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
 import { useViewportHeight } from "@/lib/useViewportHeight";
+import { hasNewContent, markSeen } from "@/lib/lastSeen";
 
 // Tabs that append after the shared News/Events/Prayer/Roster set.
 const APPEND_FEATURE_TABS = {
@@ -71,7 +74,9 @@ export default function GroupShell({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
+  const [patchNotesOpen, setPatchNotesOpen] = useState(false);
   const [displayName, setDisplayName] = useState(group.name);
+  const [refreshNonce, setRefreshNonce] = useState(0);
   const effectiveRole = group.isAdmin ? "admin" : myRole;
   const canManage = effectiveRole === "leader" || effectiveRole === "admin";
   // Hides the bottom tab bar while an on-screen keyboard is open (see
@@ -88,6 +93,60 @@ export default function GroupShell({
   // the compose bar could end up hidden behind the keyboard or the nav
   // bar, or a short conversation could show a stray gap underneath it.
   const viewportHeight = useViewportHeight();
+
+  // Powers the "something's new" dot on this group's own tab bar. See
+  // /api/groups/[id]/latest-content for the News/Events/Prayer-vs-Chat/DM
+  // distinction -- the first three compare against a locally-stored
+  // "last seen" timestamp (namespaced per group so one ministry's News
+  // dot is never confused with another's, or with the church-wide News
+  // tab's own separate tracking); dm/chat come back as real,
+  // server-computed unread state and need no local tracking at all.
+  const [latestContent, setLatestContent] = useState(null);
+  const loadLatestContentRef = useRef(null);
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      fetch(`/api/groups/${group.id}/latest-content`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (!cancelled) setLatestContent(data);
+        })
+        .catch(() => {});
+    };
+    loadLatestContentRef.current = load;
+    load();
+    const interval = setInterval(() => {
+      if (document.visibilityState === "visible") load();
+    }, 45000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [group.id]);
+
+  const badges = latestContent
+    ? {
+        news: hasNewContent(`group:${group.id}:news`, latestContent.news),
+        events: hasNewContent(`group:${group.id}:events`, latestContent.events),
+        prayer: hasNewContent(`group:${group.id}:prayer`, latestContent.prayer),
+        dm: latestContent.dm_unread_count > 0,
+        chat: latestContent.chat_unread,
+      }
+    : {};
+
+  // Switching to a tab marks it seen for the client-tracked badges
+  // (News/Events/Prayer). dm/chat are real server-tracked state instead
+  // (last_read_at, updated the moment a thread/channel is actually
+  // opened by DirectMessagesTab/GroupChatTab) -- refetching shortly
+  // after leaving either one picks that up promptly, rather than
+  // waiting on the next 45s poll to clear their dot.
+  const switchTab = (nextTab) => {
+    markSeen(`group:${group.id}:${nextTab}`);
+    if (tab === "dm" || tab === "chat") {
+      setTimeout(() => loadLatestContentRef.current?.(), 600);
+    }
+    setTab(nextTab);
+  };
 
   // Chat's two channels (migration_027) are now independently toggleable
   // (Cam's decision) -- a ministry can turn on Leaders Only without also
@@ -206,19 +265,37 @@ export default function GroupShell({
             {displayName}
           </strong>
         </div>
-        <button
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Settings"
-          className="text-white/90 p-1 flex-shrink-0"
-        >
-          <Settings size={22} />
-        </button>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button
+            onClick={() => {
+              // Same idea as the main app header's refresh button: bump a
+              // nonce that's part of TabTransition's key, which remounts
+              // the current tab's content so it refetches its own data
+              // fresh, plus refresh the badge data this header itself
+              // depends on.
+              setRefreshNonce((n) => n + 1);
+              loadLatestContentRef.current?.();
+            }}
+            aria-label="Refresh"
+            title="Refresh"
+            className="text-white/90 p-1"
+          >
+            <RotateCw size={20} />
+          </button>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Settings"
+            className="text-white/90 p-1"
+          >
+            <Settings size={22} />
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-1 min-h-0">
-        <GroupSidebar tab={tab} setTab={setTab} prependTabs={prependTabs} appendTabs={appendTabs} />
+        <GroupSidebar tab={tab} setTab={switchTab} prependTabs={prependTabs} appendTabs={appendTabs} badges={badges} />
         <main className="flex-1 overflow-y-auto">
-          <TabTransition tabKey={tab}>
+          <TabTransition tabKey={`${tab}-${refreshNonce}`}>
             {hasReadingPlan && !readingPlanLoaded && ["today", "plan", "journal"].includes(tab) ? (
               <div className="px-5 pt-4"><SkeletonList count={2} /></div>
 
@@ -232,7 +309,7 @@ export default function GroupShell({
                     activePlanId={activePlanId}
                     dayNum={dayNum}
                     setDayNum={setDayNum}
-                    setTab={setTab}
+                    setTab={switchTab}
                     onOpenBiblePassage={onOpenBiblePassage}
                   />
                 )}
@@ -242,7 +319,7 @@ export default function GroupShell({
                     progress={progress}
                     dayNum={dayNum}
                     setDayNum={setDayNum}
-                    setTab={setTab}
+                    setTab={switchTab}
                     planLocked={planLocked}
                     onSwitchPlan={switchPlan}
                   />
@@ -309,7 +386,7 @@ export default function GroupShell({
       </div>
 
       {!keyboardVisible && (
-        <GroupBottomNav tab={tab} setTab={setTab} prependTabs={prependTabs} appendTabs={appendTabs} />
+        <GroupBottomNav tab={tab} setTab={switchTab} prependTabs={prependTabs} appendTabs={appendTabs} badges={badges} />
       )}
 
       {settingsOpen && (
@@ -324,9 +401,16 @@ export default function GroupShell({
             setSettingsOpen(false);
             setAttributionOpen(true);
           }}
+          onOpenPatchNotes={() => {
+            setSettingsOpen(false);
+            markSeen("whats-new");
+            setPatchNotesOpen(true);
+          }}
+          hasNewPatchNotes={hasNewContent("whats-new", PATCH_NOTES[0]?.date)}
         />
       )}
-      {helpOpen && <HelpView onClose={() => setHelpOpen(false)} />}
+      {patchNotesOpen && <PatchNotesView onClose={() => setPatchNotesOpen(false)} />}
+      {helpOpen && <HelpView onClose={() => setHelpOpen(false)} isLeader={canManage} />}
       {attributionOpen && <AttributionView onClose={() => setAttributionOpen(false)} />}
     </div>
   );

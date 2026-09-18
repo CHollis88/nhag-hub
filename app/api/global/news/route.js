@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { notifyGlobal, notifyAllLeaders } from "@/lib/push";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 import { isAnyGroupLeader } from "@/lib/groupAuth";
 
 const VALID_CATEGORIES = ["announcement", "pastor_message"];
@@ -29,7 +29,7 @@ export async function GET(req) {
   const canSeeLeaderPosts = await isAnyGroupLeader(user);
   const visible = canSeeLeaderPosts ? data : data.filter((n) => n.audience !== "leaders");
 
-  return withPrivateCache({ news: visible });
+  return withNoStore({ news: visible });
 }
 
 // Church-wide announcements are admin-only to post, per the project's

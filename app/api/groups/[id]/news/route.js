@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroup, notifyGroupLeaders } from "@/lib/push";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 const VALID_KINDS = ["announcement", "class", "discuss", "leader"];
 
@@ -33,7 +33,7 @@ export async function GET(req, { params }) {
   const canSeeLeaderPosts = await canManageGroup(user, groupId);
   const visible = canSeeLeaderPosts ? data : data.filter((n) => n.kind !== "leader");
 
-  return withPrivateCache({ news: visible });
+  return withNoStore({ news: visible });
 }
 
 // Leader (own group) or admin only -- per the permission matrix, Members

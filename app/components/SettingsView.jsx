@@ -23,7 +23,7 @@ const TEXT_SIZES = [
   { id: "xxxl", label: "Maximum" },
 ];
 
-export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, isAdmin, adminModeOn: controlledAdminModeOn, onToggleAdminMode }) {
+export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, onOpenPatchNotes, hasNewPatchNotes, isAdmin, adminModeOn: controlledAdminModeOn, onToggleAdminMode }) {
   const [theme, setTheme] = useState("system");
   const [textSize, setTextSize] = useState("md");
   const [desktopLayout, setDesktopLayoutState] = useState(false);
@@ -197,6 +197,12 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, i
         <div>
           <button onClick={onOpenHelp} className="sp-btn-secondary mt-1 mr-2">
             Help / FAQ
+          </button>
+          <button onClick={onOpenPatchNotes} className="sp-btn-secondary mt-1 mr-2 relative">
+            What's New
+            {hasNewPatchNotes && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent border border-card" />
+            )}
           </button>
           <button onClick={onOpenAttribution} className="sp-btn-secondary mt-1">
             Sources &amp; Attribution

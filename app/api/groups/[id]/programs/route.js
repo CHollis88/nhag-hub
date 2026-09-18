@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -33,7 +33,7 @@ export async function GET(req, { params }) {
   const canManage = await canManageGroup(user, groupId);
   const visible = canManage ? data : data.filter((p) => !p.hidden);
 
-  return withPrivateCache({ programs: visible });
+  return withNoStore({ programs: visible });
 }
 
 // Creating a program is leader/admin territory, same authority level as

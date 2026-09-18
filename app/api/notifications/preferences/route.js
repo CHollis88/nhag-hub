@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 // Returns this user's current preferences for every group they're an
 // active member of, plus the global toggle. No row in the DB for a given
@@ -39,7 +39,7 @@ export async function GET(req) {
 
   // Short TTL -- a settings screen where you just flipped a toggle should
   // show the toggle's real current state, same reasoning as /api/me.
-  return withPrivateCache({ global: globalRow ? globalRow.enabled : true, groups }, { maxAge: 20, staleWhileRevalidate: 60 });
+  return withNoStore({ global: globalRow ? globalRow.enabled : true, groups });
 }
 
 // Body: { scope: "global" } or { scope: "group", group_id }, plus enabled.

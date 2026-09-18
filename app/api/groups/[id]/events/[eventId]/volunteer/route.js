@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isActiveGroupMember } from "@/lib/groupAuth";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 export async function GET(req, { params }) {
   const { eventId } = await params;
@@ -17,7 +17,7 @@ export async function GET(req, { params }) {
     .order("created_at", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withPrivateCache({ volunteers: data });
+  return withNoStore({ volunteers: data });
 }
 
 export async function POST(req, { params }) {

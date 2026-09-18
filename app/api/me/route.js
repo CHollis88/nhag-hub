@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -52,8 +52,7 @@ export async function GET(req) {
         (m) => !(m.groups?.hidden && m.groups?.hide_restricts_access) && !userHiddenIds.has(m.group_id)
       );
 
-  return withPrivateCache(
-    {
+  return withNoStore({
       user: {
         id: user.id,
         email: user.email,
@@ -67,15 +66,7 @@ export async function GET(req) {
         status: m.status,
         group: m.groups,
       })),
-    },
-    // Short TTL, not the default 60s -- membership status (pending →
-    // active) is exactly the kind of thing a person is anxiously
-    // checking right after a leader approves them, so this errs toward
-    // freshness over cache-hit-rate. The explicit `no-store` fetch used
-    // by the refresh button (see page.js's `load()`) bypasses this
-    // entirely anyway; this header just governs ordinary repeat loads.
-    { maxAge: 20, staleWhileRevalidate: 60 }
-  );
+    });
 }
 
 // Editing your own name/username -- same validation rules as initial

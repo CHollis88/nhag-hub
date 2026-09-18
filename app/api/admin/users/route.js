@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 import { hashPin } from "@/lib/pin";
 import { logActivity } from "@/lib/activityLog";
 import crypto from "crypto";
@@ -27,7 +27,7 @@ export async function GET(req) {
     .order("display_name");
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withPrivateCache({ users: data });
+  return withNoStore({ users: data });
 }
 
 // Admin-only. Creates a fully complete account directly, bypassing the

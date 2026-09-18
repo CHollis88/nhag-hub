@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 // Any active member of the group can see the roster (per the project's
 // decision that members can see who else is in their group). Only a
@@ -44,7 +44,7 @@ export async function GET(req, { params }) {
 
   // Short TTL like /api/me -- this is where a leader checks the pending
   // join queue, so it needs to feel current, not cached for a full minute.
-  return withPrivateCache({ active, pending: canManage ? pending : undefined }, { maxAge: 20, staleWhileRevalidate: 60 });
+  return withNoStore({ active, pending: canManage ? pending : undefined });
 }
 
 // Leader (own group) or admin adds an EXISTING user directly. Goes straight

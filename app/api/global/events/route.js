@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { notifyGlobal } from "@/lib/push";
 import { generateOccurrenceDates } from "@/lib/recurrence";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 import crypto from "crypto";
 
 export async function GET(req) {
@@ -49,7 +49,7 @@ export async function GET(req) {
     })
   );
 
-  return withPrivateCache({ events: withExtras });
+  return withNoStore({ events: withExtras });
 }
 
 // repeat ("weekly" | "biweekly" | "monthly") + repeat_count together

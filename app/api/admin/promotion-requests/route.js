@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 export async function GET(req) {
   const user = await getCurrentUser(req);
@@ -34,5 +34,5 @@ export async function GET(req) {
 
   // Short TTL -- this is an admin's pending-approval queue, same
   // freshness reasoning as the group members pending list.
-  return withPrivateCache({ requests: withContent }, { maxAge: 20, staleWhileRevalidate: 60 });
+  return withNoStore({ requests: withContent });
 }

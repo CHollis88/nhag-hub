@@ -4,7 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { logActivity } from "@/lib/activityLog";
 import { PLANS, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 const VALID_FEATURES = [
   "songs_setlists",
@@ -37,7 +37,7 @@ export async function GET(req, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Group not found." }, { status: 404 });
-  return withPrivateCache({ group: data });
+  return withNoStore({ group: data });
 }
 
 export async function PATCH(req, { params }) {

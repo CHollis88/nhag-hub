@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -34,7 +34,7 @@ export async function GET(req, { params }) {
     return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
-  return withPrivateCache({ program: data });
+  return withNoStore({ program: data });
 }
 
 export async function PATCH(req, { params }) {

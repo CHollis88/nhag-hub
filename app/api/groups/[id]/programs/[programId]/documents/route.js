@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 import crypto from "crypto";
 
 // Separate bucket from group-icons/program icons -- PDFs are a
@@ -38,7 +38,7 @@ export async function GET(req, { params }) {
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withPrivateCache({ documents: data });
+  return withNoStore({ documents: data });
 }
 
 // Uploading a document is leader/admin territory, same as everything

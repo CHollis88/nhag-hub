@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 export async function GET(req) {
   const user = await getCurrentUser(req);
@@ -23,7 +23,7 @@ export async function GET(req) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withPrivateCache({ notes: data });
+  return withNoStore({ notes: data });
 }
 
 export async function POST(req) {

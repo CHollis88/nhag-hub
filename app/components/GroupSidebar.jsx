@@ -17,7 +17,7 @@ export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 // nav (e.g. Today/Plan/Journal); appendTabs follow the shared set but
 // come before Roster (e.g. Songs/Setlists for Choir). Roster is always
 // last.
-export default function GroupSidebar({ tab, setTab, prependTabs = [], appendTabs = [] }) {
+export default function GroupSidebar({ tab, setTab, prependTabs = [], appendTabs = [], badges = {} }) {
   const [collapsed, setCollapsed] = useState(false);
   const tabs = [...prependTabs, ...BASE_TABS, ...appendTabs, ROSTER_TAB];
 
@@ -38,7 +38,12 @@ export default function GroupSidebar({ tab, setTab, prependTabs = [], appendTabs
               active ? "font-semibold text-accent border-accent bg-accent/5" : "text-inkfaint border-transparent"
             }`}
           >
-            {Icon && <Icon size={18} strokeWidth={active ? 2.3 : 1.8} className="flex-shrink-0" />}
+            <span className="relative flex-shrink-0">
+              {Icon && <Icon size={18} strokeWidth={active ? 2.3 : 1.8} />}
+              {badges[key] && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent border border-card" />
+              )}
+            </span>
             {!collapsed && <span>{label}</span>}
           </button>
         );

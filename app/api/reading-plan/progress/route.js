@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 // plan_id scopes progress to a specific plan -- see migration_014/016 --
 // so switching plans (or being in a locked group on a different plan)
@@ -28,7 +28,7 @@ export async function GET(req) {
     byDay[row.day] = { p: row.prayed, r: row.read, m: row.meditated, at: row.updated_at };
   }
   // Short TTL -- same read-your-own-write freshness reasoning as journal.
-  return withPrivateCache({ progress: byDay }, { maxAge: 20, staleWhileRevalidate: 60 });
+  return withNoStore({ progress: byDay });
 }
 
 export async function POST(req) {

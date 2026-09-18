@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroup } from "@/lib/push";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 const VALID_SERVICES = ["AM", "PM", "CP"];
 
@@ -36,7 +36,7 @@ export async function GET(req, { params }) {
     })
   );
 
-  return withPrivateCache({ setlists: withSongs });
+  return withNoStore({ setlists: withSongs });
 }
 
 export async function POST(req, { params }) {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 // Journal entries are private and only ever looked up by the signed-in
 // user's own session. No leader view exists for this data anywhere in
@@ -28,7 +28,7 @@ export async function GET(req) {
   // Short TTL -- this is the user's own read-your-own-write data (marked
   // today's entry, expects to see it immediately), same reasoning as
   // /api/me: freshness matters more than cache-hit-rate here.
-  return withPrivateCache({ journal: byDay }, { maxAge: 20, staleWhileRevalidate: 60 });
+  return withNoStore({ journal: byDay });
 }
 
 export async function POST(req) {

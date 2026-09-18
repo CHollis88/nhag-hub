@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isActiveGroupMember, canManageGroup } from "@/lib/groupAuth";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 // Direct Messages (migration_026, feature key "direct_messages"). A
 // regular member picks one or more of the group's own leaders and
@@ -32,7 +32,7 @@ export async function GET(req, { params }) {
     .eq("group_dm_threads.group_id", groupId);
 
   if (myRowsError) return NextResponse.json({ error: myRowsError.message }, { status: 500 });
-  if (!myRows?.length) return withPrivateCache({ threads: [] }, { maxAge: 15, staleWhileRevalidate: 60 });
+  if (!myRows?.length) return withNoStore({ threads: [] });
 
   const threadIds = myRows.map((r) => r.thread_id);
 
@@ -85,7 +85,7 @@ export async function GET(req, { params }) {
       return bTime.localeCompare(aTime);
     });
 
-  return withPrivateCache({ threads }, { maxAge: 15, staleWhileRevalidate: 60 });
+  return withNoStore({ threads });
 }
 
 // Starts a new thread, or returns an existing one with the exact same

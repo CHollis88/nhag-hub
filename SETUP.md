@@ -183,6 +183,16 @@ You don't need to do any of this yet — running it locally with `npm run dev` i
 
 ---
 
+## Releasing a new build
+
+Each release bumps two things together, so Settings' version footer and What's New always agree:
+- `package.json`'s `"version"` field
+- A new entry at the TOP of `lib/patchNotes.js`'s `PATCH_NOTES` array (newest first), with a matching `version`, today's `date`, a short member-facing `title`, and plain-language `items` -- written for someone using the app, not a developer
+
+Once deployed, Admin Toolbox has an "Announce Update to Everyone" button (in the "Announce an update" section) that pushes a notification using that newest entry's title, telling people to close and reopen the app. It's a manual button on purpose -- nothing fires automatically on deploy.
+
+---
+
 ## If something doesn't work
 
 The most common issues:

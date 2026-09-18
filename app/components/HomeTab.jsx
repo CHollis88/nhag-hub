@@ -14,13 +14,13 @@ function MinistryTile({ group, leaders, myRole, isPending, onLaunch, onRequestJo
   const bg = group.tile_color || DEFAULT_TILE_COLOR;
 
   return (
-    <div
-      className="sp-card p-0 overflow-hidden flex flex-col h-full"
-      onClick={!isMember ? onPreview : undefined}
-      role={!isMember ? "button" : undefined}
-    >
+    <div className="sp-card p-0 overflow-hidden flex flex-col h-full">
       <div className="h-2 flex-shrink-0" style={{ background: bg }} />
-      <div className="p-4 md:p-5 lg:p-6 flex flex-col items-center text-center flex-1">
+      <div
+        className="p-3 md:p-5 lg:p-6 flex flex-col items-center text-center flex-1"
+        onClick={onPreview}
+        role="button"
+      >
         {group.image_url ? (
           <img
             src={group.image_url}
@@ -36,23 +36,27 @@ function MinistryTile({ group, leaders, myRole, isPending, onLaunch, onRequestJo
           </div>
         )}
         <p className="font-serif text-base md:text-xl lg:text-2xl text-ink leading-snug break-words">{group.name}</p>
-        {group.type && <p className="text-xs md:text-sm text-inkfaint break-words mt-0.5">{group.type}</p>}
+        {/* Everything below is hidden on mobile (the compact, icon-and-name-
+            first view Cam asked for) and only shown from md: up -- on a
+            phone, tapping the tile itself opens the full preview instead,
+            where the type, leaders, and description are all still there. */}
+        {group.type && <p className="hidden md:block text-xs md:text-sm text-inkfaint break-words mt-0.5">{group.type}</p>}
         {leaders?.length > 0 && (
-          <p className="text-xs md:text-sm text-inkfaint break-words mt-0.5">
+          <p className="hidden md:block text-xs md:text-sm text-inkfaint break-words mt-0.5">
             {leaders.length === 1 ? "Leader: " : "Leaders: "}
             {leaders.join(", ")}
           </p>
         )}
         {isMember && (
-          <p className="text-xs md:text-sm text-inkfaint mt-0.5">
+          <p className="hidden md:block text-xs md:text-sm text-inkfaint mt-0.5">
             {myRole === "leader" ? "Ministry Leader" : "Member"}
           </p>
         )}
         {!isMember && group.description && (
-          <p className="text-xs md:text-sm text-inksoft mt-1.5 line-clamp-2">{group.description}</p>
+          <p className="hidden md:block text-xs md:text-sm text-inksoft mt-1.5 line-clamp-2">{group.description}</p>
         )}
 
-        <div className="mt-auto pt-3 md:pt-4 w-full">
+        <div className="mt-auto pt-3 md:pt-4 w-full" onClick={(e) => e.stopPropagation()}>
           {isMember ? (
             <button onClick={onLaunch} className="sp-btn-pill w-full md:text-base md:py-2">Launch</button>
           ) : isPending ? (
@@ -165,7 +169,7 @@ function UpcomingEventsPreview({ me, onSeeAll }) {
           if (a.event_date !== b.event_date) return a.event_date.localeCompare(b.event_date);
           return (a.event_time || "99:99").localeCompare(b.event_time || "99:99");
         })
-        .slice(0, 3);
+        .slice(0, 1);
 
       setEvents(combined);
     });
@@ -176,7 +180,7 @@ function UpcomingEventsPreview({ me, onSeeAll }) {
   return (
     <div className="mb-6">
       <div className="flex justify-between items-center mb-2">
-        <p className="text-xs uppercase tracking-wide text-inkfaint">Your Upcoming Events</p>
+        <p className="text-xs uppercase tracking-wide text-inkfaint">Your Next Event</p>
         <button onClick={onSeeAll} className="text-xs text-accent underline">See all</button>
       </div>
       <div className="space-y-2">
@@ -209,7 +213,7 @@ function AnnouncementsPreview({ onSeeAll }) {
   useEffect(() => {
     fetch("/api/global/news")
       .then((r) => r.json())
-      .then((data) => setNews((data.news || []).slice(0, 3)));
+      .then((data) => setNews((data.news || []).slice(0, 1)));
   }, []);
 
   if (news === null || news.length === 0) return null;
@@ -217,7 +221,7 @@ function AnnouncementsPreview({ onSeeAll }) {
   return (
     <div className="mb-6">
       <div className="flex justify-between items-center mb-2">
-        <p className="text-xs uppercase tracking-wide text-inkfaint">Announcements</p>
+        <p className="text-xs uppercase tracking-wide text-inkfaint">Latest Announcement</p>
         <button onClick={onSeeAll} className="text-xs text-accent underline">See all</button>
       </div>
       <div className="space-y-2">
@@ -304,6 +308,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
             leaders={g.leaders}
             myRole={membershipByGroupId[g.id]?.role}
             onLaunch={() => onOpenGroup(g.id, g.name, membershipByGroupId[g.id]?.role, g.features)}
+            onPreview={() => setPreviewGroup(g)}
           />
         ))}
       </div>
@@ -339,8 +344,10 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
           group={previewGroup}
           leaders={previewGroup.leaders}
           isPending={pendingGroupIds.has(previewGroup.id)}
+          isMember={myGroupIds.has(previewGroup.id)}
           onClose={() => setPreviewGroup(null)}
           onRequestJoin={() => requestJoin(previewGroup.id)}
+          onLaunch={() => onOpenGroup(previewGroup.id, previewGroup.name, membershipByGroupId[previewGroup.id]?.role, previewGroup.features)}
         />
       )}
     </div>

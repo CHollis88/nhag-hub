@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Wrench, Search } from "lucide-react";
 import { SkeletonRowList } from "./Skeleton";
+import { PATCH_NOTES } from "@/lib/patchNotes";
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -26,6 +27,7 @@ const ACTION_LABELS = {
   user_ministry_blocked: "Blocked a ministry for a user",
   user_ministry_unblocked: "Unblocked a ministry for a user",
   no_email_account_created: "Created a no-email account",
+  update_announced: "Announced an app update",
 };
 
 // Opened on demand from Settings, rather than always rendered inline on
@@ -65,7 +67,10 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
     if (logOpen && activityLog === null) loadActivityLog();
   }, [logOpen, activityLog, loadActivityLog]);
 
+  const [pendingUserId, setPendingUserId] = useState(null);
+
   const toggleAdmin = async (targetUser) => {
+    setPendingUserId(targetUser.id);
     const res = await fetch(`/api/admin/users/${targetUser.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -74,9 +79,11 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
     const data = await res.json();
     if (!res.ok) {
       setMessage(data.error);
+      setPendingUserId(null);
       return;
     }
-    loadUsers();
+    await loadUsers();
+    setPendingUserId(null);
   };
 
   // No-email account creation -- for a member (e.g. a disabled student)
@@ -88,6 +95,25 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
   const [newAcctDisplayName, setNewAcctDisplayName] = useState("");
   const [newAcctPin, setNewAcctPin] = useState("");
   const [acctMessage, setAcctMessage] = useState("");
+  const [announceMessage, setAnnounceMessage] = useState("");
+  const [announcing, setAnnouncing] = useState(false);
+
+  const announceUpdate = async () => {
+    const latest = PATCH_NOTES[0];
+    if (!latest) return;
+    if (
+      !confirm(
+        `Send a push notification to EVERYONE announcing "${latest.title}" and asking them to close and reopen the app? This can't be undone.`
+      )
+    )
+      return;
+    setAnnouncing(true);
+    setAnnounceMessage("");
+    const res = await fetch("/api/admin/announce-update", { method: "POST" });
+    const data = await res.json();
+    setAnnouncing(false);
+    setAnnounceMessage(res.ok ? "Sent." : data.error);
+  };
 
   const createNoEmailAccount = async (e) => {
     e.preventDefault();
@@ -310,6 +336,19 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
           {acctMessage && <p className="text-sm text-inksoft mt-2">{acctMessage}</p>}
         </form>
 
+        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Announce an update</p>
+        <p className="text-xs text-inkfaint mb-2">
+          Sends a push notification to everyone letting them know a new build is live, using the
+          newest entry in What's New (Settings) — {PATCH_NOTES[0]?.title || "no entry yet"}. Tell people to fully
+          close and reopen the app afterward so it actually picks up the update.
+        </p>
+        <div className="sp-card mb-6">
+          <button onClick={announceUpdate} disabled={announcing || !PATCH_NOTES[0]} className="sp-btn-primary disabled:opacity-50">
+            {announcing ? "Sending..." : "Announce Update to Everyone"}
+          </button>
+          {announceMessage && <p className="text-sm text-inksoft mt-2">{announceMessage}</p>}
+        </div>
+
         <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Manage ministries</p>
         <div className="space-y-2">
           {groups.map((g) => (
@@ -394,9 +433,10 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
                 </button>
                 <button
                   onClick={() => toggleAdmin(u)}
-                  className={u.is_church_admin ? "sp-btn-secondary text-xs py-1.5 px-3" : "sp-btn-sage text-xs py-1.5 px-3"}
+                  disabled={pendingUserId === u.id}
+                  className={u.is_church_admin ? "sp-btn-secondary text-xs py-1.5 px-3 disabled:opacity-50" : "sp-btn-sage text-xs py-1.5 px-3 disabled:opacity-50"}
                 >
-                  {u.is_church_admin ? "Remove admin" : "Make admin"}
+                  {pendingUserId === u.id ? "..." : u.is_church_admin ? "Remove admin" : "Make admin"}
                 </button>
               </div>
             </div>

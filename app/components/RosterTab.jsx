@@ -301,30 +301,40 @@ export default function RosterTab({ groupId, myRole, onRenamed, onLeave }) {
     load();
   }, [load]);
 
+  const [pendingActionId, setPendingActionId] = useState(null);
+
   const approve = async (memberRowId) => {
+    setPendingActionId(memberRowId);
     await fetch(`/api/groups/${groupId}/members/${memberRowId}/approve`, { method: "POST" });
-    load();
+    await load();
+    setPendingActionId(null);
   };
 
   const reject = async (memberRowId) => {
+    setPendingActionId(memberRowId);
     await fetch(`/api/groups/${groupId}/members/${memberRowId}`, { method: "DELETE" });
-    load();
+    await load();
+    setPendingActionId(null);
   };
 
   const removeMember = async (memberRowId) => {
     if (!confirm("Remove this person from the group? They'll lose access to all group content.")) return;
+    setPendingActionId(memberRowId);
     await fetch(`/api/groups/${groupId}/members/${memberRowId}`, { method: "DELETE" });
-    load();
+    await load();
+    setPendingActionId(null);
   };
 
   const promote = async (memberRowId, currentRole) => {
     const newRole = currentRole === "leader" ? "member" : "leader";
+    setPendingActionId(memberRowId);
     await fetch(`/api/groups/${groupId}/members/${memberRowId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role: newRole }),
     });
-    load();
+    await load();
+    setPendingActionId(null);
   };
 
   const addByUsername = async (e) => {
@@ -402,8 +412,20 @@ export default function RosterTab({ groupId, myRole, onRenamed, onLeave }) {
               <div key={p.id} className="sp-card flex justify-between items-center">
                 <span className="text-sm text-ink">{p.users?.display_name} (@{p.users?.username})</span>
                 <div className="flex gap-2">
-                  <button onClick={() => approve(p.id)} className="sp-btn-sage text-xs py-1.5 px-3">Approve</button>
-                  <button onClick={() => reject(p.id)} className="sp-btn-secondary text-xs py-1.5 px-3">Reject</button>
+                  <button
+                    onClick={() => approve(p.id)}
+                    disabled={pendingActionId === p.id}
+                    className="sp-btn-sage text-xs py-1.5 px-3 disabled:opacity-50"
+                  >
+                    {pendingActionId === p.id ? "..." : "Approve"}
+                  </button>
+                  <button
+                    onClick={() => reject(p.id)}
+                    disabled={pendingActionId === p.id}
+                    className="sp-btn-secondary text-xs py-1.5 px-3 disabled:opacity-50"
+                  >
+                    Reject
+                  </button>
                 </div>
               </div>
             ))}
@@ -422,10 +444,18 @@ export default function RosterTab({ groupId, myRole, onRenamed, onLeave }) {
             </span>
             {canManage && (
               <div className="flex gap-2">
-                <button onClick={() => promote(m.id, m.role)} className="text-xs text-accent underline">
-                  {m.role === "leader" ? "Make member" : "Make leader"}
+                <button
+                  onClick={() => promote(m.id, m.role)}
+                  disabled={pendingActionId === m.id}
+                  className="text-xs text-accent underline disabled:opacity-50"
+                >
+                  {pendingActionId === m.id ? "..." : m.role === "leader" ? "Make member" : "Make leader"}
                 </button>
-                <button onClick={() => removeMember(m.id)} className="text-xs text-inkfaint underline">
+                <button
+                  onClick={() => removeMember(m.id)}
+                  disabled={pendingActionId === m.id}
+                  className="text-xs text-inkfaint underline disabled:opacity-50"
+                >
                   Remove
                 </button>
               </div>

@@ -24,6 +24,7 @@ const CalendarTab = dynamic(() => import("./components/CalendarTab"), { loading:
 const GroupShell = dynamic(() => import("./components/GroupShell"), { loading: () => <TabSkeleton /> });
 const SettingsView = dynamic(() => import("./components/SettingsView"));
 const HelpView = dynamic(() => import("./components/HelpView"));
+const PatchNotesView = dynamic(() => import("./components/PatchNotesView"));
 const AttributionView = dynamic(() => import("./components/AttributionView"));
 const AdminToolboxView = dynamic(() => import("./components/AdminToolboxView"));
 const DirectoryView = dynamic(() => import("./components/DirectoryView"));
@@ -32,6 +33,7 @@ const ProfileView = dynamic(() => import("./components/ProfileView"));
 import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle, RotateCw } from "lucide-react";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
+import { PATCH_NOTES } from "@/lib/patchNotes";
 import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
 import { useViewportHeight } from "@/lib/useViewportHeight";
 
@@ -197,6 +199,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [latestContent, setLatestContent] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [patchNotesOpen, setPatchNotesOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
   const [adminToolboxOpen, setAdminToolboxOpen] = useState(false);
   const [directoryOpen, setDirectoryOpen] = useState(false);
@@ -220,10 +223,31 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   // notifications can never arrive: there's nothing installed in the
   // browser to receive a push event and actually show it, regardless of
   // whether the subscription/VAPID setup is otherwise correct.
+  //
+  // Also actively asks the browser to check for a newer service worker
+  // right away (rather than waiting on the browser's own, more
+  // throttled update schedule), and reloads once a new one actually
+  // takes over. Without this, a tab left open across a deploy can keep
+  // running an old cached JS bundle for a while -- exactly the kind of
+  // thing that would make a just-shipped fix (like notification click
+  // routing) seem to work "sometimes" depending on whether a given
+  // device happened to pick up the update yet.
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
-    }
+    if (!("serviceWorker" in navigator)) return;
+
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((reg) => reg.update().catch(() => {}))
+      .catch(() => {});
+
+    let reloaded = false;
+    const onControllerChange = () => {
+      if (reloaded) return;
+      reloaded = true;
+      window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", onControllerChange);
   }, []);
 
   // Prompt for push a moment after landing, same delay YA uses -- gives
@@ -341,10 +365,16 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     deepLinkHandledRef.current = true;
 
     (async () => {
-      const { groupId, groupTab, thread, channel, tab: globalTab, admin } = deepLink;
+      const { groupId, groupTab, thread, channel, tab: globalTab, admin, whatsnew } = deepLink;
 
       if (admin === "toolbox") {
         setAdminToolboxOpen(true);
+        return;
+      }
+
+      if (whatsnew) {
+        markSeen("whats-new");
+        setPatchNotesOpen(true);
         return;
       }
 
@@ -604,9 +634,21 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             setSettingsOpen(false);
             setAttributionOpen(true);
           }}
+          onOpenPatchNotes={() => {
+            setSettingsOpen(false);
+            markSeen("whats-new");
+            setPatchNotesOpen(true);
+          }}
+          hasNewPatchNotes={hasNewContent("whats-new", PATCH_NOTES[0]?.date)}
         />
       )}
-      {helpOpen && <HelpView onClose={() => setHelpOpen(false)} />}
+      {patchNotesOpen && <PatchNotesView onClose={() => setPatchNotesOpen(false)} />}
+      {helpOpen && (
+        <HelpView
+          onClose={() => setHelpOpen(false)}
+          isLeader={isAdmin || me.memberships.some((m) => m.status === "active" && m.role === "leader")}
+        />
+      )}
       {attributionOpen && <AttributionView onClose={() => setAttributionOpen(false)} />}
       {adminToolboxOpen && (
         <AdminToolboxView onClose={() => setAdminToolboxOpen(false)} onOpenGroup={openGroup} />
@@ -669,7 +711,7 @@ function HomeInner() {
   // exactly once (see its deepLinkHandledRef effect); left in the
   // address bar afterward, harmless on refresh.
   const deepLink =
-    searchParams.get("group") || searchParams.get("tab") || searchParams.get("admin")
+    searchParams.get("group") || searchParams.get("tab") || searchParams.get("admin") || searchParams.get("whatsnew")
       ? {
           groupId: searchParams.get("group"),
           groupTab: searchParams.get("group") ? searchParams.get("tab") : null,
@@ -677,6 +719,7 @@ function HomeInner() {
           channel: searchParams.get("channel"),
           tab: searchParams.get("group") ? null : searchParams.get("tab"),
           admin: searchParams.get("admin"),
+          whatsnew: searchParams.get("whatsnew"),
         }
       : null;
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
@@ -21,7 +21,7 @@ export async function GET(req, { params }) {
     .order("title", { ascending: true });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withPrivateCache({ songs: data });
+  return withNoStore({ songs: data });
 }
 
 // Song library management is director/leader territory, same as News and
