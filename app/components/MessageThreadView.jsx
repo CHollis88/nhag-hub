@@ -53,8 +53,10 @@ export default function MessageThreadView({
   const inputRef = useRef(null);
   const keyboardInset = useKeyboardInset();
 
+  const scrollToBottom = () => bottomRef.current?.scrollIntoView({ block: "end" });
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: "end" });
+    scrollToBottom();
   }, [messages?.length]);
 
   const submit = async (e) => {
@@ -69,6 +71,18 @@ export default function MessageThreadView({
     // return once a message is sent, not just whenever the person
     // happens to tap away.
     inputRef.current?.blur();
+  };
+
+  // iMessage-style: tapping in keeps the most recent messages in view
+  // right above the keyboard, rather than leaving the scroll position
+  // wherever it happened to be. Scrolled once immediately and again
+  // shortly after -- the keyboard's own open animation takes a couple
+  // hundred ms, so the final scroll position needs a second pass once
+  // the layout has actually settled into its keyboard-open size.
+  const handleComposeFocus = () => {
+    setComposeFocused(true);
+    scrollToBottom();
+    setTimeout(scrollToBottom, 300);
   };
 
   const startPress = (messageId) => {
@@ -203,13 +217,21 @@ export default function MessageThreadView({
             ? "fixed inset-x-0 z-30 md:static md:inset-auto md:z-auto"
             : "static"
         }`}
-        style={composeFocused ? { bottom: keyboardInset, paddingBottom: keyboardInset > 0 ? undefined : "calc(0.75rem + env(safe-area-inset-bottom))" } : undefined}
+        style={
+          composeFocused
+            ? {
+                bottom: keyboardInset,
+                paddingBottom: keyboardInset > 0 ? undefined : "calc(0.75rem + env(safe-area-inset-bottom))",
+                transition: "bottom 200ms ease-out",
+              }
+            : undefined
+        }
       >
         <input
           ref={inputRef}
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          onFocus={() => setComposeFocused(true)}
+          onFocus={handleComposeFocus}
           onBlur={() => setComposeFocused(false)}
           placeholder="Message..."
           className="sp-input flex-1"

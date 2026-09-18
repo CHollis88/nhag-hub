@@ -156,8 +156,8 @@ const CATEGORIES = [
         a: "Yes — Settings has a Text Size option with eight sizes, from Tiny to Maximum.",
       },
       {
-        q: "Can I edit my name or username?",
-        a: "Yes — the Profile section at the top of Settings lets you change your display name and username any time. Usernames still need to be unique, same as when you first signed up.",
+        q: "Can I edit my name, username, or PIN?",
+        a: "Yes — tap the profile icon in the header and choose \"Edit Profile\" to change your display name, username, or PIN any time. Usernames still need to be unique, same as when you first signed up.",
       },
     ],
   },
