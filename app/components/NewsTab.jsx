@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, Pencil } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
+import PostReactions from "./PostReactions";
 
 function PromotionQueue() {
   const [requests, setRequests] = useState(null);
@@ -66,28 +67,29 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState("published"); // admin-only "Drafts" toggle
 
   // Anyone who can post at all -- an admin (the 'everyone' audience) or
   // any ministry leader (the 'leaders' audience, migration_024).
   const canPostAnything = isAdmin || isAnyLeader;
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/global/news");
+    const res = await fetch(`/api/global/news${viewMode === "drafts" ? "?drafts=1" : ""}`);
     const data = await res.json();
     if (res.ok) setNews(data.news);
-  }, []);
+  }, [viewMode]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const submit = async (e) => {
+  const submit = async (e, asDraft = false) => {
     e.preventDefault();
     setError("");
     const res = await fetch("/api/global/news", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body, category, audience }),
+      body: JSON.stringify({ title, body, category, audience, status: asDraft ? "draft" : "published" }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -99,6 +101,15 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
     setCategory("announcement");
     setAudience(isAdmin ? "everyone" : "leaders");
     setShowForm(false);
+    load();
+  };
+
+  const publish = async (id) => {
+    await fetch(`/api/global/news/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "published" }),
+    });
     load();
   };
 
@@ -142,12 +153,22 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
   return (
     <div className="px-5 pt-4 pb-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="font-serif text-2xl text-ink">Church News</h2>
-        {canPostAnything && (
-          <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
-            {showForm ? "Cancel" : "+ Add"}
-          </button>
-        )}
+        <h2 className="font-serif text-2xl text-ink">{viewMode === "drafts" ? "Drafts" : "Church News"}</h2>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => setViewMode(viewMode === "drafts" ? "published" : "drafts")}
+              className="sp-btn-secondary text-sm py-1.5 px-3"
+            >
+              {viewMode === "drafts" ? "Back to News" : "Drafts"}
+            </button>
+          )}
+          {canPostAnything && (
+            <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
+              {showForm ? "Cancel" : "+ Add"}
+            </button>
+          )}
+        </div>
       </div>
 
       {isAdmin && <PromotionQueue />}
@@ -215,9 +236,16 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
             rows={3}
             className="sp-textarea mb-2"
           />
-          <button type="submit" className="sp-btn-primary">
-            {audience === "leaders" ? "Post to leaders" : "Post to everyone"}
-          </button>
+          <div className="flex gap-2">
+            {isAdmin && (
+              <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">
+                Save as Draft
+              </button>
+            )}
+            <button type="submit" className="sp-btn-primary flex-1">
+              {audience === "leaders" ? "Post to leaders" : "Post to everyone"}
+            </button>
+          </div>
           {error && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{error}</p>}
         </form>
       )}
@@ -287,14 +315,21 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
                     <button onClick={() => startEdit(n)} className="text-xs text-accent underline flex items-center gap-1">
                       <Pencil size={11} /> Edit
                     </button>
-                    <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
-                      {n.pinned ? "Unpin" : "Pin to top"}
-                    </button>
+                    {n.status === "draft" ? (
+                      <button onClick={() => publish(n.id)} className="text-xs text-sage underline font-semibold">
+                        Publish
+                      </button>
+                    ) : (
+                      <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
+                        {n.pinned ? "Unpin" : "Pin to top"}
+                      </button>
+                    )}
                     <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
                       Delete
                     </button>
                   </div>
                 )}
+                {n.status !== "draft" && <PostReactions postType="global_news" postId={n.id} />}
               </>
             )}
           </div>

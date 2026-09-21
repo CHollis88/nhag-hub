@@ -203,7 +203,7 @@ function AppearancePanel({ groupId, onRenamed, isAdmin }) {
             />
             Chat — Members channel
           </label>
-          <label className="flex items-center gap-2 text-sm text-inksoft">
+          <label className="flex items-center gap-2 mb-1.5 text-sm text-inksoft">
             <input
               type="checkbox"
               checked={(group.features || []).includes("chat_leaders")}
@@ -211,6 +211,16 @@ function AppearancePanel({ groupId, onRenamed, isAdmin }) {
             />
             Chat — Leaders Only channel
           </label>
+          {group.type?.toLowerCase().includes("class") && (
+            <label className="flex items-center gap-2 text-sm text-inksoft">
+              <input
+                type="checkbox"
+                checked={(group.features || []).includes("curriculum")}
+                onChange={() => toggleFeature("curriculum")}
+              />
+              Curriculum (class materials, PDF)
+            </label>
+          )}
         </div>
       )}
 

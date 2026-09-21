@@ -13,12 +13,22 @@ export async function GET(req) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
   }
 
+  // ?drafts=1 is the admin-only "Drafts" tab view -- everyone else only
+  // ever sees published posts, so a draft is invisible to the general
+  // membership until an admin explicitly publishes it.
+  const wantDrafts = req.nextUrl.searchParams.get("drafts") === "1";
+  if (wantDrafts && !user.is_church_admin) {
+    return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
+  }
+
   const supabase = supabaseServer();
-  const { data, error } = await supabase
+  let query = supabase
     .from("global_news")
-    .select("id, title, body, category, audience, pinned, created_at, users(display_name)")
+    .select("id, title, body, category, audience, pinned, status, created_at, users(display_name)")
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
+  query = wantDrafts ? query.eq("status", "draft") : query.eq("status", "published");
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -43,8 +53,9 @@ export async function POST(req) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { title, body, category, audience } = await req.json();
+  const { title, body, category, audience, status } = await req.json();
   const finalAudience = audience === "leaders" ? "leaders" : "everyone";
+  const finalStatus = status === "draft" ? "draft" : "published";
 
   const authorized = finalAudience === "leaders" ? await isAnyGroupLeader(user) : user.is_church_admin;
   if (!authorized) {
@@ -72,12 +83,17 @@ export async function POST(req) {
       body: body.trim(),
       category: finalCategory,
       audience: finalAudience,
+      status: finalStatus,
       created_by: user.id,
     })
-    .select("id, title, body, category, audience, created_at")
+    .select("id, title, body, category, audience, status, created_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (finalStatus === "draft") {
+    return NextResponse.json({ news: data });
+  }
 
   if (finalAudience === "leaders") {
     notifyAllLeaders({ title: "Leaders Only", body: title.trim(), url: "/?tab=news" }).catch(() => {});

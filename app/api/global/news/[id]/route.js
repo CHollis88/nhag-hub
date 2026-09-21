@@ -9,11 +9,19 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { title, body, pinned } = await req.json();
+  const { title, body, pinned, status } = await req.json();
   const updates = { updated_at: new Date().toISOString() };
   if (title !== undefined) updates.title = title.trim();
   if (body !== undefined) updates.body = body.trim();
   if (pinned !== undefined) updates.pinned = Boolean(pinned);
+  // Publishing a draft is just flipping status -- same PATCH the edit
+  // form already uses, no separate "publish" endpoint needed.
+  if (status !== undefined) {
+    if (!["draft", "published"].includes(status)) {
+      return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+    }
+    updates.status = status;
+  }
 
   const supabase = supabaseServer();
   const { data, error } = await supabase

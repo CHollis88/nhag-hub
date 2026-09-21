@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, Pencil } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
+import PostReactions from "./PostReactions";
 
 function ReplyThread({ groupId, newsId }) {
   const [replies, setReplies] = useState(null);
@@ -75,23 +76,24 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
   const [query, setQuery] = useState("");
+  const [viewMode, setViewMode] = useState("published"); // "published" | "drafts" -- leader-only toggle
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/news`);
+    const res = await fetch(`/api/groups/${groupId}/news${viewMode === "drafts" ? "?drafts=1" : ""}`);
     const data = await res.json();
     if (res.ok) setNews(data.news);
-  }, [groupId]);
+  }, [groupId, viewMode]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const submit = async (e) => {
+  const submit = async (e, asDraft = false) => {
     e.preventDefault();
     const res = await fetch(`/api/groups/${groupId}/news`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body, kind: formKind }),
+      body: JSON.stringify({ title, body, kind: formKind, status: asDraft ? "draft" : "published" }),
     });
     if (res.ok) {
       setTitle("");
@@ -99,6 +101,15 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
       setFormKind(null);
       load();
     }
+  };
+
+  const publish = async (id) => {
+    await fetch(`/api/groups/${groupId}/news/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "published" }),
+    });
+    load();
   };
 
   const remove = async (id) => {
@@ -150,9 +161,15 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
   return (
     <div className="px-5 pt-4 pb-6">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h2 className="font-serif text-2xl text-ink">Group News</h2>
+        <h2 className="font-serif text-2xl text-ink">{viewMode === "drafts" ? "Drafts" : "Group News"}</h2>
         {canManage && (
           <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setViewMode(viewMode === "drafts" ? "published" : "drafts")}
+              className="sp-btn-secondary text-sm py-1.5 px-3"
+            >
+              {viewMode === "drafts" ? "Back to News" : "Drafts"}
+            </button>
             {showClassOption && (
               <button onClick={() => setFormKind("class")} className="sp-btn-pill bg-sage">
                 Class
@@ -190,6 +207,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
           />
           <div className="flex gap-2">
             <button type="button" onClick={() => setFormKind(null)} className="sp-btn-secondary flex-1">Cancel</button>
+            <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">Save as Draft</button>
             <button type="submit" className="sp-btn-primary flex-1">Post</button>
           </div>
         </form>
@@ -263,10 +281,16 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
                         <button onClick={() => startEdit(n)} className="text-xs text-accent underline flex items-center gap-1">
                           <Pencil size={11} /> Edit
                         </button>
-                        <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
-                          {n.pinned ? "Unpin" : "Pin to top"}
-                        </button>
-                        {n.kind !== "class" && (
+                        {n.status === "draft" ? (
+                          <button onClick={() => publish(n.id)} className="text-xs text-sage underline font-semibold">
+                            Publish
+                          </button>
+                        ) : (
+                          <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
+                            {n.pinned ? "Unpin" : "Pin to top"}
+                          </button>
+                        )}
+                        {n.kind !== "class" && n.status !== "draft" && (
                           <button onClick={() => requestPromotion(n.id)} className="text-xs text-accent underline">
                             Request promote to church-wide
                           </button>
@@ -277,6 +301,8 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
                       </>
                     )}
                   </div>
+
+                  {n.status !== "draft" && <PostReactions postType="group_news" postId={n.id} />}
 
                   {n.kind === "discuss" && openThread === n.id && <ReplyThread groupId={groupId} newsId={n.id} />}
                 </>

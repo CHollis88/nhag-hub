@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { Heart, Pencil, RefreshCw } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
+import PostReactions from "./PostReactions";
+
+const STATUS_LABEL = { open: null, answered: "Answered 🙏", "still-praying": "Still Praying" };
 
 export default function GroupPrayerTab({ groupId, canManage }) {
   const [prayer, setPrayer] = useState(null);
@@ -65,6 +68,18 @@ export default function GroupPrayerTab({ groupId, canManage }) {
       body: JSON.stringify({ body: editBody }),
     });
     setEditingId(null);
+    load();
+  };
+
+  // Only the original author sees these controls (checked via p.is_mine
+  // server-side already stripping identity for anonymous requests).
+  const setStatus = async (id, status) => {
+    setPrayer((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
+    await fetch(`/api/groups/${groupId}/prayer/${id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
     load();
   };
 
@@ -143,6 +158,9 @@ export default function GroupPrayerTab({ groupId, canManage }) {
               ) : (
                 <>
                   <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{p.body}</p>
+                  {STATUS_LABEL[p.status] && (
+                    <span className="inline-block text-xs font-semibold text-sage mb-2">{STATUS_LABEL[p.status]}</span>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-inkfaint">
                       {p.is_anonymous ? "Anonymous" : p.users?.display_name} ·{" "}
@@ -156,6 +174,21 @@ export default function GroupPrayerTab({ groupId, canManage }) {
                       {p.i_prayed ? "Praying" : "I'm praying"} · {p.pray_count || 0}
                     </button>
                   </div>
+                  <PostReactions postType="group_prayer" postId={p.id} />
+                  {p.is_mine && (
+                    <div className="flex gap-2 mt-2">
+                      {p.status !== "still-praying" && (
+                        <button onClick={() => setStatus(p.id, "still-praying")} className="sp-pill-outline text-xs">
+                          Still Praying
+                        </button>
+                      )}
+                      {p.status !== "answered" && (
+                        <button onClick={() => setStatus(p.id, "answered")} className="sp-pill-outline text-xs">
+                          Mark Answered
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className="flex gap-3 mt-2">
                     {p.is_mine && (
                       <button onClick={() => startEdit(p)} className="text-xs text-accent underline flex items-center gap-1">

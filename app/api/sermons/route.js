@@ -8,12 +8,22 @@ export async function GET(req) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
+  const seriesId = req.nextUrl.searchParams.get("series_id");
+  const speaker = req.nextUrl.searchParams.get("speaker");
+
   const supabase = supabaseServer();
-  const { data, error } = await supabase
+  let query = supabase
     .from("sermons")
-    .select("id, title, synopsis, speaker, link_url, sermon_date, created_at, users(display_name)")
+    .select("id, title, synopsis, speaker, link_url, sermon_date, series_id, series_order, created_at, users(display_name), sermon_series(name, color)")
     .order("sermon_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
+
+  // Optional filters for the Archive view -- omitted, this behaves
+  // exactly as the original unfiltered list.
+  if (seriesId) query = query.eq("series_id", seriesId);
+  if (speaker) query = query.ilike("speaker", `%${speaker}%`);
+
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return withNoStore({ sermons: data });
@@ -28,7 +38,7 @@ export async function POST(req) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { title, synopsis, speaker, link_url, sermon_date } = await req.json();
+  const { title, synopsis, speaker, link_url, sermon_date, series_id, series_order } = await req.json();
   if (!title?.trim() || !synopsis?.trim()) {
     return NextResponse.json({ error: "title and synopsis are required." }, { status: 400 });
   }
@@ -42,9 +52,11 @@ export async function POST(req) {
       speaker: speaker?.trim() || null,
       link_url: link_url?.trim() || null,
       sermon_date: sermon_date || null,
+      series_id: series_id || null,
+      series_order: Number.isInteger(series_order) ? series_order : null,
       created_by: user.id,
     })
-    .select("id, title, synopsis, speaker, link_url, sermon_date, created_at")
+    .select("id, title, synopsis, speaker, link_url, sermon_date, series_id, series_order, created_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

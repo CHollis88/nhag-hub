@@ -6,12 +6,14 @@ import { ChevronDown, ChevronUp, Search } from "lucide-react";
 import { readableTextColor } from "@/lib/colorContrast";
 import EmptyState from "./EmptyState";
 import { SkeletonList } from "./Skeleton";
+import MemberProfileModal from "./MemberProfileModal";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 
 function DirectoryEntry({ group, leaders, isMember }) {
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState(null);
+  const [profileUserId, setProfileUserId] = useState(null);
   const bg = group.tile_color || DEFAULT_TILE_COLOR;
 
   const toggle = async () => {
@@ -69,15 +71,20 @@ function DirectoryEntry({ group, leaders, isMember }) {
           ) : (
             <div className="space-y-1">
               {members.map((m) => (
-                <p key={m.id} className="text-sm text-inksoft">
+                <button
+                  key={m.id}
+                  onClick={() => setProfileUserId(m.users?.id)}
+                  className="text-sm text-inksoft text-left block w-full hover:underline"
+                >
                   {m.users?.display_name}
                   {m.role === "leader" && <span className="text-inkfaint text-xs"> · Leader</span>}
-                </p>
+                </button>
               ))}
             </div>
           )}
         </div>
       )}
+      {profileUserId && <MemberProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
     </div>
   );
 }

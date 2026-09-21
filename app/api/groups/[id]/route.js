@@ -13,6 +13,7 @@ const VALID_FEATURES = [
   "direct_messages",
   "chat_members",
   "chat_leaders",
+  "curriculum",
 ];
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -93,7 +94,29 @@ export async function PATCH(req, { params }) {
     if (!user.is_church_admin) {
       return NextResponse.json({ error: "Church Admin access required for that change." }, { status: 403 });
     }
-    updates.features = Array.isArray(features) ? features.filter((f) => VALID_FEATURES.includes(f)) : [];
+    const cleanFeatures = Array.isArray(features) ? features.filter((f) => VALID_FEATURES.includes(f)) : [];
+
+    // Curriculum is scoped to class-type ministries only (Cam's
+    // decision -- it's meant for Sunday School-style classes, not a
+    // general-purpose module every ministry sees in its bolt-on list).
+    // Checks the incoming `type` if it's changing in this same request,
+    // otherwise looks up the group's current saved type.
+    if (cleanFeatures.includes("curriculum")) {
+      let effectiveType = type !== undefined ? type.trim() : null;
+      if (effectiveType === null) {
+        const supabase = supabaseServer();
+        const { data: current } = await supabase.from("groups").select("type").eq("id", id).maybeSingle();
+        effectiveType = current?.type || "";
+      }
+      if (!effectiveType.toLowerCase().includes("class")) {
+        return NextResponse.json(
+          { error: "Curriculum can only be enabled for a ministry whose type includes \"class\"." },
+          { status: 400 }
+        );
+      }
+    }
+
+    updates.features = cleanFeatures;
   }
 
   // Tile color is cosmetic to this one ministry -- its own leader can set

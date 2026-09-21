@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings, LayoutGrid, MessageCircle, MessagesSquare, RotateCw } from "lucide-react";
+import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings, LayoutGrid, MessageCircle, MessagesSquare, RotateCw, FileText } from "lucide-react";
 import GroupBottomNav from "./GroupBottomNav";
 import GroupSidebar from "./GroupSidebar";
 import GroupNewsTab from "./GroupNewsTab";
@@ -13,6 +13,7 @@ import TabTransition from "./TabTransition";
 import SongsTab from "./SongsTab";
 import SetlistsTab from "./SetlistsTab";
 import ProgramsTab from "./ProgramsTab";
+import CurriculumTab from "./CurriculumTab";
 import DirectMessagesTab from "./DirectMessagesTab";
 import GroupChatTab from "./GroupChatTab";
 import TodayTab from "./TodayTab";
@@ -36,6 +37,7 @@ const APPEND_FEATURE_TABS = {
   ],
   programs: [{ key: "programs", label: "Programs", icon: LayoutGrid }],
   direct_messages: [{ key: "dm", label: "Messages", icon: MessageCircle }],
+  curriculum: [{ key: "curriculum", label: "Curriculum", icon: FileText }],
 };
 
 // Tabs that come FIRST, before News/Events/Prayer -- per the project's
@@ -362,6 +364,9 @@ export default function GroupShell({
             )}
             {features.includes("programs") && tab === "programs" && (
               <ProgramsTab groupId={group.id} canManage={canManage} />
+            )}
+            {features.includes("curriculum") && tab === "curriculum" && (
+              <CurriculumTab groupId={group.id} canManage={canManage} />
             )}
             {features.includes("direct_messages") && tab === "dm" && (
               <DirectMessagesTab

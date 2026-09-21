@@ -5,6 +5,7 @@ import { getStoredPreference, applyTheme, getStoredTextSize, applyTextSize } fro
 import { getDesktopMode, setDesktopMode } from "@/lib/desktopMode";
 import { isSubscribedToPush, subscribeToPush, unsubscribeFromPush } from "@/lib/pushClient";
 import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
+import FeedbackModal from "./FeedbackModal";
 import packageJson from "../../package.json";
 
 const THEMES = [
@@ -25,6 +26,7 @@ const TEXT_SIZES = [
 
 export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, onOpenPatchNotes, hasNewPatchNotes, isAdmin, adminModeOn: controlledAdminModeOn, onToggleAdminMode }) {
   const [theme, setTheme] = useState("system");
+  const [showFeedback, setShowFeedback] = useState(false);
   const [textSize, setTextSize] = useState("md");
   const [desktopLayout, setDesktopLayoutState] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
@@ -204,13 +206,17 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, o
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent border border-card" />
             )}
           </button>
-          <button onClick={onOpenAttribution} className="sp-btn-secondary mt-1">
+          <button onClick={onOpenAttribution} className="sp-btn-secondary mt-1 mr-2">
             Sources &amp; Attribution
+          </button>
+          <button onClick={() => setShowFeedback(true)} className="sp-btn-secondary mt-1">
+            Send Feedback
           </button>
         </div>
 
         <p className="text-[0.6875rem] text-inkfaint mt-5 text-center">Version {packageJson.version}</p>
       </div>
+      {showFeedback && <FeedbackModal onClose={() => setShowFeedback(false)} />}
     </div>
   );
 }

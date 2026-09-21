@@ -15,6 +15,7 @@ const VALID_FEATURES = [
   "direct_messages",
   "chat_members",
   "chat_leaders",
+  "curriculum",
 ];
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
@@ -115,6 +116,15 @@ export async function POST(req) {
   }
 
   const cleanFeatures = Array.isArray(features) ? features.filter((f) => VALID_FEATURES.includes(f)) : [];
+
+  // Same class-only restriction as the update route -- see that route's
+  // comment for why.
+  if (cleanFeatures.includes("curriculum") && !(type || "").trim().toLowerCase().includes("class")) {
+    return NextResponse.json(
+      { error: "Curriculum can only be enabled for a ministry whose type includes \"class\"." },
+      { status: 400 }
+    );
+  }
 
   const supabase = supabaseServer();
   const { data, error } = await supabase

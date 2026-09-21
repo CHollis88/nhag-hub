@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Wrench, Search } from "lucide-react";
 import { SkeletonRowList } from "./Skeleton";
 import { PATCH_NOTES } from "@/lib/patchNotes";
+import AdminFeedbackPanel from "./AdminFeedbackPanel";
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -442,6 +443,8 @@ export default function AdminToolboxView({ onClose, onOpenGroup }) {
             </div>
           ))}
         </div>
+
+        <AdminFeedbackPanel />
 
         <button
           onClick={() => setLogOpen((o) => !o)}

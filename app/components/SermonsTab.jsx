@@ -15,32 +15,67 @@ function fmtDate(d) {
 
 export default function SermonsTab({ isAdmin }) {
   const [sermons, setSermons] = useState(null);
+  const [series, setSeries] = useState([]);
   const [title, setTitle] = useState("");
   const [synopsis, setSynopsis] = useState("");
   const [speaker, setSpeaker] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [sermonDate, setSermonDate] = useState("");
+  const [seriesId, setSeriesId] = useState("");
+  const [newSeriesName, setNewSeriesName] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [filterSeriesId, setFilterSeriesId] = useState("");
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/sermons");
+    const params = filterSeriesId ? `?series_id=${filterSeriesId}` : "";
+    const res = await fetch(`/api/sermons${params}`);
     const data = await res.json();
     if (res.ok) setSermons(data.sermons);
+  }, [filterSeriesId]);
+
+  const loadSeries = useCallback(async () => {
+    const res = await fetch("/api/sermon-series");
+    const data = await res.json();
+    if (res.ok) setSeries(data.series);
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  useEffect(() => {
+    loadSeries();
+  }, [loadSeries]);
+
   const submit = async (e) => {
     e.preventDefault();
     setError("");
+    let finalSeriesId = seriesId;
+    // Creating a new series inline is the only path -- no separate
+    // "manage series" screen, since a series is really just a label
+    // applied while posting a sermon.
+    if (!finalSeriesId && newSeriesName.trim()) {
+      const seriesRes = await fetch("/api/sermon-series", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newSeriesName.trim() }),
+      });
+      const seriesData = await seriesRes.json();
+      if (seriesRes.ok) finalSeriesId = seriesData.series.id;
+    }
     const res = await fetch("/api/sermons", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, synopsis, speaker, link_url: linkUrl, sermon_date: sermonDate || null }),
+      body: JSON.stringify({
+        title,
+        synopsis,
+        speaker,
+        link_url: linkUrl,
+        sermon_date: sermonDate || null,
+        series_id: finalSeriesId || null,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -52,8 +87,11 @@ export default function SermonsTab({ isAdmin }) {
     setSpeaker("");
     setLinkUrl("");
     setSermonDate("");
+    setSeriesId("");
+    setNewSeriesName("");
     setShowForm(false);
     load();
+    loadSeries();
   };
 
   const remove = async (id) => {
@@ -116,6 +154,29 @@ export default function SermonsTab({ isAdmin }) {
             rows={4}
             className="sp-textarea mb-2"
           />
+          <div className="flex gap-2 mb-2">
+            <select
+              value={seriesId}
+              onChange={(e) => {
+                setSeriesId(e.target.value);
+                setNewSeriesName("");
+              }}
+              className="sp-input flex-1"
+            >
+              <option value="">No series</option>
+              {series.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+          {!seriesId && (
+            <input
+              value={newSeriesName}
+              onChange={(e) => setNewSeriesName(e.target.value)}
+              placeholder="Or start a new series (optional)"
+              className="sp-input mb-2"
+            />
+          )}
           <input
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
@@ -138,6 +199,18 @@ export default function SermonsTab({ isAdmin }) {
           />
         </div>
       )}
+      {series.length > 0 && (
+        <select
+          value={filterSeriesId}
+          onChange={(e) => setFilterSeriesId(e.target.value)}
+          className="sp-input mb-3"
+        >
+          <option value="">All series</option>
+          {series.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      )}
 
       {sermons === null && <SkeletonList count={3} />}
       {sermons?.length === 0 && <EmptyState icon={Mic} text="No sermons posted yet." />}
@@ -147,7 +220,14 @@ export default function SermonsTab({ isAdmin }) {
       <div className="space-y-2">
         {filtered.map((s) => (
           <div key={s.id} className="sp-card">
-            <h3 className="font-medium text-ink mb-1">{s.title}</h3>
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              {s.sermon_series?.name && (
+                <span className="text-[0.625rem] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
+                  {s.sermon_series.name}{s.series_order ? ` · Part ${s.series_order}` : ""}
+                </span>
+              )}
+              <h3 className="font-medium text-ink">{s.title}</h3>
+            </div>
             {(s.sermon_date || s.speaker) && (
               <p className="text-xs text-inkfaint mb-2">
                 {s.sermon_date && fmtDate(s.sermon_date)}

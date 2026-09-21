@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight, Check, Flame, BookOpen } from "lucide-react";
 import { computeStreak } from "@/lib/streak";
 import { parseReference } from "@/lib/bibleRef";
+import ReadingHistoryStrip from "./ReadingHistoryStrip";
 
 export default function TodayTab({ plan, progress, setProgress, activePlanId, dayNum, setDayNum, setTab, onOpenBiblePassage }) {
   const totalDays = plan.PLAN.length;
@@ -124,6 +125,8 @@ export default function TodayTab({ plan, progress, setProgress, activePlanId, da
           </p>
         </div>
       </div>
+
+      <ReadingHistoryStrip planId={activePlanId} />
     </div>
   );
 }

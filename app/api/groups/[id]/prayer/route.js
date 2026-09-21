@@ -17,7 +17,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("group_prayer")
-    .select("id, body, is_anonymous, pray_count, created_by, created_at, users!created_by(display_name)")
+    .select("id, body, is_anonymous, pray_count, status, status_updated_at, created_by, created_at, users!created_by(display_name)")
     .eq("group_id", groupId)
     .order("created_at", { ascending: false });
 

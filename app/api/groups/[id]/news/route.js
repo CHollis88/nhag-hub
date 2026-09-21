@@ -16,13 +16,22 @@ export async function GET(req, { params }) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }
 
+  // ?drafts=1 is the leader-only "Drafts" tab -- regular members never
+  // see unpublished posts, same visibility principle as 'leader' kind.
+  const wantDrafts = req.nextUrl.searchParams.get("drafts") === "1";
+  if (wantDrafts && !(await canManageGroup(user, groupId))) {
+    return NextResponse.json({ error: "Only this group's leaders or a Church Admin can view drafts." }, { status: 403 });
+  }
+
   const supabase = supabaseServer();
-  const { data, error } = await supabase
+  let query = supabase
     .from("group_news")
-    .select("id, title, body, kind, pinned, created_at, users(display_name)")
+    .select("id, title, body, kind, pinned, status, created_at, users(display_name)")
     .eq("group_id", groupId)
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
+  query = wantDrafts ? query.eq("status", "draft") : query.eq("status", "published");
+  const { data, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -53,20 +62,27 @@ export async function POST(req, { params }) {
     );
   }
 
-  const { title, body, kind } = await req.json();
+  const { title, body, kind, status } = await req.json();
   if (!title?.trim() || !body?.trim()) {
     return NextResponse.json({ error: "title and body are required." }, { status: 400 });
   }
   const finalKind = kind && VALID_KINDS.includes(kind) ? kind : "announcement";
+  const finalStatus = status === "draft" ? "draft" : "published";
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("group_news")
-    .insert({ group_id: groupId, title: title.trim(), body: body.trim(), kind: finalKind, created_by: user.id })
-    .select("id, title, body, kind, created_at")
+    .insert({ group_id: groupId, title: title.trim(), body: body.trim(), kind: finalKind, status: finalStatus, created_by: user.id })
+    .select("id, title, body, kind, status, created_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // A draft never notifies -- there's nothing to announce until it's
+  // actually published.
+  if (finalStatus === "draft") {
+    return NextResponse.json({ news: data });
+  }
 
   const kindLabel =
     finalKind === "class" ? "Class Notes" : finalKind === "discuss" ? "Discussion" : finalKind === "leader" ? "Leaders Only" : "Group News";
