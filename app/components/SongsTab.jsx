@@ -1,27 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Music, FileText, Guitar, FileMusic, Mic2, Headphones, Trash2, Pencil, ExternalLink } from "lucide-react";
+import { Search, Plus, Trash2, Pencil } from "lucide-react";
 import { SkeletonRowList } from "./Skeleton";
 import SongForm from "./SongForm";
-
-const LINK_BUTTONS = [
-  ["lyrics_url", "Lyrics", FileText],
-  ["chords_url", "Chords", Guitar],
-  ["sheet_music_url", "Sheet Music", FileMusic],
-  ["soprano_url", "Soprano", Mic2],
-  ["alto_url", "Alto", Mic2],
-  ["tenor_url", "Tenor", Mic2],
-  ["bass_url", "Bass", Mic2],
-  ["split_track_url", "Split Track", Mic2],
-  ["demo_url", "Demo", Headphones],
-];
+import MediaViewerModal from "./MediaViewerModal";
+import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
 
 function SongRow({ baseUrl, song, canManage, onUpdated }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [viewerField, setViewerField] = useState(null);
 
-  const availableLinks = LINK_BUTTONS.filter(([key]) => song[key]);
+  const availableLinks = SONG_MEDIA_FIELDS.filter(([key]) => song[key]);
 
   const saveEdit = async (fields) => {
     await fetch(`${baseUrl}/${song.id}`, {
@@ -57,15 +48,13 @@ function SongRow({ baseUrl, song, canManage, onUpdated }) {
           {availableLinks.length > 0 ? (
             <div className="flex flex-wrap gap-2 mb-2">
               {availableLinks.map(([key, label, Icon]) => (
-                <a
+                <button
                   key={key}
-                  href={song[key]}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  onClick={() => setViewerField(key)}
                   className="inline-flex items-center gap-1.5 text-xs bg-accent/8 text-accent rounded-full px-3 py-1.5"
                 >
-                  <Icon size={12} /> {label} <ExternalLink size={10} />
-                </a>
+                  <Icon size={12} /> {label}
+                </button>
               ))}
             </div>
           ) : (
@@ -85,6 +74,10 @@ function SongRow({ baseUrl, song, canManage, onUpdated }) {
             </div>
           )}
         </div>
+      )}
+
+      {viewerField && (
+        <MediaViewerModal song={song} initialField={viewerField} onClose={() => setViewerField(null)} />
       )}
     </div>
   );

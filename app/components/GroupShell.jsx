@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings, LayoutGrid, MessageCircle, MessagesSquare, RotateCw, FileText, PlayCircle } from "lucide-react";
+import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings, LayoutGrid, MessageCircle, MessagesSquare, RotateCw, FileText } from "lucide-react";
 import GroupBottomNav from "./GroupBottomNav";
 import GroupSidebar from "./GroupSidebar";
 import GroupNewsTab from "./GroupNewsTab";
@@ -11,7 +11,6 @@ import RosterTab from "./RosterTab";
 import { SkeletonList } from "./Skeleton";
 import TabTransition from "./TabTransition";
 import SongsTab from "./SongsTab";
-import MediaTab from "./MediaTab";
 import SetlistsTab from "./SetlistsTab";
 import ProgramsTab from "./ProgramsTab";
 import CurriculumTab from "./CurriculumTab";
@@ -35,7 +34,6 @@ const APPEND_FEATURE_TABS = {
   songs_setlists: [
     { key: "songs", label: "Songs", icon: Music },
     { key: "setlists", label: "Setlists", icon: ListMusic },
-    { key: "media", label: "Media", icon: PlayCircle },
   ],
   programs: [{ key: "programs", label: "Programs", icon: LayoutGrid }],
   direct_messages: [{ key: "dm", label: "Messages", icon: MessageCircle }],
@@ -363,9 +361,6 @@ export default function GroupShell({
             )}
             {features.includes("songs_setlists") && tab === "setlists" && (
               <SetlistsTab groupId={group.id} canManage={canManage} />
-            )}
-            {features.includes("songs_setlists") && tab === "media" && (
-              <MediaTab groupId={group.id} />
             )}
             {features.includes("programs") && tab === "programs" && (
               <ProgramsTab groupId={group.id} canManage={canManage} />
