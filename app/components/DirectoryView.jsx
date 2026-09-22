@@ -89,6 +89,10 @@ function DirectoryEntry({ group, leaders, isMember }) {
   );
 }
 
+// Rendered as a normal primary tab (page.js, tab === "directory"), same
+// as News/Events/etc -- no longer a bottom-sheet modal. onClose is
+// optional and only used if something still wants to render this in a
+// modal context (kept for that flexibility, unused by the tab itself).
 export default function DirectoryView({ me, onClose }) {
   const [groups, setGroups] = useState(null);
   const [query, setQuery] = useState("");
@@ -123,41 +127,33 @@ export default function DirectoryView({ me, onClose }) {
   }, [visibleGroups, query]);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-end z-[60]" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-card rounded-t-2xl w-full max-h-[85vh] overflow-y-auto p-6"
-      >
-        <div className="flex justify-between items-center mb-2 gap-2">
-          <h2 className="font-serif text-xl text-ink m-0 min-w-0 truncate">Directory</h2>
-          <button onClick={onClose} className="text-2xl text-inkfaint leading-none flex-shrink-0">×</button>
-        </div>
-        <p className="text-sm text-inksoft mb-4">
-          Every ministry's leaders, church-wide. Tap one to see its full roster if you're a member —
-          otherwise just its leaders are shown.
-        </p>
+    <div className="px-5 pt-4 pb-6">
+      <h2 className="font-serif text-2xl text-ink mb-1">Directory</h2>
+      <p className="text-sm text-inksoft mb-4">
+        Every ministry's leaders, church-wide. Tap one to see its full roster if you're a member —
+        otherwise just its leaders are shown.
+      </p>
 
-        {groups !== null && visibleGroups.length > 3 && (
-          <div className="relative mb-3">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search ministries or leaders..."
-              className="sp-input pl-9"
-            />
-          </div>
-        )}
-
-        {groups === null && <SkeletonList count={4} />}
-        {visibleGroups.length > 0 && filtered.length === 0 && (
-          <EmptyState icon={Search} text="No ministries match that search." />
-        )}
-        <div className="space-y-2">
-          {filtered.map((g) => (
-            <DirectoryEntry key={g.id} group={g} leaders={g.leaders} isMember={myGroupIds.has(g.id)} />
-          ))}
+      {groups !== null && visibleGroups.length > 3 && (
+        <div className="relative mb-3">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search ministries or leaders..."
+            className="sp-input pl-9"
+          />
         </div>
+      )}
+
+      {groups === null && <SkeletonList count={4} />}
+      {visibleGroups.length > 0 && filtered.length === 0 && (
+        <EmptyState icon={Search} text="No ministries match that search." />
+      )}
+      <div className="space-y-2">
+        {filtered.map((g) => (
+          <DirectoryEntry key={g.id} group={g} leaders={g.leaders} isMember={myGroupIds.has(g.id)} />
+        ))}
       </div>
     </div>
   );

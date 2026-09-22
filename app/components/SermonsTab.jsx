@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { ExternalLink, Search, Mic } from "lucide-react";
+import { ExternalLink, Search, Mic, Pencil, Trash2 } from "lucide-react";
 import EmptyState from "./EmptyState";
 import { SkeletonList } from "./Skeleton";
 
@@ -27,13 +27,17 @@ export default function SermonsTab({ isAdmin }) {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [filterSeriesId, setFilterSeriesId] = useState("");
+  const [viewMode, setViewMode] = useState("published"); // admin-only "Drafts" toggle
 
   const load = useCallback(async () => {
-    const params = filterSeriesId ? `?series_id=${filterSeriesId}` : "";
-    const res = await fetch(`/api/sermons${params}`);
+    const params = new URLSearchParams();
+    if (filterSeriesId) params.set("series_id", filterSeriesId);
+    if (viewMode === "drafts") params.set("drafts", "1");
+    const qs = params.toString();
+    const res = await fetch(`/api/sermons${qs ? `?${qs}` : ""}`);
     const data = await res.json();
     if (res.ok) setSermons(data.sermons);
-  }, [filterSeriesId]);
+  }, [filterSeriesId, viewMode]);
 
   const loadSeries = useCallback(async () => {
     const res = await fetch("/api/sermon-series");
@@ -49,7 +53,7 @@ export default function SermonsTab({ isAdmin }) {
     loadSeries();
   }, [loadSeries]);
 
-  const submit = async (e) => {
+  const submit = async (e, asDraft = false) => {
     e.preventDefault();
     setError("");
     let finalSeriesId = seriesId;
@@ -65,8 +69,8 @@ export default function SermonsTab({ isAdmin }) {
       const seriesData = await seriesRes.json();
       if (seriesRes.ok) finalSeriesId = seriesData.series.id;
     }
-    const res = await fetch("/api/sermons", {
-      method: "POST",
+    const res = await fetch(editingId ? `/api/sermons/${editingId}` : "/api/sermons", {
+      method: editingId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title,
@@ -75,6 +79,10 @@ export default function SermonsTab({ isAdmin }) {
         link_url: linkUrl,
         sermon_date: sermonDate || null,
         series_id: finalSeriesId || null,
+        // Only set status on a brand-new post -- editing an existing
+        // sermon shouldn't silently flip a published sermon back to
+        // draft; that's what the explicit Publish button is for.
+        ...(editingId ? {} : { status: asDraft ? "draft" : "published" }),
       }),
     });
     const data = await res.json();
@@ -82,6 +90,7 @@ export default function SermonsTab({ isAdmin }) {
       setError(data.error);
       return;
     }
+    setEditingId(null);
     setTitle("");
     setSynopsis("");
     setSpeaker("");
@@ -94,10 +103,56 @@ export default function SermonsTab({ isAdmin }) {
     loadSeries();
   };
 
+  const publish = async (id) => {
+    await fetch(`/api/sermons/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "published" }),
+    });
+    load();
+  };
+
   const remove = async (id) => {
     if (!confirm("Delete this sermon?")) return;
     await fetch(`/api/sermons/${id}`, { method: "DELETE" });
     load();
+  };
+
+  // Editing reuses the same field state as posting -- editingId is the
+  // only thing that switches submit() from POST /api/sermons to PATCH
+  // /api/sermons/[id].
+  const [editingId, setEditingId] = useState(null);
+
+  const startEdit = (s) => {
+    setEditingId(s.id);
+    setTitle(s.title);
+    setSynopsis(s.synopsis);
+    setSpeaker(s.speaker || "");
+    setLinkUrl(s.link_url || "");
+    setSermonDate(s.sermon_date || "");
+    setSeriesId(s.series_id || "");
+    setNewSeriesName("");
+    setShowForm(true);
+  };
+
+  const cancelForm = () => {
+    setEditingId(null);
+    setTitle("");
+    setSynopsis("");
+    setSpeaker("");
+    setLinkUrl("");
+    setSermonDate("");
+    setSeriesId("");
+    setNewSeriesName("");
+    setShowForm(false);
+  };
+
+  const deleteSeries = async (id) => {
+    if (!confirm("Delete this series? Sermons in it stay, just ungrouped.")) return;
+    await fetch(`/api/sermon-series/${id}`, { method: "DELETE" });
+    if (filterSeriesId === id) setFilterSeriesId("");
+    load();
+    loadSeries();
   };
 
   const filtered = useMemo(() => {
@@ -114,12 +169,20 @@ export default function SermonsTab({ isAdmin }) {
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-serif text-2xl text-ink">Sermons</h2>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h2 className="font-serif text-2xl text-ink">{viewMode === "drafts" ? "Sermon Drafts" : "Sermons"}</h2>
         {isAdmin && (
-          <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
-            {showForm ? "Cancel" : "+ Post"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setViewMode(viewMode === "drafts" ? "published" : "drafts")}
+              className="sp-btn-secondary text-sm py-1.5 px-3"
+            >
+              {viewMode === "drafts" ? "Back to Sermons" : "Drafts"}
+            </button>
+            <button onClick={() => (showForm ? cancelForm() : setShowForm(true))} className="sp-btn-pill">
+              {showForm ? "Cancel" : "+ Post"}
+            </button>
+          </div>
         )}
       </div>
 
@@ -183,7 +246,14 @@ export default function SermonsTab({ isAdmin }) {
             placeholder="Link to the video (Facebook, YouTube, etc.) — optional"
             className="sp-input mb-2"
           />
-          <button type="submit" className="sp-btn-primary">Post</button>
+          <div className="flex gap-2">
+            {!editingId && (
+              <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">
+                Save as Draft
+              </button>
+            )}
+            <button type="submit" className="sp-btn-primary flex-1">{editingId ? "Save Changes" : "Post"}</button>
+          </div>
           {error && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{error}</p>}
         </form>
       )}
@@ -200,16 +270,31 @@ export default function SermonsTab({ isAdmin }) {
         </div>
       )}
       {series.length > 0 && (
-        <select
-          value={filterSeriesId}
-          onChange={(e) => setFilterSeriesId(e.target.value)}
-          className="sp-input mb-3"
-        >
-          <option value="">All series</option>
-          {series.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
+        <>
+          <select
+            value={filterSeriesId}
+            onChange={(e) => setFilterSeriesId(e.target.value)}
+            className="sp-input mb-2"
+          >
+            <option value="">All series</option>
+            {series.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          {isAdmin && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {series.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => deleteSeries(s.id)}
+                  className="text-[0.6875rem] text-inkfaint underline flex items-center gap-1"
+                >
+                  <Trash2 size={10} /> Delete &quot;{s.name}&quot;
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {sermons === null && <SkeletonList count={3} />}
@@ -221,6 +306,11 @@ export default function SermonsTab({ isAdmin }) {
         {filtered.map((s) => (
           <div key={s.id} className="sp-card">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
+              {s.status === "draft" && (
+                <span className="text-[0.625rem] uppercase tracking-wide bg-inkfaint/15 text-inkfaint rounded-full px-2 py-0.5 font-semibold">
+                  Draft
+                </span>
+              )}
               {s.sermon_series?.name && (
                 <span className="text-[0.625rem] uppercase tracking-wide bg-accent/10 text-accent rounded-full px-2 py-0.5 font-semibold">
                   {s.sermon_series.name}{s.series_order ? ` · Part ${s.series_order}` : ""}
@@ -250,9 +340,19 @@ export default function SermonsTab({ isAdmin }) {
               {s.users?.display_name && `Posted by ${s.users.display_name}`}
             </p>
             {isAdmin && (
-              <button onClick={() => remove(s.id)} className="text-xs text-inkfaint mt-2 underline block">
-                Delete
-              </button>
+              <div className="flex gap-3 mt-2">
+                <button onClick={() => startEdit(s)} className="text-xs text-accent underline flex items-center gap-1">
+                  <Pencil size={11} /> Edit
+                </button>
+                {s.status === "draft" && (
+                  <button onClick={() => publish(s.id)} className="text-xs text-sage underline font-semibold">
+                    Publish
+                  </button>
+                )}
+                <button onClick={() => remove(s.id)} className="text-xs text-inkfaint underline">
+                  Delete
+                </button>
+              </div>
             )}
           </div>
         ))}

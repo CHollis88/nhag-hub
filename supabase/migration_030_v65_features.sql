@@ -36,11 +36,9 @@ create index if not exists idx_post_reactions_lookup on post_reactions(post_type
 alter table post_reactions enable row level security;
 
 -- ── Member Profiles ─────────────────────────────────────────────────
--- Nullable, self-managed, no defaults needed -- an incomplete profile
--- is just three empty fields, not an error state.
+-- Bio only, per Cam's decision -- location/interests were considered
+-- and deliberately dropped before shipping.
 alter table users add column if not exists bio text;
-alter table users add column if not exists location text;
-alter table users add column if not exists interests text;
 
 -- ── Sermon Series ───────────────────────────────────────────────────
 -- Sermons are already church-wide only (no group_id on the sermons
@@ -69,6 +67,8 @@ alter table sermon_series enable row level security;
 alter table group_news add column if not exists status text not null default 'published'
   check (status in ('draft', 'published'));
 alter table global_news add column if not exists status text not null default 'published'
+  check (status in ('draft', 'published'));
+alter table sermons add column if not exists status text not null default 'published'
   check (status in ('draft', 'published'));
 
 -- ── General Feedback ────────────────────────────────────────────────

@@ -202,7 +202,6 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [patchNotesOpen, setPatchNotesOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
   const [adminToolboxOpen, setAdminToolboxOpen] = useState(false);
-  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [showNotifyBanner, setShowNotifyBanner] = useState(false);
@@ -608,10 +607,11 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
                 onOpenGroup={openGroup}
                 onGoToTab={switchTab}
                 onOpenSettings={() => setSettingsOpen(true)}
-                onOpenDirectory={() => setDirectoryOpen(true)}
+                onOpenDirectory={() => switchTab("directory")}
               />
             )}
             {tab === "bible" && <BibleTab deviceId={me.user.id} />}
+            {tab === "directory" && <DirectoryView me={me} />}
           </TabTransition>
         </main>
       </div>
@@ -653,7 +653,6 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
       {adminToolboxOpen && (
         <AdminToolboxView onClose={() => setAdminToolboxOpen(false)} onOpenGroup={openGroup} />
       )}
-      {directoryOpen && <DirectoryView me={me} onClose={() => setDirectoryOpen(false)} />}
       {notificationsOpen && (
         <NotificationsView
           onClose={() => {

@@ -47,12 +47,6 @@ export default function MemberProfileModal({ userId, onClose }) {
             ) : (
               <p className="text-sm text-inkfaint italic">No bio yet.</p>
             )}
-            {profile.location && (
-              <p className="text-xs text-inkfaint">📍 {profile.location}</p>
-            )}
-            {profile.interests && (
-              <p className="text-xs text-inkfaint">✨ {profile.interests}</p>
-            )}
           </div>
         )}
       </div>

@@ -3,11 +3,11 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { withPublicCache } from "@/lib/cacheHeaders";
 
-// Any signed-in user can view another member's profile card -- bio,
-// location, and interests are all opt-in self-disclosed fields, not
-// sensitive data, so this deliberately has no group-membership check
-// (mirrors how the Directory already shows every ministry's leaders
-// church-wide). Never returns email or auth-related fields.
+// Any signed-in user can view another member's profile card -- bio is
+// an opt-in self-disclosed field, not sensitive data, so this
+// deliberately has no group-membership check (mirrors how the
+// Directory already shows every ministry's leaders church-wide). Never
+// returns email or auth-related fields.
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -17,7 +17,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("users")
-    .select("id, display_name, bio, location, interests")
+    .select("id, display_name, bio")
     .eq("id", id)
     .maybeSingle();
 

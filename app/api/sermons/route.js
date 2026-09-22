@@ -11,12 +11,20 @@ export async function GET(req) {
   const seriesId = req.nextUrl.searchParams.get("series_id");
   const speaker = req.nextUrl.searchParams.get("speaker");
 
+  // ?drafts=1 is the admin-only "Drafts" view -- regular members never
+  // see an unpublished sermon, same visibility rule as News drafts.
+  const wantDrafts = req.nextUrl.searchParams.get("drafts") === "1";
+  if (wantDrafts && !user.is_church_admin) {
+    return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
+  }
+
   const supabase = supabaseServer();
   let query = supabase
     .from("sermons")
-    .select("id, title, synopsis, speaker, link_url, sermon_date, series_id, series_order, created_at, users(display_name), sermon_series(name, color)")
+    .select("id, title, synopsis, speaker, link_url, sermon_date, series_id, series_order, status, created_at, users(display_name), sermon_series(name, color)")
     .order("sermon_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
+  query = wantDrafts ? query.eq("status", "draft") : query.eq("status", "published");
 
   // Optional filters for the Archive view -- omitted, this behaves
   // exactly as the original unfiltered list.
@@ -38,10 +46,11 @@ export async function POST(req) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { title, synopsis, speaker, link_url, sermon_date, series_id, series_order } = await req.json();
+  const { title, synopsis, speaker, link_url, sermon_date, series_id, series_order, status } = await req.json();
   if (!title?.trim() || !synopsis?.trim()) {
     return NextResponse.json({ error: "title and synopsis are required." }, { status: 400 });
   }
+  const finalStatus = status === "draft" ? "draft" : "published";
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -54,12 +63,19 @@ export async function POST(req) {
       sermon_date: sermon_date || null,
       series_id: series_id || null,
       series_order: Number.isInteger(series_order) ? series_order : null,
+      status: finalStatus,
       created_by: user.id,
     })
-    .select("id, title, synopsis, speaker, link_url, sermon_date, series_id, series_order, created_at")
+    .select("id, title, synopsis, speaker, link_url, sermon_date, series_id, series_order, status, created_at")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // A draft never notifies -- there's nothing to announce until it's
+  // actually published.
+  if (finalStatus === "draft") {
+    return NextResponse.json({ sermon: data });
+  }
 
   notifyGlobal({
     title: "New Sermon",

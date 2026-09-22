@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Book, Megaphone, CalendarDays, CalendarRange, Mic } from "lucide-react";
+import { Home, Book, Megaphone, CalendarDays, CalendarRange, Mic, Users } from "lucide-react";
 
 // The universal bottom nav. Icon-first, matching the Young Adults app's
 // own bottom nav pattern -- a small label underneath each icon, not a
@@ -12,6 +12,7 @@ export const TABS = [
   { key: "events", label: "Events", icon: CalendarDays },
   { key: "calendar", label: "Calendar", icon: CalendarRange },
   { key: "sermons", label: "Sermons", icon: Mic },
+  { key: "directory", label: "Directory", icon: Users },
 ];
 
 export default function BottomNav({ tab, setTab, badges = {} }) {

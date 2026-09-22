@@ -59,8 +59,6 @@ export async function GET(req) {
         username: user.username,
         display_name: user.display_name,
         bio: user.bio,
-        location: user.location,
-        interests: user.interests,
         is_church_admin: user.is_church_admin,
       },
       memberships: visibleMemberships.map((m) => ({
@@ -79,7 +77,7 @@ export async function PATCH(req) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { username, display_name, bio, location, interests } = await req.json();
+  const { username, display_name, bio } = await req.json();
   const updates = { updated_at: new Date().toISOString() };
 
   if (display_name !== undefined) {
@@ -97,19 +95,16 @@ export async function PATCH(req) {
     }
     updates.username = normalized;
   }
-  // Bio/location/interests are all optional and free-text -- an empty
-  // string clears the field rather than being rejected, since "I don't
+  // Empty string clears the bio rather than being rejected -- "I don't
   // want to share this anymore" is a valid edit, not an error.
   if (bio !== undefined) updates.bio = bio.trim().slice(0, 500);
-  if (location !== undefined) updates.location = location.trim().slice(0, 100);
-  if (interests !== undefined) updates.interests = interests.trim().slice(0, 300);
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("users")
     .update(updates)
     .eq("id", user.id)
-    .select("username, display_name, bio, location, interests")
+    .select("username, display_name, bio")
     .single();
 
   if (error) {

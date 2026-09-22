@@ -6,8 +6,6 @@ export default function ProfileView({ me, refreshMe, onClose }) {
   const [displayName, setDisplayName] = useState(me?.user?.display_name || "");
   const [username, setUsername] = useState(me?.user?.username || "");
   const [bio, setBio] = useState(me?.user?.bio || "");
-  const [location, setLocation] = useState(me?.user?.location || "");
-  const [interests, setInterests] = useState(me?.user?.interests || "");
   const [profileMessage, setProfileMessage] = useState("");
   const [profileBusy, setProfileBusy] = useState(false);
 
@@ -22,7 +20,7 @@ export default function ProfileView({ me, refreshMe, onClose }) {
     const res = await fetch("/api/me", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ display_name: displayName, username, bio, location, interests }),
+      body: JSON.stringify({ display_name: displayName, username, bio }),
     });
     const data = await res.json();
     setProfileBusy(false);
@@ -88,20 +86,6 @@ export default function ProfileView({ me, refreshMe, onClose }) {
             rows={3}
             maxLength={500}
             className="sp-textarea mb-2"
-          />
-          <input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="Location (optional)"
-            maxLength={100}
-            className="sp-input mb-2"
-          />
-          <input
-            value={interests}
-            onChange={(e) => setInterests(e.target.value)}
-            placeholder="Interests (optional)"
-            maxLength={300}
-            className="sp-input mb-2"
           />
           <button type="submit" disabled={profileBusy} className="sp-btn-secondary">
             {profileBusy ? "Saving…" : "Save"}
