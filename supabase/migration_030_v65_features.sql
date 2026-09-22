@@ -68,8 +68,6 @@ alter table group_news add column if not exists status text not null default 'pu
   check (status in ('draft', 'published'));
 alter table global_news add column if not exists status text not null default 'published'
   check (status in ('draft', 'published'));
-alter table sermons add column if not exists status text not null default 'published'
-  check (status in ('draft', 'published'));
 
 -- ── General Feedback ────────────────────────────────────────────────
 -- group_id nullable: feedback can be about a specific ministry or

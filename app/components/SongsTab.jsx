@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Search, Plus, Music, FileText, Guitar, FileMusic, Mic2, Trash2, Pencil, ExternalLink } from "lucide-react";
+import { Search, Plus, Music, FileText, Guitar, FileMusic, Mic2, Headphones, Trash2, Pencil, ExternalLink } from "lucide-react";
 import { SkeletonRowList } from "./Skeleton";
 import SongForm from "./SongForm";
 
@@ -13,7 +13,8 @@ const LINK_BUTTONS = [
   ["alto_url", "Alto", Mic2],
   ["tenor_url", "Tenor", Mic2],
   ["bass_url", "Bass", Mic2],
-  ["full_mix_url", "Full Mix", Mic2],
+  ["split_track_url", "Split Track", Mic2],
+  ["demo_url", "Demo", Headphones],
 ];
 
 function SongRow({ baseUrl, song, canManage, onUpdated }) {

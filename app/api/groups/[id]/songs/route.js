@@ -46,7 +46,7 @@ export async function POST(req, { params }) {
   const allowedFields = [
     "title", "composer", "times_sung", "first_date", "most_recent_date",
     "lyrics_url", "chords_url", "sheet_music_url",
-    "soprano_url", "alto_url", "tenor_url", "bass_url", "full_mix_url", "notes",
+    "soprano_url", "alto_url", "tenor_url", "bass_url", "split_track_url", "demo_url", "notes",
   ];
   const insert = { group_id: groupId };
   for (const field of allowedFields) {

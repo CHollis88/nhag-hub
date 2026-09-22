@@ -10,7 +10,8 @@ const LINK_FIELDS = [
   ["alto_url", "Alto Track"],
   ["tenor_url", "Tenor Track"],
   ["bass_url", "Bass Track"],
-  ["full_mix_url", "Full Mix Track"],
+  ["split_track_url", "Split Track"],
+  ["demo_url", "Demo"],
 ];
 
 export default function SongForm({ initial, onCancel, onSave }) {
@@ -24,7 +25,8 @@ export default function SongForm({ initial, onCancel, onSave }) {
     alto_url: initial?.alto_url || "",
     tenor_url: initial?.tenor_url || "",
     bass_url: initial?.bass_url || "",
-    full_mix_url: initial?.full_mix_url || "",
+    split_track_url: initial?.split_track_url || "",
+    demo_url: initial?.demo_url || "",
     notes: initial?.notes || "",
   });
   const [saving, setSaving] = useState(false);

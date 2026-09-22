@@ -6,7 +6,7 @@ import { canManageGroup } from "@/lib/groupAuth";
 const ALLOWED_FIELDS = [
   "title", "composer", "times_sung", "first_date", "most_recent_date",
   "lyrics_url", "chords_url", "sheet_music_url",
-  "soprano_url", "alto_url", "tenor_url", "bass_url", "full_mix_url", "notes",
+  "soprano_url", "alto_url", "tenor_url", "bass_url", "split_track_url", "demo_url", "notes",
 ];
 
 export async function PATCH(req, { params }) {
