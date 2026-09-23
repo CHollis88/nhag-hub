@@ -38,7 +38,12 @@ export default function NativePdfViewer({ url }) {
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState("1");
-  const [scale, setScale] = useState(1.2);
+  // null until the doc loads and we measure the container to compute a
+  // fit-to-width starting scale -- using a fixed default regardless of
+  // screen size is exactly what was producing the odd small-page/wide-
+  // margins look, since a phone-sized container and a hardcoded 1.2
+  // scale rarely match.
+  const [scale, setScale] = useState(null);
   const [status, setStatus] = useState("loading"); // "loading" | "ready" | "fallback"
 
   const directUrl = toDirectDownloadUrl(url);
@@ -83,6 +88,18 @@ export default function NativePdfViewer({ url }) {
         pdfDocRef.current = doc;
         canvasRefs.current = new Array(doc.numPages).fill(null);
         setNumPages(doc.numPages);
+
+        // Fit page 1's natural width to the actual available width of
+        // the scroll container, so the page fills the screen sensibly
+        // instead of sitting at some arbitrary fixed size with big
+        // gutters on either side (on a narrow phone) or tiny and
+        // unreadable (on a wide one).
+        const firstPage = await doc.getPage(1);
+        const naturalWidth = firstPage.getViewport({ scale: 1 }).width;
+        const available = (containerRef.current?.clientWidth || 400) - 16; // leaves a little breathing room
+        const fitScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, available / naturalWidth));
+        if (cancelled) return;
+        setScale(fitScale);
         setStatus("ready");
       } catch (err) {
         // Logged (not swallowed) so a real, ongoing failure is
@@ -104,10 +121,19 @@ export default function NativePdfViewer({ url }) {
   // at once rather than lazily -- sheet music / lyrics PDFs here are
   // realistically a handful of pages, so the simpler approach is the
   // right tradeoff over building page virtualization.
+  //
+  // Renders each canvas at `scale * devicePixelRatio` internally, but
+  // sizes it on-screen (via CSS width/height) at plain `scale` -- a
+  // canvas sized only in CSS pixels renders at that same low pixel
+  // count internally by default, so on any high-DPI/Retina screen the
+  // browser has to stretch a blurry, under-resolved bitmap to fill a
+  // sharper physical display. This is what was making the text look
+  // rough regardless of zoom level.
   const renderAllPages = useCallback(async () => {
     const doc = pdfDocRef.current;
-    if (!doc) return;
+    if (!doc || !scale) return;
     const token = ++renderTokenRef.current;
+    const outputScale = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
     for (let i = 1; i <= doc.numPages; i++) {
       const canvas = canvasRefs.current[i - 1];
@@ -115,11 +141,14 @@ export default function NativePdfViewer({ url }) {
       const page = await doc.getPage(i);
       if (renderTokenRef.current !== token) return; // superseded by a newer scale change
       const viewport = page.getViewport({ scale });
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
       const ctx = canvas.getContext("2d");
+      const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
       try {
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        await page.render({ canvasContext: ctx, viewport, transform }).promise;
       } catch {
         // A render task cancelled mid-flight (superseded by a newer
         // scale change) throws -- not a real error, just stale work.
@@ -129,8 +158,8 @@ export default function NativePdfViewer({ url }) {
   }, [scale]);
 
   useEffect(() => {
-    if (status === "ready") renderAllPages();
-  }, [status, renderAllPages]);
+    if (status === "ready" && scale) renderAllPages();
+  }, [status, scale, renderAllPages]);
 
   // Keeps the page-number box in sync while scrolling -- whichever
   // page has the most visible area becomes "current".
@@ -168,27 +197,63 @@ export default function NativePdfViewer({ url }) {
 
   const zoomBy = (delta) => setScale((s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, +(s + delta).toFixed(2))));
 
-  // Custom pinch-to-zoom -- only reachable because the container below
-  // has `touch-action: pan-y`, which stops the browser from handling
-  // pinch natively (and therefore from zooming the whole app). Scoped
-  // entirely to this component's own `scale` state.
-  const onTouchStart = (e) => {
-    if (e.touches.length !== 2) return;
-    const [a, b] = e.touches;
-    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    pinchRef.current = { startDist: dist, startScale: scale };
-  };
-  const onTouchMove = (e) => {
-    if (e.touches.length !== 2 || !pinchRef.current) return;
-    e.preventDefault();
-    const [a, b] = e.touches;
-    const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-    const ratio = dist / pinchRef.current.startDist;
-    setScale(Math.min(MAX_SCALE, Math.max(MIN_SCALE, +(pinchRef.current.startScale * ratio).toFixed(2))));
-  };
-  const onTouchEnd = () => {
-    pinchRef.current = null;
-  };
+  // Kept in sync with `scale` via the effect below so the touch
+  // handlers can read the current value without needing `scale` in
+  // their own effect's dependency array (which would tear down and
+  // rebind the listeners on every single touchmove during a pinch,
+  // since that's exactly when scale is changing).
+  const scaleRef = useRef(scale);
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
+
+  // Custom pinch-to-zoom, attached as real (non-React-synthetic) event
+  // listeners. This matters specifically because React attaches
+  // onTouchMove as a PASSIVE listener by default -- calling
+  // preventDefault() inside a passive listener is silently ignored by
+  // the browser, which is exactly why pinch wasn't doing anything: the
+  // handler was running, computing a new scale, but the browser's own
+  // default touch handling (or just nothing visually updating in sync
+  // with the gesture) wasn't actually being overridden. Attaching the
+  // listener manually with { passive: false } is what makes
+  // preventDefault actually take effect. Combined with this element's
+  // `touch-action: pan-y` (below), pinch is fully handled by us --
+  // single-finger scroll still works natively, but a two-finger pinch
+  // updates only this component's own `scale` state.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || status !== "ready") return;
+
+    const handleTouchStart = (e) => {
+      if (e.touches.length !== 2) return;
+      const [a, b] = e.touches;
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      pinchRef.current = { startDist: dist, startScale: scaleRef.current };
+    };
+    const handleTouchMove = (e) => {
+      if (e.touches.length !== 2 || !pinchRef.current) return;
+      e.preventDefault();
+      const [a, b] = e.touches;
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const ratio = dist / pinchRef.current.startDist;
+      setScale(Math.min(MAX_SCALE, Math.max(MIN_SCALE, +(pinchRef.current.startScale * ratio).toFixed(2))));
+    };
+    const handleTouchEnd = () => {
+      pinchRef.current = null;
+    };
+
+    el.addEventListener("touchstart", handleTouchStart, { passive: true });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchend", handleTouchEnd, { passive: true });
+    el.addEventListener("touchcancel", handleTouchEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+      el.removeEventListener("touchcancel", handleTouchEnd);
+    };
+  }, [status]);
 
   if (status === "fallback") {
     if (directUrl) {
@@ -232,9 +297,6 @@ export default function NativePdfViewer({ url }) {
 
       <div
         ref={containerRef}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
         style={{ touchAction: "pan-y" }}
         className="flex-1 min-h-0 overflow-auto bg-paper flex flex-col items-center gap-3 py-3"
       >
