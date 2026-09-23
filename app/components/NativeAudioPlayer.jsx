@@ -15,10 +15,14 @@ function formatTime(seconds) {
 
 /**
  * A real <audio> element with app-styled controls, instead of Google's
- * own black embedded player. Not guaranteed to work for every file --
- * see toDirectDownloadUrl()'s comment -- so this quietly falls back to
- * the Drive /preview iframe (Google's player) if the direct link fails
- * to load or decode as audio, rather than showing a dead player.
+ * own black embedded player -- streams through the app's own
+ * /api/drive-media proxy (Drive API v3's `alt=media`), not the old
+ * unauthenticated `uc?export=download` link, which turned out to
+ * reliably serve Google's HTML interstitial instead of real audio.
+ * Still falls back to the Drive /preview iframe (Google's player) if
+ * the proxy is unreachable, misconfigured (missing API key), or a
+ * specific file fails to load/decode -- so a bad day never means a
+ * dead player, just a less pretty one.
  *
  * `compact` switches between a slim single-row layout (for the mini
  * player bar that shows alongside a pdf) and a larger centered one
