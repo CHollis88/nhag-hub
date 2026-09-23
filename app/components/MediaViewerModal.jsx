@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, SkipBack, SkipForward } from "lucide-react";
 import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
 import NativeAudioPlayer from "./NativeAudioPlayer";
@@ -25,6 +25,22 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
   const initialType = SONG_MEDIA_FIELDS.find(([key]) => key === initialField)?.[3];
   const [viewingField, setViewingField] = useState(initialType === "pdf" ? initialField : null);
   const [playingField, setPlayingField] = useState(initialType === "audio" ? initialField : null);
+  // Remembers the last pdf field that was actually shown, even after
+  // toggling it off (viewingField -> null). NativeDocViewer for that
+  // field stays MOUNTED (just visually hidden) rather than being torn
+  // down -- toggling Lyrics off used to unmount it outright, which
+  // could destroy its pdf.js document (and cancel an in-flight canvas
+  // render) at exactly the moment audio was also playing, and on some
+  // devices that abrupt teardown crashed the whole page at the browser
+  // level -- not something a React error boundary can catch, since it
+  // isn't a JS exception. Hiding via CSS instead of unmounting means
+  // nothing ever gets torn down just from toggling visibility; a real
+  // reload only happens when the url itself changes (picking a
+  // different pdf field) or the whole viewer closes.
+  const [lastViewedField, setLastViewedField] = useState(initialType === "pdf" ? initialField : null);
+  useEffect(() => {
+    if (viewingField) setLastViewedField(viewingField);
+  }, [viewingField]);
 
   const available = SONG_MEDIA_FIELDS.filter(([key]) => song[key]);
   // Just the audio ones, in the same fixed order as SONG_MEDIA_FIELDS
@@ -58,7 +74,7 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
     setPlayingField(audioFields[nextIndex][0]);
   };
 
-  const viewingUrl = viewingField ? song[viewingField] : null;
+  const viewingUrl = lastViewedField ? song[lastViewedField] : null;
   const playingUrl = playingField ? song[playingField] : null;
   const playingLabel = SONG_MEDIA_FIELDS.find(([key]) => key === playingField)?.[1];
 
@@ -105,9 +121,9 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
       )}
 
       <div className="flex-1 min-h-0 flex flex-col">
-        {viewingField && (
-          <div className="flex-1 min-h-0 bg-paper">
-            <MediaErrorBoundary resetKey={viewingField}>
+        {lastViewedField && (
+          <div className={viewingField ? "flex-1 min-h-0 bg-paper" : "hidden"}>
+            <MediaErrorBoundary resetKey={lastViewedField}>
               <NativeDocViewer url={viewingUrl} />
             </MediaErrorBoundary>
           </div>

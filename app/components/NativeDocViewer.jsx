@@ -5,7 +5,7 @@ import { ExternalLink, ZoomIn, ZoomOut } from "lucide-react";
 import { toDirectDownloadUrl } from "@/lib/songMedia";
 
 const MIN_SCALE = 0.5;
-const MAX_SCALE = 3;
+const MAX_SCALE = 2.5; // combined with the devicePixelRatio cap above, keeps worst-case canvas size bounded
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 /**
@@ -158,7 +158,14 @@ export default function NativeDocViewer({ url }) {
     const doc = pdfDocRef.current;
     if (!doc || !scale) return;
     const token = ++renderTokenRef.current;
-    const outputScale = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    // Capped at 2 rather than using the raw devicePixelRatio (which can
+    // be 3 on some phones) -- combined with a high zoom `scale`, an
+    // uncapped multiplier can produce a canvas large enough to strain
+    // GPU/memory limits, which is a real crash risk (a canvas that big
+    // failing isn't a catchable JS error, it can take the whole page
+    // down at the browser level). 2x is still sharp on a Retina screen;
+    // the marginal crispness beyond that isn't worth the risk.
+    const outputScale = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 2) : 1;
 
     for (let i = 1; i <= doc.numPages; i++) {
       if (renderTokenRef.current !== token) return;
