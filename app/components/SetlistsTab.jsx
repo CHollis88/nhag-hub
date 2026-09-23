@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import SetlistForm from "./SetlistForm";
+import MediaViewerModal from "./MediaViewerModal";
+import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
 
 function fmtDate(d) {
   return new Date(d + "T00:00:00").toLocaleDateString(undefined, {
@@ -19,6 +21,12 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
   const [songs, setSongs] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  // The full linked song object + which field to open on first render --
+  // MediaViewerModal is the exact same full-screen viewer Songs uses,
+  // so opening it here (as an overlay on top of this screen) and
+  // closing it naturally lands right back on the setlist, with no
+  // separate navigation/back-button plumbing needed.
+  const [viewer, setViewer] = useState(null);
 
   // Same reuse pattern as SongsTab: defaults to the group's own
   // setlists URL so Choir's existing Setlists tab is unaffected;
@@ -46,11 +54,11 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
   // endpoint, so a save just replays that intent as a short sequence of
   // calls against the existing add/remove endpoints -- same end result,
   // no new API surface needed.
-  const create = async ({ service_date, service, songs: entries }) => {
+  const create = async ({ service_date, service, songs: entries, notify }) => {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ service_date, service }),
+      body: JSON.stringify({ service_date, service, notify }),
     });
     const data = await res.json();
     if (!res.ok) return;
@@ -136,14 +144,35 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
             {s.songs.length === 0 ? (
               <p className="text-sm text-inkfaint">No songs added yet.</p>
             ) : (
-              <ol className="space-y-1">
-                {s.songs.map((song, i) => (
-                  <li key={song.id} className="flex items-baseline gap-2 text-sm">
-                    <span className="text-inkfaint w-4 flex-shrink-0">{i + 1}.</span>
-                    <span className="text-ink flex-1">{song.group_songs?.title || song.program_songs?.title}</span>
-                    {song.note && <span className="text-inkfaint text-xs">{song.note}</span>}
-                  </li>
-                ))}
+              <ol className="space-y-2">
+                {s.songs.map((song, i) => {
+                  const linkedSong = song.group_songs || song.program_songs;
+                  const available = linkedSong
+                    ? SONG_MEDIA_FIELDS.filter(([key]) => linkedSong[key])
+                    : [];
+                  return (
+                    <li key={song.id} className="text-sm">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-inkfaint w-4 flex-shrink-0">{i + 1}.</span>
+                        <span className="text-ink flex-1">{linkedSong?.title}</span>
+                        {song.note && <span className="text-inkfaint text-xs">{song.note}</span>}
+                      </div>
+                      {available.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1 ml-6">
+                          {available.map(([key, label, Icon]) => (
+                            <button
+                              key={key}
+                              onClick={() => setViewer({ song: linkedSong, field: key })}
+                              className="inline-flex items-center gap-1 text-[0.6875rem] bg-accent/8 text-accent rounded-full px-2 py-1"
+                            >
+                              <Icon size={10} /> {label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ol>
             )}
             {canManage && (
@@ -159,6 +188,10 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
           </div>
         ))}
       </div>
+
+      {viewer && (
+        <MediaViewerModal song={viewer.song} initialField={viewer.field} onClose={() => setViewer(null)} />
+      )}
     </div>
   );
 }

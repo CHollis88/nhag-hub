@@ -25,7 +25,7 @@ export async function PATCH(req, { params }) {
     .from("program_setlist_songs")
     .update(updates)
     .eq("id", setlistSongId)
-    .select("id, note, position, program_songs(id, title, composer)")
+    .select("id, note, position, program_songs(id, title, composer, lyrics_url, chords_url, sheet_music_url, soprano_url, alto_url, tenor_url, bass_url, split_track_url, demo_url)")
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

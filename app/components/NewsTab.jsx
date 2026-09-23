@@ -68,6 +68,7 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
   const [editBody, setEditBody] = useState("");
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState("published"); // admin-only "Drafts" toggle
+  const [notify, setNotify] = useState(true);
 
   // Anyone who can post at all -- an admin (the 'everyone' audience) or
   // any ministry leader (the 'leaders' audience, migration_024).
@@ -89,7 +90,7 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
     const res = await fetch("/api/global/news", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body, category, audience, status: asDraft ? "draft" : "published" }),
+      body: JSON.stringify({ title, body, category, audience, status: asDraft ? "draft" : "published", notify }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -100,6 +101,7 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
     setBody("");
     setCategory("announcement");
     setAudience(isAdmin ? "everyone" : "leaders");
+    setNotify(true);
     setShowForm(false);
     load();
   };
@@ -236,6 +238,10 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
             rows={3}
             className="sp-textarea mb-2"
           />
+          <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+            <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+            Notify {audience === "leaders" ? "leaders" : "everyone"}
+          </label>
           <div className="flex gap-2">
             {isAdmin && (
               <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">

@@ -18,10 +18,11 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }
 
-  const { status } = await req.json();
+  const { status, notify } = await req.json();
   if (!VALID_STATUSES.includes(status)) {
     return NextResponse.json({ error: "Invalid status." }, { status: 400 });
   }
+  const shouldNotify = notify !== false;
 
   const supabase = supabaseServer();
   const { data: prayer, error: fetchError } = await supabase
@@ -44,7 +45,7 @@ export async function PATCH(req, { params }) {
   // Only notify the group for the "answered" milestone -- a genuine
   // celebration worth a push. "still-praying" is just a status refresh,
   // not news, so it stays silent.
-  if (status === "answered") {
+  if (status === "answered" && shouldNotify) {
     notifyGroup(groupId, {
       title: "A prayer was answered 🙏",
       body: prayer.is_anonymous ? "Someone's prayer request was answered." : "Tap to see what happened.",

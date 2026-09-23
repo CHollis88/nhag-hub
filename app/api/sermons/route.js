@@ -46,11 +46,12 @@ export async function POST(req) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { title, synopsis, speaker, link_url, sermon_date, series_id, series_order, status } = await req.json();
+  const { title, synopsis, speaker, link_url, sermon_date, series_id, series_order, status, notify } = await req.json();
   if (!title?.trim() || !synopsis?.trim()) {
     return NextResponse.json({ error: "title and synopsis are required." }, { status: 400 });
   }
   const finalStatus = status === "draft" ? "draft" : "published";
+  const shouldNotify = notify !== false;
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -77,11 +78,13 @@ export async function POST(req) {
     return NextResponse.json({ sermon: data });
   }
 
-  notifyGlobal({
-    title: "New Sermon",
-    body: speaker?.trim() ? `${title.trim()} — ${speaker.trim()}` : title.trim(),
-        url: "/?tab=sermons",
-  }).catch(() => {});
+  if (shouldNotify) {
+    notifyGlobal({
+      title: "New Sermon",
+      body: speaker?.trim() ? `${title.trim()} — ${speaker.trim()}` : title.trim(),
+      url: "/?tab=sermons",
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ sermon: data });
 }

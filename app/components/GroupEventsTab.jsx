@@ -216,6 +216,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
   const [needsVolunteers, setNeedsVolunteers] = useState(false);
   const [allowRsvp, setAllowRsvp] = useState(true);
   const [allowReplies, setAllowReplies] = useState(true);
+  const [notify, setNotify] = useState(true);
   const [volunteersNeeded, setVolunteersNeeded] = useState(3);
   const [openThread, setOpenThread] = useState(null);
   const [expandedRsvpId, setExpandedRsvpId] = useState(null);
@@ -358,6 +359,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
         volunteers_needed: needsVolunteers ? volunteersNeeded : null,
         allow_replies: allowReplies,
         allow_rsvp: allowRsvp,
+        notify,
       }),
     });
     if (res.ok) {
@@ -369,6 +371,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
       setNeedsVolunteers(false);
       setAllowReplies(true);
       setAllowRsvp(true);
+      setNotify(true);
       setShowForm(false);
       load();
     }
@@ -487,6 +490,10 @@ export default function GroupEventsTab({ groupId, canManage }) {
           <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
             <input type="checkbox" checked={allowReplies} onChange={(e) => setAllowReplies(e.target.checked)} />
             Allow replies on this event
+          </label>
+          <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+            <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+            Notify the group
           </label>
           {needsVolunteers && (
             <input

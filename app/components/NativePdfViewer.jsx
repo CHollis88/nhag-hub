@@ -33,7 +33,9 @@ export default function NativePdfViewer({ url }) {
   const canvasRefs = useRef([]);
   const pdfDocRef = useRef(null);
   const renderTokenRef = useRef(0); // bumped on every scale change to cancel stale renders
+  const renderTasksRef = useRef([]); // in-flight pdf.js RenderTask per page, so a new render can cancel the old one instead of colliding with it
   const pinchRef = useRef(null); // { startDist, startScale } while a pinch is active
+  const pendingPinchScaleRef = useRef(null); // the scale a pinch would commit to, set on release rather than every touchmove
 
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,6 +46,10 @@ export default function NativePdfViewer({ url }) {
   // margins look, since a phone-sized container and a hardcoded 1.2
   // scale rarely match.
   const [scale, setScale] = useState(null);
+  // Purely visual, CSS-only zoom feedback WHILE a pinch is actively in
+  // progress -- see the pinch handlers below for why this is separate
+  // from `scale` (which triggers the real, expensive PDF.js re-render).
+  const [livePinchScale, setLivePinchScale] = useState(1);
   const [status, setStatus] = useState("loading"); // "loading" | "ready" | "fallback"
 
   const directUrl = toDirectDownloadUrl(url);
@@ -112,6 +118,8 @@ export default function NativePdfViewer({ url }) {
 
     return () => {
       cancelled = true;
+      renderTasksRef.current.forEach((task) => task?.cancel());
+      renderTasksRef.current = [];
       pdfDocRef.current?.destroy();
       pdfDocRef.current = null;
     };
@@ -129,6 +137,27 @@ export default function NativePdfViewer({ url }) {
   // browser has to stretch a blurry, under-resolved bitmap to fill a
   // sharper physical display. This is what was making the text look
   // rough regardless of zoom level.
+  //
+  // The whole per-page block (getPage AND render) is wrapped in one
+  // try/catch that bails out on any failure. This matters specifically
+  // because closing this viewer (e.g. toggling Lyrics off while it's
+  // also playing audio) unmounts the component immediately, which
+  // destroys the pdf.js document in the loading effect's cleanup -- if
+  // a page was still mid-render at that exact moment, the next pdf.js
+  // call in this loop throws on the now-destroyed document. Without a
+  // catch around it, that became an uncaught rejection that crashed
+  // the view instead of just quietly having nothing left to do.
+  //
+  // Before starting a new render for a given page, this explicitly
+  // cancels any RenderTask already in flight for that same canvas via
+  // renderTask.cancel() -- pdf.js refuses to run two renders on one
+  // canvas concurrently and rejects the second one, so without this,
+  // rapid successive calls to renderAllPages (which is exactly what a
+  // fast scale change produces) would pile up colliding renders that
+  // silently fail one after another. That was the real cause of the
+  // canvas appearing to "lock up" -- the scale/percentage kept
+  // updating correctly, but every render attempt after the first was
+  // immediately rejected by pdf.js before it could draw anything.
   const renderAllPages = useCallback(async () => {
     const doc = pdfDocRef.current;
     if (!doc || !scale) return;
@@ -136,22 +165,29 @@ export default function NativePdfViewer({ url }) {
     const outputScale = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
 
     for (let i = 1; i <= doc.numPages; i++) {
+      if (renderTokenRef.current !== token) return; // superseded before touching this page at all
       const canvas = canvasRefs.current[i - 1];
       if (!canvas) continue;
-      const page = await doc.getPage(i);
-      if (renderTokenRef.current !== token) return; // superseded by a newer scale change
-      const viewport = page.getViewport({ scale });
-      canvas.width = Math.floor(viewport.width * outputScale);
-      canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = `${Math.floor(viewport.width)}px`;
-      canvas.style.height = `${Math.floor(viewport.height)}px`;
-      const ctx = canvas.getContext("2d");
-      const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
       try {
-        await page.render({ canvasContext: ctx, viewport, transform }).promise;
+        renderTasksRef.current[i - 1]?.cancel();
+        const page = await doc.getPage(i);
+        if (renderTokenRef.current !== token) return;
+        const viewport = page.getViewport({ scale });
+        canvas.width = Math.floor(viewport.width * outputScale);
+        canvas.height = Math.floor(viewport.height * outputScale);
+        canvas.style.width = `${Math.floor(viewport.width)}px`;
+        canvas.style.height = `${Math.floor(viewport.height)}px`;
+        const ctx = canvas.getContext("2d");
+        const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
+        const task = page.render({ canvasContext: ctx, viewport, transform });
+        renderTasksRef.current[i - 1] = task;
+        await task.promise;
       } catch {
-        // A render task cancelled mid-flight (superseded by a newer
-        // scale change) throws -- not a real error, just stale work.
+        // Document destroyed (unmounted mid-render), this render was
+        // explicitly cancelled above, or superseded by a newer scale
+        // change -- either way, nothing further to do for this page,
+        // and nothing here should surface as a crash.
+        return;
       }
       if (renderTokenRef.current !== token) return;
     }
@@ -211,15 +247,24 @@ export default function NativePdfViewer({ url }) {
   // listeners. This matters specifically because React attaches
   // onTouchMove as a PASSIVE listener by default -- calling
   // preventDefault() inside a passive listener is silently ignored by
-  // the browser, which is exactly why pinch wasn't doing anything: the
-  // handler was running, computing a new scale, but the browser's own
-  // default touch handling (or just nothing visually updating in sync
-  // with the gesture) wasn't actually being overridden. Attaching the
-  // listener manually with { passive: false } is what makes
-  // preventDefault actually take effect. Combined with this element's
-  // `touch-action: pan-y` (below), pinch is fully handled by us --
-  // single-finger scroll still works natively, but a two-finger pinch
-  // updates only this component's own `scale` state.
+  // the browser, which is exactly why pinch wasn't doing anything at
+  // first. Attaching the listener manually with { passive: false } is
+  // what makes preventDefault actually take effect. Combined with this
+  // element's `touch-action: pan-y` (below), pinch is fully handled by
+  // us -- single-finger scroll still works natively, but a two-finger
+  // pinch is ours.
+  //
+  // During the gesture itself, touchmove only updates `livePinchScale`
+  // -- a plain CSS transform applied below, free to update on every
+  // single touch event since it does no PDF.js work at all. The real
+  // `scale` state (which triggers an actual, expensive PDF.js
+  // re-render) is only committed once on touchend. Updating `scale`
+  // directly on every touchmove was the earlier bug: a fast pinch
+  // fires many events per second, each kicking off a full re-render
+  // before the previous one finished, and since concurrent renders on
+  // one canvas collide in pdf.js, the visible page would stop updating
+  // (even though the scale/percentage kept changing) well before the
+  // gesture felt "done."
   useEffect(() => {
     const el = containerRef.current;
     if (!el || status !== "ready") return;
@@ -229,6 +274,7 @@ export default function NativePdfViewer({ url }) {
       const [a, b] = e.touches;
       const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       pinchRef.current = { startDist: dist, startScale: scaleRef.current };
+      pendingPinchScaleRef.current = null;
     };
     const handleTouchMove = (e) => {
       if (e.touches.length !== 2 || !pinchRef.current) return;
@@ -236,10 +282,20 @@ export default function NativePdfViewer({ url }) {
       const [a, b] = e.touches;
       const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
       const ratio = dist / pinchRef.current.startDist;
-      setScale(Math.min(MAX_SCALE, Math.max(MIN_SCALE, +(pinchRef.current.startScale * ratio).toFixed(2))));
+      const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, +(pinchRef.current.startScale * ratio).toFixed(2)));
+      pendingPinchScaleRef.current = nextScale;
+      setLivePinchScale(nextScale / pinchRef.current.startScale);
     };
     const handleTouchEnd = () => {
       pinchRef.current = null;
+      setLivePinchScale(1);
+      // Commit the one real re-render for wherever the pinch actually
+      // ended, rather than the many intermediate values passed through
+      // along the way.
+      if (pendingPinchScaleRef.current != null) {
+        setScale(pendingPinchScaleRef.current);
+        pendingPinchScaleRef.current = null;
+      }
     };
 
     el.addEventListener("touchstart", handleTouchStart, { passive: true });
@@ -298,17 +354,26 @@ export default function NativePdfViewer({ url }) {
       <div
         ref={containerRef}
         style={{ touchAction: "pan-y" }}
-        className="flex-1 min-h-0 overflow-auto bg-paper flex flex-col items-center gap-3 py-3"
+        className="flex-1 min-h-0 overflow-auto bg-paper flex flex-col items-center py-3"
       >
         {status === "loading" && <p className="text-sm text-inkfaint py-6">Loading…</p>}
-        {Array.from({ length: numPages }).map((_, i) => (
-          <canvas
-            key={i}
-            data-page={i + 1}
-            ref={(el) => (canvasRefs.current[i] = el)}
-            className="shadow-sm bg-white max-w-full"
-          />
-        ))}
+        {/* This inner wrapper (not the scrollable container itself) is
+            what gets the live pinch transform -- transforming the
+            scroll container directly would distort its own scrollbars
+            and scroll math mid-gesture. */}
+        <div
+          style={{ transform: `scale(${livePinchScale})`, transformOrigin: "top center" }}
+          className="flex flex-col items-center gap-3"
+        >
+          {Array.from({ length: numPages }).map((_, i) => (
+            <canvas
+              key={i}
+              data-page={i + 1}
+              ref={(el) => (canvasRefs.current[i] = el)}
+              className="shadow-sm bg-white max-w-full"
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

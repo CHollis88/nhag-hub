@@ -28,6 +28,7 @@ export default function SermonsTab({ isAdmin }) {
   const [query, setQuery] = useState("");
   const [filterSeriesId, setFilterSeriesId] = useState("");
   const [viewMode, setViewMode] = useState("published"); // admin-only "Drafts" toggle
+  const [notify, setNotify] = useState(true);
 
   const load = useCallback(async () => {
     const params = new URLSearchParams();
@@ -79,10 +80,11 @@ export default function SermonsTab({ isAdmin }) {
         link_url: linkUrl,
         sermon_date: sermonDate || null,
         series_id: finalSeriesId || null,
-        // Only set status on a brand-new post -- editing an existing
-        // sermon shouldn't silently flip a published sermon back to
-        // draft; that's what the explicit Publish button is for.
-        ...(editingId ? {} : { status: asDraft ? "draft" : "published" }),
+        // Only set status/notify on a brand-new post -- editing an
+        // existing sermon shouldn't silently flip a published sermon
+        // back to draft (that's what the explicit Publish button is
+        // for), and shouldn't re-trigger a notification choice either.
+        ...(editingId ? {} : { status: asDraft ? "draft" : "published", notify }),
       }),
     });
     const data = await res.json();
@@ -98,6 +100,7 @@ export default function SermonsTab({ isAdmin }) {
     setSermonDate("");
     setSeriesId("");
     setNewSeriesName("");
+    setNotify(true);
     setShowForm(false);
     load();
     loadSeries();
@@ -246,6 +249,12 @@ export default function SermonsTab({ isAdmin }) {
             placeholder="Link to the video (Facebook, YouTube, etc.) — optional"
             className="sp-input mb-2"
           />
+          {!editingId && (
+            <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+              <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+              Notify everyone
+            </label>
+          )}
           <div className="flex gap-2">
             {!editingId && (
               <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">

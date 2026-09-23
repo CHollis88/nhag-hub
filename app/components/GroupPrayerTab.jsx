@@ -12,6 +12,7 @@ export default function GroupPrayerTab({ groupId, canManage }) {
   const [loadError, setLoadError] = useState("");
   const [body, setBody] = useState("");
   const [anonymous, setAnonymous] = useState(false);
+  const [notify, setNotify] = useState(true);
   const [editingId, setEditingId] = useState(null);
   const [editBody, setEditBody] = useState("");
 
@@ -42,11 +43,12 @@ export default function GroupPrayerTab({ groupId, canManage }) {
     const res = await fetch(`/api/groups/${groupId}/prayer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body, is_anonymous: anonymous }),
+      body: JSON.stringify({ body, is_anonymous: anonymous, notify }),
     });
     if (res.ok) {
       setBody("");
       setAnonymous(false);
+      setNotify(true);
       load();
     }
   };
@@ -119,6 +121,10 @@ export default function GroupPrayerTab({ groupId, canManage }) {
         <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
           <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} />
           Submit anonymously
+        </label>
+        <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+          <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+          Notify the group
         </label>
         <button type="submit" className="sp-btn-primary">Submit</button>
       </form>

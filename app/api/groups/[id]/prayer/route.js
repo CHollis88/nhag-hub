@@ -60,10 +60,11 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }
 
-  const { body, is_anonymous } = await req.json();
+  const { body, is_anonymous, notify } = await req.json();
   if (!body?.trim()) {
     return NextResponse.json({ error: "Prayer request can't be empty." }, { status: 400 });
   }
+  const shouldNotify = notify !== false;
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -76,7 +77,9 @@ export async function POST(req, { params }) {
 
   // Deliberately generic -- a prayer request's content shouldn't show up
   // in a lock-screen notification banner, even for a non-anonymous one.
-  notifyGroup(groupId, { title: "New Prayer Request", body: "Tap to view.", url: `/?group=${groupId}&tab=prayer` }).catch(() => {});
+  if (shouldNotify) {
+    notifyGroup(groupId, { title: "New Prayer Request", body: "Tap to view.", url: `/?group=${groupId}&tab=prayer` }).catch(() => {});
+  }
 
   return NextResponse.json({ prayer: data });
 }

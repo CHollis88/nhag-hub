@@ -29,7 +29,7 @@ export async function GET(req, { params }) {
     setlists.map(async (s) => {
       const { data: songs } = await supabase
         .from("program_setlist_songs")
-        .select("id, note, position, program_songs(id, title, composer)")
+        .select("id, note, position, program_songs(id, title, composer, lyrics_url, chords_url, sheet_music_url, soprano_url, alto_url, tenor_url, bass_url, split_track_url, demo_url)")
         .eq("setlist_id", s.id)
         .order("position", { ascending: true });
       return { ...s, songs: songs || [] };
@@ -51,13 +51,14 @@ export async function POST(req, { params }) {
     );
   }
 
-  const { service_date, service } = await req.json();
+  const { service_date, service, notify } = await req.json();
   if (!service_date || !VALID_SERVICES.includes(service)) {
     return NextResponse.json(
       { error: `service_date is required and service must be one of: ${VALID_SERVICES.join(", ")}` },
       { status: 400 }
     );
   }
+  const shouldNotify = notify !== false;
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -71,12 +72,14 @@ export async function POST(req, { params }) {
   // Include the program's own name in the notification -- a bare "New
   // Setlist" would be ambiguous between the ministry's main setlists and
   // one belonging to a specific program.
-  const { data: program } = await supabase.from("programs").select("name").eq("id", programId).maybeSingle();
-  notifyGroup(groupId, {
-    title: program?.name ? `New ${program.name} Setlist` : "New Program Setlist",
-    body: `${service} — ${service_date}`,
-    url: `/?group=${groupId}&tab=programs`,
-  }).catch(() => {});
+  if (shouldNotify) {
+    const { data: program } = await supabase.from("programs").select("name").eq("id", programId).maybeSingle();
+    notifyGroup(groupId, {
+      title: program?.name ? `New ${program.name} Setlist` : "New Program Setlist",
+      body: `${service} — ${service_date}`,
+      url: `/?group=${groupId}&tab=programs`,
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ setlist: { ...data, songs: [] } });
 }

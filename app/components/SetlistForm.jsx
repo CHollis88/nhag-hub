@@ -15,6 +15,10 @@ export default function SetlistForm({ initial, allSongs, onCancel, onSave }) {
   );
   const [query, setQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  // Only meaningful for a brand-new setlist -- editing an existing one
+  // doesn't trigger a fresh notification regardless, so there's
+  // nothing for this to toggle in that mode.
+  const [notify, setNotify] = useState(true);
 
   const results = useMemo(() => {
     if (!query.trim()) return [];
@@ -53,6 +57,7 @@ export default function SetlistForm({ initial, allSongs, onCancel, onSave }) {
         service_date: serviceDate,
         service,
         songs: entries.map((e) => ({ song_id: e.song_id, note: e.note })),
+        notify,
       });
     } finally {
       setSaving(false);
@@ -126,6 +131,13 @@ export default function SetlistForm({ initial, allSongs, onCancel, onSave }) {
           </div>
         )}
       </div>
+
+      {!initial && (
+        <label className="flex items-center gap-2 text-sm text-inksoft">
+          <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+          Notify the group
+        </label>
+      )}
 
       <div className="flex gap-2 pt-1">
         <button onClick={onCancel} className="sp-btn-secondary flex-1">

@@ -172,6 +172,7 @@ export default function EventsTab({ isAdmin }) {
   const [repeat, setRepeat] = useState("");
   const [needsVolunteers, setNeedsVolunteers] = useState(false);
   const [allowRsvp, setAllowRsvp] = useState(true);
+  const [notify, setNotify] = useState(true);
   const [volunteersNeeded, setVolunteersNeeded] = useState(3);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -317,6 +318,7 @@ export default function EventsTab({ isAdmin }) {
         repeat_count: repeat ? DEFAULT_REPEAT_COUNT[repeat] : null,
         volunteers_needed: needsVolunteers ? volunteersNeeded : null,
         allow_rsvp: allowRsvp,
+        notify,
       }),
     });
     const data = await res.json();
@@ -331,6 +333,7 @@ export default function EventsTab({ isAdmin }) {
     setRepeat("");
     setNeedsVolunteers(false);
     setAllowRsvp(true);
+    setNotify(true);
     setShowForm(false);
     load();
   };
@@ -416,6 +419,10 @@ export default function EventsTab({ isAdmin }) {
           <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
             <input type="checkbox" checked={allowRsvp} onChange={(e) => setAllowRsvp(e.target.checked)} />
             Allow RSVPs on this event
+          </label>
+          <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+            <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+            Notify everyone
           </label>
           {needsVolunteers && (
             <input

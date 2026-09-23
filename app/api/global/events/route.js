@@ -63,10 +63,11 @@ export async function POST(req) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
-  const { title, event_date, event_time, location, notes, volunteers_needed, allow_rsvp, repeat, repeat_count } = await req.json();
+  const { title, event_date, event_time, location, notes, volunteers_needed, allow_rsvp, repeat, repeat_count, notify } = await req.json();
   if (!title?.trim() || !event_date) {
     return NextResponse.json({ error: "title and event_date are required." }, { status: 400 });
   }
+  const shouldNotify = notify !== false;
 
   const dates = generateOccurrenceDates(event_date, repeat, repeat_count);
   const recurrenceGroupId = dates.length > 1 ? crypto.randomUUID() : null;
@@ -88,11 +89,13 @@ export async function POST(req) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  notifyGlobal({
-    title: "Church Event",
-    body: dates.length > 1 ? `${title.trim()} (${dates.length} dates)` : title.trim(),
-    url: "/?tab=events",
-  }).catch(() => {});
+  if (shouldNotify) {
+    notifyGlobal({
+      title: "Church Event",
+      body: dates.length > 1 ? `${title.trim()} (${dates.length} dates)` : title.trim(),
+      url: "/?tab=events",
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ events: data });
 }

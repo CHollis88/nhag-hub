@@ -10,7 +10,8 @@ export async function PATCH(req, { params }) {
   }
 
   const { id } = await params;
-  const { title, synopsis, speaker, link_url, sermon_date, series_id, series_order, status } = await req.json();
+  const { title, synopsis, speaker, link_url, sermon_date, series_id, series_order, status, notify } = await req.json();
+  const shouldNotify = notify !== false;
 
   const updates = { updated_at: new Date().toISOString() };
   if (title !== undefined) {
@@ -57,7 +58,7 @@ export async function PATCH(req, { params }) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Sermon not found." }, { status: 404 });
 
-  if (publishing) {
+  if (publishing && shouldNotify) {
     notifyGlobal({
       title: "New Sermon",
       body: data.speaker ? `${data.title} — ${data.speaker}` : data.title,

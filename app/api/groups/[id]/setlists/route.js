@@ -32,7 +32,7 @@ export async function GET(req, { params }) {
     setlists.map(async (s) => {
       const { data: songs } = await supabase
         .from("group_setlist_songs")
-        .select("id, note, position, group_songs(id, title, composer)")
+        .select("id, note, position, group_songs(id, title, composer, lyrics_url, chords_url, sheet_music_url, soprano_url, alto_url, tenor_url, bass_url, split_track_url, demo_url)")
         .eq("setlist_id", s.id)
         .order("position", { ascending: true });
       return { ...s, songs: songs || [] };
@@ -54,13 +54,14 @@ export async function POST(req, { params }) {
     );
   }
 
-  const { service_date, service } = await req.json();
+  const { service_date, service, notify } = await req.json();
   if (!service_date || !VALID_SERVICES.includes(service)) {
     return NextResponse.json(
       { error: `service_date is required and service must be one of: ${VALID_SERVICES.join(", ")}` },
       { status: 400 }
     );
   }
+  const shouldNotify = notify !== false;
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -71,11 +72,13 @@ export async function POST(req, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  notifyGroup(groupId, {
-    title: "New Setlist",
-    body: `${service} — ${service_date}`,
-    url: `/?group=${groupId}&tab=setlists`,
-  }).catch(() => {});
+  if (shouldNotify) {
+    notifyGroup(groupId, {
+      title: "New Setlist",
+      body: `${service} — ${service_date}`,
+      url: `/?group=${groupId}&tab=setlists`,
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ setlist: { ...data, songs: [] } });
 }

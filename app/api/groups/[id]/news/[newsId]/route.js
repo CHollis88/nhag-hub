@@ -16,11 +16,12 @@ export async function PATCH(req, { params }) {
     );
   }
 
-  const { title, body, pinned, status } = await req.json();
+  const { title, body, pinned, status, notify } = await req.json();
   const updates = { updated_at: new Date().toISOString() };
   if (title !== undefined) updates.title = title.trim();
   if (body !== undefined) updates.body = body.trim();
   if (pinned !== undefined) updates.pinned = Boolean(pinned);
+  const shouldNotify = notify !== false;
   let publishing = false;
   if (status !== undefined) {
     if (!["draft", "published"].includes(status)) {
@@ -55,10 +56,12 @@ export async function PATCH(req, { params }) {
   if (publishing) {
     const kindLabel =
       draftKind === "class" ? "Class Notes" : draftKind === "discuss" ? "Discussion" : draftKind === "leader" ? "Leaders Only" : "Group News";
-    if (draftKind === "leader") {
-      notifyGroupLeaders(groupId, { title: kindLabel, body: data.title, url: `/?group=${groupId}&tab=news` }).catch(() => {});
-    } else {
-      notifyGroup(groupId, { title: kindLabel, body: data.title, url: `/?group=${groupId}&tab=news` }).catch(() => {});
+    if (shouldNotify) {
+      if (draftKind === "leader") {
+        notifyGroupLeaders(groupId, { title: kindLabel, body: data.title, url: `/?group=${groupId}&tab=news` }).catch(() => {});
+      } else {
+        notifyGroup(groupId, { title: kindLabel, body: data.title, url: `/?group=${groupId}&tab=news` }).catch(() => {});
+      }
     }
   }
 

@@ -53,9 +53,12 @@ export async function POST(req) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { title, body, category, audience, status } = await req.json();
+  const { title, body, category, audience, status, notify } = await req.json();
   const finalAudience = audience === "leaders" ? "leaders" : "everyone";
   const finalStatus = status === "draft" ? "draft" : "published";
+  // Undefined/omitted defaults to true, so any client that hasn't been
+  // updated with the checkbox yet keeps notifying exactly as before.
+  const shouldNotify = notify !== false;
 
   const authorized = finalAudience === "leaders" ? await isAnyGroupLeader(user) : user.is_church_admin;
   if (!authorized) {
@@ -95,14 +98,16 @@ export async function POST(req) {
     return NextResponse.json({ news: data });
   }
 
-  if (finalAudience === "leaders") {
-    notifyAllLeaders({ title: "Leaders Only", body: title.trim(), url: "/?tab=news" }).catch(() => {});
-  } else {
-    notifyGlobal({
-      title: finalCategory === "pastor_message" ? "Message from the Pastor" : "Church News",
-      body: title.trim(),
-      url: "/?tab=news",
-    }).catch(() => {});
+  if (shouldNotify) {
+    if (finalAudience === "leaders") {
+      notifyAllLeaders({ title: "Leaders Only", body: title.trim(), url: "/?tab=news" }).catch(() => {});
+    } else {
+      notifyGlobal({
+        title: finalCategory === "pastor_message" ? "Message from the Pastor" : "Church News",
+        body: title.trim(),
+        url: "/?tab=news",
+      }).catch(() => {});
+    }
   }
 
   return NextResponse.json({ news: data });

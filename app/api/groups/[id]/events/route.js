@@ -69,10 +69,11 @@ export async function POST(req, { params }) {
     );
   }
 
-  const { title, event_date, event_time, location, notes, volunteers_needed, allow_replies, allow_rsvp, repeat, repeat_count } = await req.json();
+  const { title, event_date, event_time, location, notes, volunteers_needed, allow_replies, allow_rsvp, repeat, repeat_count, notify } = await req.json();
   if (!title?.trim() || !event_date) {
     return NextResponse.json({ error: "title and event_date are required." }, { status: 400 });
   }
+  const shouldNotify = notify !== false;
 
   const dates = generateOccurrenceDates(event_date, repeat, repeat_count);
   const recurrenceGroupId = dates.length > 1 ? crypto.randomUUID() : null;
@@ -96,11 +97,13 @@ export async function POST(req, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  notifyGroup(groupId, {
-    title: "Group Event",
-    body: dates.length > 1 ? `${title.trim()} (${dates.length} dates)` : title.trim(),
-    url: `/?group=${groupId}&tab=events`,
-  }).catch(() => {});
+  if (shouldNotify) {
+    notifyGroup(groupId, {
+      title: "Group Event",
+      body: dates.length > 1 ? `${title.trim()} (${dates.length} dates)` : title.trim(),
+      url: `/?group=${groupId}&tab=events`,
+    }).catch(() => {});
+  }
 
   return NextResponse.json({ events: data });
 }

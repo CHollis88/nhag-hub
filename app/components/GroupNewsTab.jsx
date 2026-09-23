@@ -77,6 +77,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
   const [editBody, setEditBody] = useState("");
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState("published"); // "published" | "drafts" -- leader-only toggle
+  const [notify, setNotify] = useState(true);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}/news${viewMode === "drafts" ? "?drafts=1" : ""}`);
@@ -93,12 +94,13 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
     const res = await fetch(`/api/groups/${groupId}/news`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body, kind: formKind, status: asDraft ? "draft" : "published" }),
+      body: JSON.stringify({ title, body, kind: formKind, status: asDraft ? "draft" : "published", notify }),
     });
     if (res.ok) {
       setTitle("");
       setBody("");
       setFormKind(null);
+      setNotify(true);
       load();
     }
   };
@@ -205,6 +207,10 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
             rows={formKind === "class" ? 6 : 3}
             className="sp-textarea mb-2"
           />
+          <label className="flex items-center gap-2 mb-2 text-sm text-inksoft">
+            <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+            Notify {formKind === "leader" ? "this group's leaders" : "the group"}
+          </label>
           <div className="flex gap-2">
             <button type="button" onClick={() => setFormKind(null)} className="sp-btn-secondary flex-1">Cancel</button>
             <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">Save as Draft</button>

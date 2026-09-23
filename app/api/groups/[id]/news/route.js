@@ -62,12 +62,13 @@ export async function POST(req, { params }) {
     );
   }
 
-  const { title, body, kind, status } = await req.json();
+  const { title, body, kind, status, notify } = await req.json();
   if (!title?.trim() || !body?.trim()) {
     return NextResponse.json({ error: "title and body are required." }, { status: 400 });
   }
   const finalKind = kind && VALID_KINDS.includes(kind) ? kind : "announcement";
   const finalStatus = status === "draft" ? "draft" : "published";
+  const shouldNotify = notify !== false;
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -91,9 +92,9 @@ export async function POST(req, { params }) {
   // kind system being visibility-scoped at read time; the notification
   // should match who's actually allowed to see the content.
   if (finalKind === "leader") {
-    notifyGroupLeaders(groupId, { title: kindLabel, body: title.trim(), url: `/?group=${groupId}&tab=news` }).catch(() => {});
+    if (shouldNotify) notifyGroupLeaders(groupId, { title: kindLabel, body: title.trim(), url: `/?group=${groupId}&tab=news` }).catch(() => {});
   } else {
-    notifyGroup(groupId, { title: kindLabel, body: title.trim(), url: `/?group=${groupId}&tab=news` }).catch(() => {});
+    if (shouldNotify) notifyGroup(groupId, { title: kindLabel, body: title.trim(), url: `/?group=${groupId}&tab=news` }).catch(() => {});
   }
 
   return NextResponse.json({ news: data });
