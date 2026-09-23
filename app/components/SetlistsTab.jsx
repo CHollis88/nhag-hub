@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, PlayCircle } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import SetlistForm from "./SetlistForm";
 import MediaViewerModal from "./MediaViewerModal";
@@ -144,31 +144,30 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
             {s.songs.length === 0 ? (
               <p className="text-sm text-inkfaint">No songs added yet.</p>
             ) : (
-              <ol className="space-y-1.5">
+              <ol className="space-y-2">
                 {s.songs.map((song, i) => {
                   const linkedSong = song.group_songs || song.program_songs;
                   const available = linkedSong
                     ? SONG_MEDIA_FIELDS.filter(([key]) => linkedSong[key])
                     : [];
                   return (
-                    <li key={song.id} className="flex items-center gap-2 text-sm">
-                      <span className="text-inkfaint w-4 flex-shrink-0">{i + 1}.</span>
-                      <span className="text-ink flex-1 truncate">{linkedSong?.title}</span>
-                      {song.note && <span className="text-inkfaint text-xs flex-shrink-0">{song.note}</span>}
+                    <li key={song.id} className="text-sm">
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-inkfaint w-4 flex-shrink-0">{i + 1}.</span>
+                        <span className="text-ink flex-1">{linkedSong?.title}</span>
+                        {song.note && <span className="text-inkfaint text-xs">{song.note}</span>}
+                      </div>
+                      {/* One button, not a pill per link -- tapping it opens the
+                          same full-screen viewer Songs uses, which already
+                          shows every link this song has as its own pill up
+                          top, so nothing here needs to enumerate them itself. */}
                       {available.length > 0 && (
-                        <div className="flex gap-0.5 flex-shrink-0">
-                          {available.map(([key, label, Icon]) => (
-                            <button
-                              key={key}
-                              onClick={() => setViewer({ song: linkedSong, field: key })}
-                              title={label}
-                              aria-label={label}
-                              className="text-accent p-1"
-                            >
-                              <Icon size={13} />
-                            </button>
-                          ))}
-                        </div>
+                        <button
+                          onClick={() => setViewer({ song: linkedSong, field: available[0][0] })}
+                          className="ml-6 mt-1 inline-flex items-center gap-1.5 text-xs text-accent"
+                        >
+                          <PlayCircle size={14} /> View media
+                        </button>
                       )}
                     </li>
                   );
