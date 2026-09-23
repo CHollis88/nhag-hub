@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 // fetch a file's content, unlike the old `uc?export=download` link
 // (which routinely serves Google's "can't scan for viruses" HTML page
 // instead of the real file for anything but the smallest files). This
-// is what NativeAudioPlayer and NativePdfViewer point at.
+// is what NativeAudioPlayer and NativeDocViewer point at.
 //
 // On ANY failure -- no API key configured, a network error, Drive
 // returning a non-2xx status -- this redirects (302) to Google's own
@@ -16,7 +16,7 @@ import { getCurrentUser } from "@/lib/auth";
 //   - <audio src=proxyUrl> follows the redirect, can't decode the HTML
 //     it lands on as audio, fires its normal error event, and
 //     NativeAudioPlayer's existing onError handler takes it from there.
-//   - <iframe src=proxyUrl> (NativePdfViewer) just follows the redirect
+//   - <iframe src=proxyUrl> (NativeDocViewer) just follows the redirect
 //     and ends up showing Google's own preview UI, automatically.
 // Google's /preview URL needs nothing but the file ID -- no API key,
 // no auth beyond what the file's own sharing settings allow -- so it's

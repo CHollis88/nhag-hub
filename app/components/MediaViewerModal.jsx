@@ -4,7 +4,8 @@ import { useState } from "react";
 import { X, SkipBack, SkipForward } from "lucide-react";
 import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
 import NativeAudioPlayer from "./NativeAudioPlayer";
-import NativePdfViewer from "./NativePdfViewer";
+import NativeDocViewer from "./NativeDocViewer";
+import MediaErrorBoundary from "./MediaErrorBoundary";
 
 // Full-screen inline viewer/player -- shared by SongsTab (tapping a
 // link button on a song), and identical for Choir's main library and
@@ -106,7 +107,9 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
       <div className="flex-1 min-h-0 flex flex-col">
         {viewingField && (
           <div className="flex-1 min-h-0 bg-paper">
-            <NativePdfViewer url={viewingUrl} />
+            <MediaErrorBoundary resetKey={viewingField}>
+              <NativeDocViewer url={viewingUrl} />
+            </MediaErrorBoundary>
           </div>
         )}
 
@@ -125,7 +128,9 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
                 : "flex-1 min-h-0 bg-paper"
             }
           >
-            <NativeAudioPlayer url={playingUrl} label={playingLabel} compact={!!viewingField} />
+            <MediaErrorBoundary resetKey={playingField}>
+              <NativeAudioPlayer url={playingUrl} label={playingLabel} compact={!!viewingField} />
+            </MediaErrorBoundary>
           </div>
         )}
 
