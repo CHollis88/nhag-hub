@@ -144,28 +144,28 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
             {s.songs.length === 0 ? (
               <p className="text-sm text-inkfaint">No songs added yet.</p>
             ) : (
-              <ol className="space-y-2">
+              <ol className="space-y-1.5">
                 {s.songs.map((song, i) => {
                   const linkedSong = song.group_songs || song.program_songs;
                   const available = linkedSong
                     ? SONG_MEDIA_FIELDS.filter(([key]) => linkedSong[key])
                     : [];
                   return (
-                    <li key={song.id} className="text-sm">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-inkfaint w-4 flex-shrink-0">{i + 1}.</span>
-                        <span className="text-ink flex-1">{linkedSong?.title}</span>
-                        {song.note && <span className="text-inkfaint text-xs">{song.note}</span>}
-                      </div>
+                    <li key={song.id} className="flex items-center gap-2 text-sm">
+                      <span className="text-inkfaint w-4 flex-shrink-0">{i + 1}.</span>
+                      <span className="text-ink flex-1 truncate">{linkedSong?.title}</span>
+                      {song.note && <span className="text-inkfaint text-xs flex-shrink-0">{song.note}</span>}
                       {available.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mt-1 ml-6">
+                        <div className="flex gap-0.5 flex-shrink-0">
                           {available.map(([key, label, Icon]) => (
                             <button
                               key={key}
                               onClick={() => setViewer({ song: linkedSong, field: key })}
-                              className="inline-flex items-center gap-1 text-[0.6875rem] bg-accent/8 text-accent rounded-full px-2 py-1"
+                              title={label}
+                              aria-label={label}
+                              className="text-accent p-1"
                             >
-                              <Icon size={10} /> {label}
+                              <Icon size={13} />
                             </button>
                           ))}
                         </div>
