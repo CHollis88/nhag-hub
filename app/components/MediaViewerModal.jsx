@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, ExternalLink } from "lucide-react";
 import { SONG_MEDIA_FIELDS, toEmbedUrl } from "@/lib/songMedia";
+import NativeAudioPlayer from "./NativeAudioPlayer";
 
 // Full-screen inline viewer/player -- shared by SongsTab (tapping a
 // link button on a song), and identical for Choir's main library and
@@ -11,13 +12,13 @@ import { SONG_MEDIA_FIELDS, toEmbedUrl } from "@/lib/songMedia";
 // Playing and viewing are tracked separately on purpose: tapping an
 // audio pill (Soprano, Split Track, etc.) starts/switches what's
 // playing; tapping a pdf pill (Lyrics, Chords, Sheet Music) only
-// changes what's shown above it. The audio <iframe> below is a single
-// element that stays in the exact same spot in the tree the whole
-// time -- only its wrapping div's height changes (full-size when
-// nothing's being viewed, a mini bar once a pdf is). Because it never
-// moves to a different branch of the JSX and its `src` doesn't change
-// just from picking a pdf, React reuses the same DOM node instead of
-// re-mounting it, so playback isn't interrupted by switching to Lyrics.
+// changes what's shown above it. NativeAudioPlayer (rendered below) is
+// a single stable element that stays in the exact same spot in the
+// tree the whole time -- only its wrapping div's height changes
+// (full-size when nothing's being viewed, a mini bar once a pdf is).
+// Because it never moves to a different branch of the JSX and its
+// `url` prop doesn't change just from picking a pdf, playback isn't
+// interrupted by switching to Lyrics.
 export default function MediaViewerModal({ song, initialField, onClose }) {
   const initialType = SONG_MEDIA_FIELDS.find(([key]) => key === initialField)?.[3];
   const [viewingField, setViewingField] = useState(initialType === "pdf" ? initialField : null);
@@ -33,7 +34,7 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
   const viewingUrl = viewingField ? song[viewingField] : null;
   const viewingEmbed = viewingUrl ? toEmbedUrl(viewingUrl) : null;
   const playingUrl = playingField ? song[playingField] : null;
-  const playingEmbed = playingUrl ? toEmbedUrl(playingUrl) : null;
+  const playingLabel = SONG_MEDIA_FIELDS.find(([key]) => key === playingField)?.[1];
 
   return (
     <div className="fixed inset-0 bg-card z-[80] flex flex-col">
@@ -72,8 +73,13 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
           </div>
         )}
 
-        {/* Same iframe element the whole time -- only this wrapper's
-            height changes depending on whether a pdf is also showing. */}
+        {/* NativeAudioPlayer is always rendered in this same spot
+            whenever playingField is set -- only the wrapping div's
+            height changes (full-size when nothing's being viewed, a
+            mini bar once a pdf is). NativeAudioPlayer itself keeps its
+            <audio> element stable across its own compact/full layout
+            switch (see that component's comment), so nothing here
+            interrupts playback just from opening Lyrics. */}
         {playingField && (
           <div
             className={
@@ -82,11 +88,7 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
                 : "flex-1 min-h-0 bg-paper"
             }
           >
-            {playingEmbed ? (
-              <iframe src={playingEmbed} className="w-full h-full border-0" allow="autoplay" />
-            ) : (
-              <UnpreviewableFallback url={playingUrl} />
-            )}
+            <NativeAudioPlayer url={playingUrl} label={playingLabel} compact={!!viewingField} />
           </div>
         )}
 
