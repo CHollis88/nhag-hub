@@ -38,6 +38,7 @@ export default function NativeDocViewer({ url }) {
   const pdfDocRef = useRef(null);
   const renderTokenRef = useRef(0);
   const renderTasksRef = useRef([]);
+  const activeRenderPromiseRef = useRef(null); // the currently in-flight page.render() promise, if any -- see cleanup below
   const pinchRef = useRef(null);
   const pendingPinchScaleRef = useRef(null);
 
@@ -118,16 +119,34 @@ export default function NativeDocViewer({ url }) {
 
     async function loadDocx(data) {
       const docxPreview = await import("docx-preview");
-      const container = docxContainerRef.current;
-      if (!container) throw new Error("docx container not mounted");
-      container.innerHTML = "";
-      await docxPreview.renderAsync(data, container, undefined, {
+      const hostEl = docxContainerRef.current;
+      if (!hostEl) throw new Error("docx container not mounted");
+      // Rendered into a shadow root, not directly into the app's own
+      // DOM -- the app's global Tailwind CSS reset zeroes out default
+      // heading/paragraph/list styling on every element (by design,
+      // for the app's own UI), but that reset was ALSO stripping the
+      // Word document's own default appearance, since it applied to
+      // this content too as a plain descendant. A shadow root's
+      // contents are genuinely style-isolated from the rest of the
+      // page, so only docx-preview's own generated <style> (which
+      // renderAsync puts inside this same container since no separate
+      // styleContainer is passed) applies here -- the doc renders with
+      // its real formatting instead of the app's UI styling bleeding
+      // into it. scrollIntoView, IntersectionObserver, and querying
+      // elements all still work normally across a shadow boundary, so
+      // nothing else about the page-navigation logic below needs to
+      // change for this.
+      let shadowRoot = hostEl.shadowRoot;
+      if (!shadowRoot) shadowRoot = hostEl.attachShadow({ mode: "open" });
+      const shadowBody = document.createElement("div");
+      shadowRoot.replaceChildren(shadowBody);
+      await docxPreview.renderAsync(data, shadowBody, undefined, {
         inWrapper: true,
         breakPages: true,
         ignoreLastRenderedPageBreak: false,
       });
       if (cancelled) return;
-      const pages = Array.from(container.querySelectorAll("section.docx"));
+      const pages = Array.from(shadowBody.querySelectorAll("section.docx"));
       docxPageRefs.current = pages;
       setNumPages(pages.length || 1);
       setScale(1);
@@ -136,10 +155,25 @@ export default function NativeDocViewer({ url }) {
 
     return () => {
       cancelled = true;
-      renderTasksRef.current.forEach((task) => task?.cancel());
-      renderTasksRef.current = [];
-      pdfDocRef.current?.destroy();
+      // Deliberately does NOT call renderTask.cancel() or destroy the
+      // document while a page.render() is actively in flight -- that
+      // combination (tearing down mid-paint) is what was crashing the
+      // whole page at the browser level on some devices, not something
+      // catchable as a JS error. Instead, wait for whatever's currently
+      // painting to finish or fail naturally, then clean up. The
+      // renderTokenRef check inside renderAllPages already stops it
+      // from starting any FURTHER pages once cancelled is true, so
+      // there's at most one render left to wait out, not the whole
+      // remaining page list.
+      const doc = pdfDocRef.current;
       pdfDocRef.current = null;
+      const pending = activeRenderPromiseRef.current;
+      const destroy = () => doc?.destroy();
+      if (pending) {
+        pending.catch(() => {}).then(destroy);
+      } else {
+        destroy();
+      }
     };
   }, [directUrl]);
 
@@ -148,12 +182,16 @@ export default function NativeDocViewer({ url }) {
   // sizes it on-screen at plain `scale`, so text stays crisp on
   // high-DPI screens instead of the browser stretching a low-res
   // bitmap. The whole per-page block is wrapped in one try/catch and
-  // explicitly cancels any in-flight RenderTask for that page first --
-  // without both of those, closing this viewer mid-render (destroying
-  // the pdf.js document) or a fast scale change (colliding renders on
-  // one canvas, which pdf.js rejects) surfaced as a crash or a
-  // silently frozen page instead of just quietly having nothing left
-  // to do.
+  // explicitly cancels any in-flight RenderTask for that same page
+  // before starting a fresh one -- pdf.js rejects a second concurrent
+  // render on one canvas, so without this, a fast scale change
+  // (several renders fired in quick succession) would pile up
+  // colliding renders that silently fail one after another, leaving
+  // the page looking frozen. Unmounting entirely (closing this viewer)
+  // is handled separately, in the loading effect's cleanup above --
+  // deliberately NOT by cancelling here, since interrupting an active
+  // paint specifically at that moment was what could crash the whole
+  // page at the browser level.
   const renderAllPages = useCallback(async () => {
     const doc = pdfDocRef.current;
     if (!doc || !scale) return;
@@ -184,7 +222,12 @@ export default function NativeDocViewer({ url }) {
         const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
         const task = page.render({ canvasContext: ctx, viewport, transform });
         renderTasksRef.current[i - 1] = task;
-        await task.promise;
+        activeRenderPromiseRef.current = task.promise;
+        try {
+          await task.promise;
+        } finally {
+          if (activeRenderPromiseRef.current === task.promise) activeRenderPromiseRef.current = null;
+        }
       } catch {
         return;
       }
