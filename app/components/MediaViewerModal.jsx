@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { X, ExternalLink } from "lucide-react";
-import { SONG_MEDIA_FIELDS, toEmbedUrl } from "@/lib/songMedia";
+import { X, SkipBack, SkipForward } from "lucide-react";
+import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
 import NativeAudioPlayer from "./NativeAudioPlayer";
+import NativePdfViewer from "./NativePdfViewer";
 
 // Full-screen inline viewer/player -- shared by SongsTab (tapping a
 // link button on a song), and identical for Choir's main library and
@@ -25,14 +26,38 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
   const [playingField, setPlayingField] = useState(initialType === "audio" ? initialField : null);
 
   const available = SONG_MEDIA_FIELDS.filter(([key]) => song[key]);
+  // Just the audio ones, in the same fixed order as SONG_MEDIA_FIELDS
+  // (Soprano, Alto, Tenor, Bass, Split Track, Demo) -- what the
+  // forward/back buttons cycle through. Pdf fields aren't part of this
+  // cycle; they're switched independently via their own pills.
+  const audioFields = available.filter(([, , , type]) => type === "audio");
 
   const selectField = (key, type) => {
-    if (type === "audio") setPlayingField(key);
-    else setViewingField(key);
+    if (type === "audio") {
+      setPlayingField(key);
+    } else {
+      // Tapping the pdf pill that's already showing toggles it off
+      // (back to audio-only, or "nothing linked" if nothing's
+      // playing) -- without this, once a pdf was picked there was no
+      // way back to the plain audio view short of closing the whole
+      // viewer.
+      setViewingField((prev) => (prev === key ? null : key));
+    }
+  };
+
+  const currentIndex = audioFields.findIndex(([key]) => key === playingField);
+  // Wraps around at either end -- treated like a real player's
+  // next/prev, not a "disable at the edges" control, since cycling
+  // straight from Bass back to Soprano is more useful mid-rehearsal
+  // than hitting a dead end.
+  const goToTrack = (delta) => {
+    if (audioFields.length === 0) return;
+    const base = currentIndex === -1 ? 0 : currentIndex;
+    const nextIndex = (base + delta + audioFields.length) % audioFields.length;
+    setPlayingField(audioFields[nextIndex][0]);
   };
 
   const viewingUrl = viewingField ? song[viewingField] : null;
-  const viewingEmbed = viewingUrl ? toEmbedUrl(viewingUrl) : null;
   const playingUrl = playingField ? song[playingField] : null;
   const playingLabel = SONG_MEDIA_FIELDS.find(([key]) => key === playingField)?.[1];
 
@@ -62,14 +87,26 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
         })}
       </div>
 
+      {/* Skip-track row: only shown when a song has more than one audio
+          field, so switching parts mid-rehearsal doesn't require
+          tapping a specific pill each time. Sits above the content
+          area, visible in both the audio-only and audio+pdf layouts. */}
+      {playingField && audioFields.length > 1 && (
+        <div className="flex items-center justify-center gap-4 px-4 py-2 border-b border-linesoft flex-shrink-0">
+          <button onClick={() => goToTrack(-1)} className="text-inkfaint p-1" aria-label="Previous track">
+            <SkipBack size={18} />
+          </button>
+          <span className="text-xs text-inkfaint min-w-[5rem] text-center">{playingLabel}</span>
+          <button onClick={() => goToTrack(1)} className="text-inkfaint p-1" aria-label="Next track">
+            <SkipForward size={18} />
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 min-h-0 flex flex-col">
         {viewingField && (
           <div className="flex-1 min-h-0 bg-paper">
-            {viewingEmbed ? (
-              <iframe src={viewingEmbed} className="w-full h-full border-0" allow="autoplay" />
-            ) : (
-              <UnpreviewableFallback url={viewingUrl} />
-            )}
+            <NativePdfViewer url={viewingUrl} />
           </div>
         )}
 
@@ -98,17 +135,6 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function UnpreviewableFallback({ url }) {
-  return (
-    <div className="h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
-      <p className="text-sm text-inkfaint">This link can't be previewed inline.</p>
-      <a href={url} target="_blank" rel="noopener noreferrer" className="sp-btn-secondary flex items-center gap-1.5">
-        Open <ExternalLink size={13} />
-      </a>
     </div>
   );
 }
