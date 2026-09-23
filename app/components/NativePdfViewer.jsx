@@ -43,7 +43,17 @@ export default function NativePdfViewer({ url }) {
 
   const directUrl = toDirectDownloadUrl(url);
 
-  // Load the document once per url.
+  // Load the document once per url. Fetches the bytes ourselves with a
+  // plain fetch() -- same mechanism every other part of the app already
+  // uses successfully against this same proxy -- rather than handing
+  // pdf.js a URL and letting its own internal network layer manage the
+  // request. That matters here specifically: pdf.js's own fetch/XHR
+  // stream doesn't reliably include the session cookie the proxy
+  // requires, even for a same-origin request, which silently produced
+  // a 401 that pdf.js then failed to parse as a PDF -- immediately
+  // falling back to Google's viewer even though the proxy itself (and
+  // the API key behind it) were working fine, as proven by audio
+  // playback working through the very same proxy.
   useEffect(() => {
     if (!directUrl) {
       setStatus("fallback");
@@ -55,26 +65,33 @@ export default function NativePdfViewer({ url }) {
     setCurrentPage(1);
     setPageInput("1");
 
-    import("pdfjs-dist").then((pdfjsLib) => {
-      if (cancelled) return;
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-        "pdfjs-dist/build/pdf.worker.min.mjs",
-        import.meta.url
-      ).toString();
+    (async () => {
+      try {
+        const res = await fetch(directUrl);
+        if (!res.ok) throw new Error(`Proxy responded ${res.status}`);
+        const data = await res.arrayBuffer();
+        if (cancelled) return;
 
-      pdfjsLib
-        .getDocument(directUrl)
-        .promise.then((doc) => {
-          if (cancelled) return;
-          pdfDocRef.current = doc;
-          canvasRefs.current = new Array(doc.numPages).fill(null);
-          setNumPages(doc.numPages);
-          setStatus("ready");
-        })
-        .catch(() => {
-          if (!cancelled) setStatus("fallback");
-        });
-    });
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+          "pdfjs-dist/build/pdf.worker.min.mjs",
+          import.meta.url
+        ).toString();
+
+        const doc = await pdfjsLib.getDocument({ data }).promise;
+        if (cancelled) return;
+        pdfDocRef.current = doc;
+        canvasRefs.current = new Array(doc.numPages).fill(null);
+        setNumPages(doc.numPages);
+        setStatus("ready");
+      } catch (err) {
+        // Logged (not swallowed) so a real, ongoing failure is
+        // debuggable from the browser console rather than just
+        // silently always showing the fallback.
+        console.error("NativePdfViewer: falling back to Google's viewer —", err);
+        if (!cancelled) setStatus("fallback");
+      }
+    })();
 
     return () => {
       cancelled = true;
