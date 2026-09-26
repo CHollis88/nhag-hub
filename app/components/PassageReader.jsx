@@ -440,6 +440,25 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const [pendingScroll, setPendingScroll] = useState(null);
   const [copiedVerse, setCopiedVerse] = useState(null);
 
+  // ── Derived translation flags ───────────────────────────────────────
+  // These MUST stay above every useEffect below: several of them read
+  // studyToolsAvailable in their dependency arrays, which are evaluated
+  // during render. `const` isn't hoisted, so declaring these further
+  // down throws "Cannot access before initialization" and takes the
+  // whole reader down with it.
+  //
+  // Word study (Strong's) and Matthew Henry are keyed to KJV wording, so
+  // they're hidden on other translations. Cross-references are keyed by
+  // verse, not by word, and stay available everywhere.
+  const activeTranslation = getTranslation(translation) || getTranslation(DEFAULT_TRANSLATION);
+  const showingKjvText = translation === "kjv" || !!translationFallback;
+  const studyToolsAvailable = showingKjvText;
+  const comparing = compareWithKjv && translation !== "kjv" && !translationFallback && !!kjvVerses;
+  // The commentary layouts only make sense on KJV text, so any other
+  // translation collapses to plain text rather than pairing modern
+  // wording with KJV-based notes.
+  const effectiveLayout = studyToolsAvailable ? layout : "text";
+
   useEffect(() => {
     setLayout(getPref("sp_bible_layout", "text"));
     setStudyModeState(getPref("sp_bible_study_mode", "study") !== "simple");
@@ -962,20 +981,6 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     highlights.some((h) => h.verse_start <= range.end && h.verse_end >= range.start);
   const rangeNote = (range) => myNotes.find((n) => n.verse_start === range.start && n.verse_end === range.end);
   const rangeTags = (range) => tags.filter((t) => t.verse_start === range.start && t.verse_end === range.end);
-
-  // Word-study data (Strong's numbers, Matthew Henry, cross-references)
-  // is keyed to KJV word positions -- see lib/bibleTranslations.js. On
-  // any other translation those tools have nothing to attach to, so the
-  // reader hides them rather than pointing them at the wrong words.
-  const activeTranslation = getTranslation(translation) || getTranslation(DEFAULT_TRANSLATION);
-  const showingKjvText = translation === "kjv" || !!translationFallback;
-  const studyToolsAvailable = showingKjvText;
-  const comparing = compareWithKjv && translation !== "kjv" && !translationFallback && !!kjvVerses;
-  // Matthew Henry quotes KJV wording and the cross-reference set indexes
-  // KJV verse positions, so the commentary layouts only make sense on
-  // KJV text. On any other translation the reader collapses to plain
-  // text rather than pairing modern wording with KJV-based notes.
-  const effectiveLayout = studyToolsAvailable ? layout : "text";
 
   const chooseTranslation = (id) => {
     setTranslationState(id);
