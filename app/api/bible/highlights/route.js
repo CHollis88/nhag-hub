@@ -14,12 +14,18 @@ export async function GET(req) {
 
   const book = req.nextUrl.searchParams.get("book");
   const chapter = req.nextUrl.searchParams.get("chapter");
+  // Highlights are per-translation: start_pos/end_pos are word indices,
+  // which only mean anything inside the translation they were made in.
+  // See migration_032. Absent param means KJV, matching the default on
+  // the column, so older clients keep working.
+  const translation = req.nextUrl.searchParams.get("translation") || "kjv";
 
   const supabase = supabaseServer();
   let query = supabase
     .from("bible_highlights")
-    .select("id, book, chapter, verse_start, verse_end, start_pos, end_pos, color, created_at")
-    .eq("user_id", user.id);
+    .select("id, book, chapter, translation, verse_start, verse_end, start_pos, end_pos, color, created_at")
+    .eq("user_id", user.id)
+    .eq("translation", translation);
 
   if (book && chapter) {
     query = query.eq("book", book).eq("chapter", chapter);
@@ -35,7 +41,8 @@ export async function POST(req) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { book, chapter, verse_start, verse_end, start_pos, end_pos, color } = await req.json();
+  const { book, chapter, translation, verse_start, verse_end, start_pos, end_pos, color } =
+    await req.json();
   if (!book || chapter == null || verse_start == null || verse_end == null || start_pos == null || end_pos == null) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
   }
@@ -47,13 +54,14 @@ export async function POST(req) {
       user_id: user.id,
       book,
       chapter,
+      translation: translation || "kjv",
       verse_start,
       verse_end,
       start_pos,
       end_pos,
       color: color || "yellow",
     })
-    .select("id, verse_start, verse_end, start_pos, end_pos, color")
+    .select("id, translation, verse_start, verse_end, start_pos, end_pos, color")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

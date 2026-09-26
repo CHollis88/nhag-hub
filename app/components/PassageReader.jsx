@@ -28,8 +28,10 @@ import {
   Square,
   Ear,
   Type,
+  Languages,
 } from "lucide-react";
 import { BOOKS, ABBR_TO_NAME, formatReference, parseQuickReference } from "@/lib/bibleRef";
+import { TRANSLATIONS, DEFAULT_TRANSLATION, getTranslation } from "@/lib/bibleTranslations";
 import { addRecentPassage, getRecentPassages } from "@/lib/recentPassages";
 import { getDesktopMode } from "@/lib/desktopMode";
 import { api } from "@/lib/api";
@@ -313,7 +315,13 @@ function WordStudyContent({ entry, id, dictMatches }) {
   );
 }
 
-function CrossRefRangeContent({ perVerse, onGoTo }) {
+// `showCommentary` is false on ESV/NLT. The cross-reference list itself
+// is keyed by book/chapter/verse -- numbering that's the same across
+// these translations -- so the references resolve fine whatever you're
+// reading. Matthew Henry is the only part that doesn't travel: he
+// quotes King James wording directly, so pairing him with modern
+// phrasing reads as a mismatch. Refs stay, commentary goes.
+function CrossRefRangeContent({ perVerse, onGoTo, showCommentary = true }) {
   // The underlying commentary data is itself stored as verse ranges (e.g.
   // one entry covering verses 1-3), so fetching per verse can return the
   // exact same entry more than once. Dedupe by its own v1/v2 range rather
@@ -356,7 +364,7 @@ function CrossRefRangeContent({ perVerse, onGoTo }) {
         ))}
       </div>
 
-      {allCommentary.length > 0 && (
+      {showCommentary && allCommentary.length > 0 && (
         <div className="mt-6 pt-4 border-t border-line">
           <p className="text-[0.6875rem] uppercase tracking-wide text-inkfaint mb-2">
             Matthew Henry's Commentary
@@ -385,6 +393,20 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const [desktopMode, setDesktopModeState] = useState(false);
   const [verses, setVerses] = useState(null);
   const [headings, setHeadings] = useState({});
+  const [translation, setTranslationState] = useState(DEFAULT_TRANSLATION);
+  const [translationPickerOpen, setTranslationPickerOpen] = useState(false);
+  // Null on KJV. On ESV/NLT this is the publisher's required copyright
+  // notice, which must be rendered wherever their text is shown.
+  const [copyright, setCopyright] = useState(null);
+  const [attributionUrl, setAttributionUrl] = useState(null);
+  // Set when a chosen translation failed and we fell back to KJV, so
+  // the reader can say so instead of silently showing different words.
+  const [translationFallback, setTranslationFallback] = useState(null);
+  // Compare mode shows the chosen translation alongside the KJV. Only
+  // meaningful when the chosen translation ISN'T the KJV, and it costs
+  // no extra API call -- the KJV pane is served from local data.
+  const [compareWithKjv, setCompareWithKjv] = useState(false);
+  const [kjvVerses, setKjvVerses] = useState(null);
   const [commentaryNotes, setCommentaryNotes] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -422,6 +444,9 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     setLayout(getPref("sp_bible_layout", "text"));
     setStudyModeState(getPref("sp_bible_study_mode", "study") !== "simple");
     setBibleFontState(getPref("sp_bible_font", "sans"));
+    const savedTranslation = getPref("sp_bible_translation", DEFAULT_TRANSLATION);
+    if (getTranslation(savedTranslation)) setTranslationState(savedTranslation);
+    setCompareWithKjv(getPref("sp_bible_compare_kjv", "off") === "on");
     setDesktopModeState(getDesktopMode());
     api.getChapterCounts().then((d) => setChapterCounts(d.counts || {}));
     const onChange = () => setDesktopModeState(getDesktopMode());
@@ -479,16 +504,51 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     setLoading(true);
     setError("");
     setVerses(null);
+    setKjvVerses(null);
+    setCopyright(null);
+    setAttributionUrl(null);
+    setTranslationFallback(null);
+
+    const wantsKjvPane = compareWithKjv && translation !== "kjv";
+
     try {
-      const d = await api.getPassage(book, chapter);
-      setVerses(d.verses);
-      setHeadings(d.headings || {});
+      // The KJV pane is local, so fetching it alongside costs nothing
+      // external -- compare mode is no more expensive than reading the
+      // modern translation on its own.
+      const [primary, kjv] = await Promise.all([
+        api.getPassage(book, chapter, translation),
+        wantsKjvPane ? api.getPassage(book, chapter, "kjv") : Promise.resolve(null),
+      ]);
+
+      setVerses(primary.verses);
+      setHeadings(primary.headings || {});
+      setCopyright(primary.copyright || null);
+      setAttributionUrl(primary.attributionUrl || null);
+      if (kjv) setKjvVerses(kjv.verses);
     } catch (err) {
-      setError(err.message || "Couldn't load that passage.");
+      // A licensed translation can fail for reasons the KJV never will
+      // -- missing key, publisher outage, daily quota. Falling back to
+      // the KJV keeps the person reading; the banner tells them the
+      // words on screen aren't the translation they picked.
+      if (translation !== "kjv") {
+        try {
+          const kjv = await api.getPassage(book, chapter, "kjv");
+          setVerses(kjv.verses);
+          setHeadings(kjv.headings || {});
+          setTranslationFallback({
+            attempted: getTranslation(translation)?.label || translation,
+            reason: err.message || "",
+          });
+        } catch {
+          setError("Couldn't load that passage.");
+        }
+      } else {
+        setError(err.message || "Couldn't load that passage.");
+      }
     } finally {
       setLoading(false);
     }
-  }, [book, chapter]);
+  }, [book, chapter, translation, compareWithKjv]);
 
   useEffect(() => {
     load();
@@ -511,17 +571,23 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   }, [speakingToken?.verse]);
 
   useEffect(() => {
+    if (!studyToolsAvailable) return;
     if (layout === "commentary" || layout === "split-top" || layout === "split-side") {
       api.getCommentary(book, chapter).then((d) => setCommentaryNotes(d.notes));
     }
-  }, [book, chapter, layout]);
+  }, [book, chapter, layout, studyToolsAvailable]);
 
   const loadMyData = useCallback(() => {
     if (!deviceId) return;
-    api.getHighlights(deviceId, book, chapter).then((d) => setHighlights(d.highlights || []));
+    // Highlights are translation-scoped (word positions don't transfer);
+    // notes and tags attach to verse ranges, so they follow you across
+    // translations on purpose.
+    api
+      .getHighlights(deviceId, book, chapter, translation)
+      .then((d) => setHighlights(d.highlights || []));
     api.getNotes(deviceId, book, chapter).then((d) => setMyNotes(d.notes || []));
     api.getTags(deviceId, book, chapter).then((d) => setTags(d.tags || []));
-  }, [deviceId, book, chapter]);
+  }, [deviceId, book, chapter, translation]);
 
   useEffect(() => {
     loadMyData();
@@ -724,6 +790,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
         device_id: deviceId,
         book,
         chapter,
+        translation,
         verse_start: colorPickerFor.verseStart,
         verse_end: colorPickerFor.verseEnd,
         start_pos: colorPickerFor.start_pos,
@@ -896,6 +963,32 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const rangeNote = (range) => myNotes.find((n) => n.verse_start === range.start && n.verse_end === range.end);
   const rangeTags = (range) => tags.filter((t) => t.verse_start === range.start && t.verse_end === range.end);
 
+  // Word-study data (Strong's numbers, Matthew Henry, cross-references)
+  // is keyed to KJV word positions -- see lib/bibleTranslations.js. On
+  // any other translation those tools have nothing to attach to, so the
+  // reader hides them rather than pointing them at the wrong words.
+  const activeTranslation = getTranslation(translation) || getTranslation(DEFAULT_TRANSLATION);
+  const showingKjvText = translation === "kjv" || !!translationFallback;
+  const studyToolsAvailable = showingKjvText;
+  const comparing = compareWithKjv && translation !== "kjv" && !translationFallback && !!kjvVerses;
+  // Matthew Henry quotes KJV wording and the cross-reference set indexes
+  // KJV verse positions, so the commentary layouts only make sense on
+  // KJV text. On any other translation the reader collapses to plain
+  // text rather than pairing modern wording with KJV-based notes.
+  const effectiveLayout = studyToolsAvailable ? layout : "text";
+
+  const chooseTranslation = (id) => {
+    setTranslationState(id);
+    setPref("sp_bible_translation", id);
+    setTranslationPickerOpen(false);
+  };
+
+  const toggleCompare = () => {
+    const next = !compareWithKjv;
+    setCompareWithKjv(next);
+    setPref("sp_bible_compare_kjv", next ? "on" : "off");
+  };
+
   const controls = (
     <div className="sticky top-0 z-20 bg-paper pt-1 pb-1 -mx-5 px-5 md:mx-0 md:px-0">
       <div className="flex items-center gap-1.5 mb-3 flex-wrap">
@@ -946,6 +1039,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       </div>
 
       <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+        {studyToolsAvailable && (
         <button
           onClick={() => setLayoutPickerOpen(true)}
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-paper text-inkfaint border border-line"
@@ -962,6 +1056,30 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             );
           })()}
         </button>
+        )}
+        <button
+          onClick={() => setTranslationPickerOpen(true)}
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-paper text-inkfaint border border-line"
+        >
+          <Languages size={14} />
+          {activeTranslation.label}
+          <ChevronDown size={12} className="opacity-60" />
+        </button>
+        {translation !== "kjv" && (
+          <button
+            onClick={toggleCompare}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border ${
+              compareWithKjv
+                ? "bg-accent/10 text-accent border-accent/40"
+                : "bg-paper text-inkfaint border-line"
+            }`}
+            title={compareWithKjv ? "Showing KJV alongside. Tap to hide." : "Show the KJV alongside"}
+          >
+            <Columns2 size={14} />
+            KJV
+          </button>
+        )}
+        {studyToolsAvailable && (
         <button
           onClick={toggleStudyMode}
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-paper text-inkfaint border border-line ml-auto"
@@ -970,6 +1088,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           {studyMode ? <ToggleRight size={16} className="text-accent" /> : <ToggleLeft size={16} />}
           {studyMode ? "Study" : "Simple"}
         </button>
+        )}
       </div>
     </div>
   );
@@ -982,7 +1101,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     tags,
     selection,
     selectedRange: verseMenu,
-    studyMode,
+    studyMode: studyMode && studyToolsAvailable,
     wordTapMode,
     speakingToken,
     fontClass: FONT_OPTIONS.find((f) => f.id === bibleFont)?.className || "font-bible-sans",
@@ -1010,25 +1129,61 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
         </div>
       )}
 
+      {translationFallback && !loading && (
+        <div className="text-xs rounded-lg px-3 py-2 mb-3 bg-accent/10 text-accent">
+          Couldn&apos;t load {translationFallback.attempted} just now, so this is the King James
+          Version.
+        </div>
+      )}
+
       {verses && !loading && (
         <>
-          {!selection && (layout === "text" || layout === "split-top" || layout === "split-side") && (
+          {!selection && (effectiveLayout === "text" || effectiveLayout === "split-top" || effectiveLayout === "split-side") && (
             <p className="text-[0.6875rem] text-inkfaint mb-2.5 flex items-center">
-              Tap an underlined word for its meaning, or a verse number for more options.
-              <InfoTooltip text="Underlined words link to their original Hebrew or Greek meaning. Tapping a verse number lets you see related verses, highlight a phrase, or add a note." />
+              {studyToolsAvailable
+                ? "Tap an underlined word for its meaning, or a verse number for more options."
+                : "Tap a verse number for related verses, highlighting and notes."}
+              <InfoTooltip
+                text={
+                  studyToolsAvailable
+                    ? "Underlined words link to their original Hebrew or Greek meaning. Tapping a verse number lets you see related verses, highlight a phrase, or add a note."
+                    : "Tapping a verse number lets you see related verses, highlight a phrase, or add a note. Hebrew and Greek word meanings are shown in the King James Version."
+                }
+              />
             </p>
           )}
 
-          {layout === "text" && <VerseText {...verseTextProps} />}
+          {/* Compare mode replaces the scripture/commentary split rather
+              than nesting inside it -- two translations plus a commentary
+              pane is unreadable on a phone. Stacks on narrow screens,
+              sits side by side once there's room. */}
+          {comparing ? (
+            <div className="flex flex-col md:flex-row gap-4 md:h-[calc(100vh-260px)] md:min-h-[400px]">
+              <ScrollPane label={activeTranslation.label} className="flex-1 min-w-0">
+                <VerseText {...verseTextProps} />
+              </ScrollPane>
+              <ScrollPane
+                label="King James Version"
+                className="flex-1 min-w-0 border-t md:border-t-0 md:border-l border-line pt-3 md:pt-0 md:pl-4"
+              >
+                {/* No highlights on this pane: they belong to whichever
+                    translation they were made in, and the ones loaded
+                    here are the active translation's. */}
+                <VerseText {...verseTextProps} verses={kjvVerses} studyMode={false} highlights={[]} />
+              </ScrollPane>
+            </div>
+          ) : (
+          <>
+          {effectiveLayout === "text" && <VerseText {...verseTextProps} />}
 
-          {layout === "commentary" && commentaryNotes && (
+          {effectiveLayout === "commentary" && commentaryNotes && (
             <>
               <p className="text-xs uppercase tracking-wide text-inkfaint mb-3">Matthew Henry's Commentary</p>
               <CommentaryNotes notes={commentaryNotes} />
             </>
           )}
 
-          {layout === "split-top" && (
+          {effectiveLayout === "split-top" && (
             <div className="flex flex-col gap-4 h-[calc(100vh-320px)] md:h-[calc(100vh-220px)] min-h-[400px]">
               <ScrollPane label="Scripture" className="flex-1 border-b border-line pb-3">
                 <VerseText {...verseTextProps} />
@@ -1039,7 +1194,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             </div>
           )}
 
-          {layout === "split-side" && (
+          {effectiveLayout === "split-side" && (
             <div className="flex gap-4 h-[calc(100vh-320px)] md:h-[calc(100vh-220px)] min-h-[400px]">
               <ScrollPane label="Scripture" className="flex-1 min-w-0">
                 <VerseText {...verseTextProps} />
@@ -1048,6 +1203,31 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
                 {commentaryNotes && <CommentaryNotes notes={commentaryNotes} />}
               </ScrollPane>
             </div>
+          )}
+          </>
+          )}
+
+          {/* REQUIRED. Crossway and Tyndale both make displaying their
+              copyright notice a condition of the licence that lets this
+              app show their text at all. Don't remove it, and don't
+              hide it behind a tap. */}
+          {copyright && (
+            <p className="text-[0.625rem] leading-relaxed text-inkfaint mt-6 pt-3 border-t border-line">
+              {copyright}
+              {attributionUrl && (
+                <>
+                  {" "}
+                  <a
+                    href={attributionUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    {attributionUrl.replace(/^https?:\/\//, "")}
+                  </a>
+                </>
+              )}
+            </p>
           )}
         </>
       )}
@@ -1076,6 +1256,13 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           </button>
         </div>
         <div className="flex items-center gap-1 overflow-x-auto">
+          {/* Available in every translation: cross-references are keyed
+              by verse, not by word, so they resolve the same whatever
+              you're reading. Only the Matthew Henry section inside the
+              popup is hidden off-KJV. Highlight, Note and Tag also work
+              everywhere -- highlights are stored per-translation
+              (migration_032); notes and tags attach to verse ranges and
+              carry across. */}
           <button
             onClick={() => showCrossRefs(verseMenu)}
             className="flex flex-col items-center gap-1 text-inkfaint px-3 py-1.5 flex-shrink-0"
@@ -1460,15 +1647,47 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     </div>
   );
 
+  const translationPickerPopup = translationPickerOpen && (
+    <StudyPopup title="Translation" onClose={() => setTranslationPickerOpen(false)}>
+      <div className="space-y-1.5">
+        {TRANSLATIONS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => chooseTranslation(t.id)}
+            className={`w-full text-left rounded-lg px-3 py-2.5 border ${
+              t.id === translation
+                ? "border-accent/50 bg-accent/10"
+                : "border-line bg-paper"
+            }`}
+          >
+            <span className="flex items-baseline gap-2">
+              <span className="text-sm font-semibold text-ink">{t.label}</span>
+              <span className="text-xs text-inkfaint truncate">{t.fullName}</span>
+            </span>
+            <span className="block text-[0.6875rem] text-inkfaint mt-0.5">
+              {t.supportsStrongs
+                ? "Word study, commentary and cross-references available"
+                : "Reading only \u2014 word study stays in the KJV"}
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="text-[0.6875rem] text-inkfaint mt-3 leading-relaxed">
+        Hebrew and Greek word meanings, Matthew Henry&apos;s commentary and cross-references are
+        tied to the King James wording, so they&apos;re only shown there.
+      </p>
+    </StudyPopup>
+  );
+
   const studyPopupBlock = (
     <>
       {popup && (
         <StudyPopup
           title={
             popup.type === "verse-range"
-              ? `Cross-references & Commentary — ${ABBR_TO_NAME[book]} ${chapter}:${
-                  popup.start === popup.end ? popup.start : `${popup.start}-${popup.end}`
-                }`
+              ? `${studyToolsAvailable ? "Cross-references & Commentary" : "Cross-references"} — ${
+                  ABBR_TO_NAME[book]
+                } ${chapter}:${popup.start === popup.end ? popup.start : `${popup.start}-${popup.end}`}`
               : "Word Study"
           }
           onClose={() => setPopup(null)}
@@ -1479,7 +1698,11 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             <WordStudyContent entry={popup.entry} id={popup.id} dictMatches={popup.dictMatches} />
           )}
           {popup.type === "verse-range" && (
-            <CrossRefRangeContent perVerse={popup.perVerse} onGoTo={goToReference} />
+            <CrossRefRangeContent
+              perVerse={popup.perVerse}
+              onGoTo={goToReference}
+              showCommentary={studyToolsAvailable}
+            />
           )}
         </StudyPopup>
       )}
@@ -1492,6 +1715,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       {fontPickerPopup}
       {bookChapterPickerPopup}
       {layoutPickerPopup}
+      {translationPickerPopup}
     </>
   );
 
@@ -1553,10 +1777,15 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             {popup?.type === "verse-range" && (
               <>
                 <p className="text-sm text-ink font-medium mb-2">
-                  Cross-references & Commentary — {ABBR_TO_NAME[book]} {chapter}:
+                  {studyToolsAvailable ? "Cross-references & Commentary" : "Cross-references"} —{" "}
+                  {ABBR_TO_NAME[book]} {chapter}:
                   {popup.start === popup.end ? popup.start : `${popup.start}-${popup.end}`}
                 </p>
-                <CrossRefRangeContent perVerse={popup.perVerse} onGoTo={goToReference} />
+                <CrossRefRangeContent
+                  perVerse={popup.perVerse}
+                  onGoTo={goToReference}
+                  showCommentary={studyToolsAvailable}
+                />
               </>
             )}
           </div>
@@ -1569,6 +1798,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           {fontPickerPopup}
           {bookChapterPickerPopup}
           {layoutPickerPopup}
+          {translationPickerPopup}
             </div>
       )}
 
