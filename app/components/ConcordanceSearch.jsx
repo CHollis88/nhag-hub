@@ -12,6 +12,7 @@ const SOURCES = [
   { key: "hitchcock", label: "Hitchcock's Bible Names Dictionary", subtitle: "What Bible names mean" },
   { key: "torrey", label: "Torrey's Topical Textbook", subtitle: "Verses grouped by topic, not definitions" },
   { key: "webster", label: "Webster's 1828 Dictionary (KJV words)", subtitle: "Old English word meanings, for tricky KJV wording" },
+  { key: "tyndale", label: "Tyndale Open Bible Dictionary", subtitle: "Modern, in-depth Bible dictionary — over 6,000 entries" },
 ];
 
 const BROWSE_SOURCES = [
@@ -20,6 +21,7 @@ const BROWSE_SOURCES = [
   { key: "hitchcock", label: "Hitchcock's", subtitle: "What Bible names mean" },
   { key: "torrey", label: "Torrey's", subtitle: "Verses grouped by topic" },
   { key: "webster", label: "Webster's", subtitle: "Old English word meanings" },
+  { key: "tyndale", label: "Tyndale", subtitle: "Modern, in-depth Bible dictionary" },
   { key: "strongs-hebrew", label: "Strong's Hebrew", subtitle: "Original Hebrew word meanings" },
   { key: "strongs-greek", label: "Strong's Greek", subtitle: "Original Greek word meanings" },
 ];
@@ -123,6 +125,7 @@ function BrowseTab() {
       </div>
       <p className="text-[0.6875rem] text-inkfaint mb-4">
         {BROWSE_SOURCES.find((s) => s.key === source)?.subtitle}
+        {source === "tyndale" && " — © Tyndale House Publishers, CC BY-SA 4.0"}
       </p>
 
       <select value={letter} onChange={(e) => chooseLetter(e.target.value)} className="sp-input text-sm mb-4">
@@ -263,7 +266,10 @@ function SearchTab() {
           return (
             <div key={key} className="mb-5">
               <p className="text-xs uppercase tracking-wide text-inkfaint mb-0.5">{label}</p>
-              <p className="text-[0.6875rem] text-inkfaint mb-2">{subtitle}</p>
+              <p className="text-[0.6875rem] text-inkfaint mb-2">
+                {subtitle}
+                {key === "tyndale" && " — © Tyndale House Publishers, CC BY-SA 4.0"}
+              </p>
               <div className="space-y-2">
                 {items.map((r) => (
                   <EntryCard key={r.word} entry={r} />
@@ -275,9 +281,9 @@ function SearchTab() {
 
       {!query && (
         <p className="text-sm text-inkfaint">
-          Search any word or topic to look it up across Easton's, Smith's, Hitchcock's, and
-          Torrey's — or enter a Strong's number directly (like G26 or H7225) to see its original
-          Hebrew or Greek meaning.
+          Search any word or topic to look it up across Easton's, Smith's, Hitchcock's,
+          Torrey's, Webster's, and the Tyndale Open Bible Dictionary — or enter a Strong's number
+          directly (like G26 or H7225) to see its original Hebrew or Greek meaning.
         </p>
       )}
     </div>

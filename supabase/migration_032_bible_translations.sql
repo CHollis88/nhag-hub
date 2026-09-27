@@ -1,13 +1,13 @@
--- NHAG Church Hub — v67: multi-translation Bible
+-- NHAG Church Hub — v68: multi-translation Bible (updated)
 --
 -- Adds two things: a bounded cache for externally-fetched chapter text,
 -- and a per-user translation preference.
 --
 -- Translations: KJV (local, data/bible/kjv), ESV (Crossway API),
--- NLT (Tyndale API). Both publishers allow 5,000 requests/day on their
--- free non-commercial tier, counted separately -- so this cache is a
--- latency optimization, NOT the thing holding the feature up. If it
--- were emptied tomorrow nothing would break.
+-- NLT (Tyndale API), BSB (local, data/bible/bsb). ESV and NLT publishers 
+-- allow 5,000 requests/day on their free non-commercial tier, counted 
+-- separately -- so this cache is a latency optimization, NOT the thing 
+-- holding the feature up. If it were emptied tomorrow nothing would break.
 --
 -- WHY THE CACHE IS BOUNDED AND EXPIRES
 --   * Publishers push text corrections. A cache that never expires
@@ -29,7 +29,7 @@
 
 create table if not exists bible_chapter_cache (
   id            bigserial primary key,
-  translation   text        not null,
+  translation   text        not null check (translation in ('kjv', 'esv', 'nlt', 'bsb')),
   book          text        not null,
   chapter       int         not null,
   verses        jsonb       not null,
@@ -57,7 +57,7 @@ create index if not exists idx_bible_cache_evict
 -- available, so an unset preference never depends on an external API
 -- being up or in quota.
 alter table users
-  add column if not exists preferred_translation text not null default 'kjv';
+  add column if not exists preferred_translation text not null default 'kjv' check (preferred_translation in ('kjv', 'esv', 'nlt', 'bsb'));
 
 -- ── Highlights become per-translation ────────────────────────────────
 -- A highlight stores word positions (start_pos/end_pos) -- an index
@@ -75,9 +75,22 @@ alter table users
 -- Existing rows all predate multi-translation support, so they're all
 -- KJV by definition; the default backfills them correctly.
 alter table bible_highlights
-  add column if not exists translation text not null default 'kjv';
+  add column if not exists translation text not null default 'kjv' check (translation in ('kjv', 'esv', 'nlt', 'bsb'));
 
 -- Replaces the old (user_id, book, chapter) lookup -- every read is now
 -- scoped to a translation as well.
 create index if not exists bible_highlights_lookup_translation
   on bible_highlights (user_id, translation, book, chapter);
+
+-- ── Headings and footnotes join the cache ────────────────────────────
+-- Both esv and nlt now return their OWN section headings and footnotes
+-- (see lib/bibleProviders.js) instead of the app defaulting every
+-- translation to the KJV outline. NLT's headings/footnotes get cached
+-- alongside its verses like everything else about it; ESV's never
+-- touch this table at all (see NEVER_CACHE in lib/bibleCache.js), so
+-- these columns simply go unused for ESV rows, which is fine -- there
+-- are none.
+alter table bible_chapter_cache
+  add column if not exists headings jsonb not null default '{}'::jsonb;
+alter table bible_chapter_cache
+  add column if not exists footnotes jsonb not null default '{}'::jsonb;

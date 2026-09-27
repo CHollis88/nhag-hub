@@ -111,6 +111,21 @@ const CATEGORIES = [
         ],
       },
       {
+        q: "What translations are available, and how are they different?",
+        sections: [
+          {
+            platform: "Choosing a translation",
+            steps: [
+              "Tap the translation button above the text to switch between King James (KJV), English Standard Version (ESV), New Living Translation (NLT), and Berean Standard Bible (BSB) — your choice is remembered for next time",
+              "Read any translation on its own, or tap the KJV button next to it to show the King James alongside for comparison",
+              "KJV and BSB carry word-by-word Hebrew and Greek tagging, so underlined words work directly. On ESV and NLT, the verse NUMBER is underlined instead — tap it to see that verse's words as the King James renders them",
+              "Where a translation marks Christ's own words, they're shown in red (currently King James, New Living Translation, and Berean Standard Bible)",
+              "A small marker after a verse means it has a footnote or King James marginal note — tap to read it",
+            ],
+          },
+        ],
+      },
+      {
         q: "How do highlighting, notes, and tags work?",
         sections: [
           {
@@ -119,6 +134,7 @@ const CATEGORIES = [
               "Tap a verse number to select it — a bar appears with what you can do with it",
               "Tap more verse numbers to extend your selection across a passage",
               "From that bar: see cross-references (listed in Bible order) and commentary, highlight it in a color of your choice, add a note, tag it, or copy the text",
+              "Highlights are kept separately per translation — a phrase highlighted in the ESV doesn't carry over to the KJV, since the wording differs. Notes and tags follow you across every translation, since they're attached to the verse, not particular words",
             ],
           },
           {
@@ -131,8 +147,12 @@ const CATEGORIES = [
         ],
       },
       {
+        q: "Which Bible commentary is shown, and can I change it?",
+        a: "By default you'll see Tyndale's modern Study Notes, which read naturally no matter which translation you're in. Prefer Matthew Henry's classic commentary instead? Switch it from the layout picker above the text (look for \"Reading Layout\") — your choice is remembered. Matthew Henry quotes King James wording specifically, so it's worth knowing his exact phrasing won't always match what's on your screen in another translation.",
+      },
+      {
         q: "What are Concordance and Glossary for?",
-        a: "Concordance lets you search for a specific word (like \"faith\") or a Strong's number (like \"G26\") and see every place it appears. Glossary is a lookup of theological and biblical terms — both are their own sections inside the Bible tab, next to Read and My Notes.",
+        a: "Concordance lets you search for a specific word (like \"faith\") or a Strong's number (like \"G26\") and see every place it appears, across several dictionaries — Easton's, Smith's, Hitchcock's, Torrey's, Webster's, and the modern Tyndale Open Bible Dictionary. Glossary is a lookup of theological and biblical terms — both are their own sections inside the Bible tab, next to Read and My Notes.",
       },
       {
         q: "How does Bible Plan work, and can I pick which plan I'm on?",

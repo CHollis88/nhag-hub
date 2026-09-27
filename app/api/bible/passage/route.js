@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isValidBook, getKjvChapter, getPericopes } from "@/lib/bible";
+import { isValidBook, getLocalChapter, getLocalHeadings, getLocalFootnotes, getPericopes } from "@/lib/bible";
 import { withPublicCache } from "@/lib/cacheHeaders";
 import { getTranslation, DEFAULT_TRANSLATION } from "@/lib/bibleTranslations";
 import { fetchRemoteChapter } from "@/lib/bibleProviders";
@@ -7,9 +7,25 @@ import { getCachedChapter, putCachedChapter } from "@/lib/bibleCache";
 
 // Serves one chapter in one translation.
 //
-// KJV comes off local disk (instant, no quota, carries Strong's).
-// Everything else goes: Supabase cache -> provider API -> Supabase
-// cache. See lib/bibleCache.js for why that cache is bounded.
+// kjv and bsb come off local disk (instant, no quota, both carry
+// Strong's -- see lib/bibleTranslations.js supportsStrongs).
+// esv and nlt go: Supabase cache -> provider API -> Supabase cache.
+// See lib/bibleCache.js for why that cache is bounded (and why ESV
+// isn't in it at all).
+//
+// Headings are NOT one shared thing across translations. Each
+// translation's OWN section headings are used -- kjv's come from the
+// separate pericopes.json outline (that's specifically a KJV artifact),
+// bsb's are baked into its own local file (captured straight from its
+// source data by scripts/tokenize-bsb.mjs), and esv/nlt's come back
+// from their provider fetch. Showing KJV's headings on an ESV or NLT
+// passage was a real bug -- the sections don't always fall in the same
+// place -- so don't reintroduce that by defaulting to getPericopes for
+// everything again.
+//
+// Footnotes follow the same per-translation shape: an object keyed by
+// verse number, each value an array of footnote strings. kjv has none
+// yet (no source data captured for it -- see the KJV build list item).
 
 export async function GET(req) {
   const book = req.nextUrl.searchParams.get("book");
@@ -25,13 +41,16 @@ export async function GET(req) {
     return NextResponse.json({ error: "Unknown translation." }, { status: 400 });
   }
 
-  // Section headings are our own data, keyed by book/chapter/verse, so
-  // they apply regardless of which translation's words are shown.
-  const headings = getPericopes(book, chapter);
-
   if (translation.provider === "local") {
-    const verses = getKjvChapter(book, chapter);
+    const verses = getLocalChapter(translation.id, book, chapter);
     if (!verses) return NextResponse.json({ error: "Chapter not found." }, { status: 404 });
+    // Headings still come from the separate pericopes.json outline for
+    // KJV specifically (that file IS the KJV's own outline) -- but
+    // footnotes now come from KJV's own file too, same as any other
+    // local translation, now that it has them (see
+    // scripts/overlay-kjv-redletter-footnotes.mjs).
+    const headings = translation.id === "kjv" ? getPericopes(book, chapter) : getLocalHeadings(translation.id, book, chapter);
+    const footnotes = getLocalFootnotes(translation.id, book, chapter);
     return withPublicCache({
       book,
       chapter,
@@ -39,7 +58,9 @@ export async function GET(req) {
       supportsStrongs: true,
       verses,
       headings,
-      copyright: null,
+      footnotes,
+      copyright: translation.attribution || null,
+      attributionUrl: translation.attributionUrl || null,
     });
   }
 
@@ -51,15 +72,16 @@ export async function GET(req) {
       translation: translation.id,
       supportsStrongs: false,
       verses: cached.verses,
-      headings,
+      headings: cached.headings || {},
+      footnotes: cached.footnotes || {},
       copyright: cached.copyright || translation.attribution || null,
       attributionUrl: translation.attributionUrl || null,
     });
   }
 
   try {
-    const { verses, copyright } = await fetchRemoteChapter(translation.id, book, chapter);
-    await putCachedChapter(translation.id, book, chapter, verses, copyright);
+    const { verses, headings, footnotes, copyright } = await fetchRemoteChapter(translation.id, book, chapter);
+    await putCachedChapter(translation.id, book, chapter, verses, copyright, headings, footnotes);
 
     return withPublicCache({
       book,
@@ -67,7 +89,8 @@ export async function GET(req) {
       translation: translation.id,
       supportsStrongs: false,
       verses,
-      headings,
+      headings: headings || {},
+      footnotes: footnotes || {},
       copyright: copyright || translation.attribution || null,
       attributionUrl: translation.attributionUrl || null,
     });
