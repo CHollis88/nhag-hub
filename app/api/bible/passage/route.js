@@ -27,6 +27,10 @@ import { getCachedChapter, putCachedChapter } from "@/lib/bibleCache";
 // verse number, each value an array of footnote strings. kjv has none
 // yet (no source data captured for it -- see the KJV build list item).
 
+// ESV/NLT text comes from a parser that can change between deploys, so
+// browsers only reuse it briefly (local KJV/BSB keep the long default).
+const REMOTE_CACHE = { maxAge: 600, staleWhileRevalidate: 600 };
+
 export async function GET(req) {
   const book = req.nextUrl.searchParams.get("book");
   const chapter = req.nextUrl.searchParams.get("chapter");
@@ -76,7 +80,7 @@ export async function GET(req) {
       footnotes: cached.footnotes || {},
       copyright: cached.copyright || translation.attribution || null,
       attributionUrl: translation.attributionUrl || null,
-    });
+    }, REMOTE_CACHE);
   }
 
   try {
@@ -93,7 +97,7 @@ export async function GET(req) {
       footnotes: footnotes || {},
       copyright: copyright || translation.attribution || null,
       attributionUrl: translation.attributionUrl || null,
-    });
+    }, REMOTE_CACHE);
   } catch (err) {
     // The reader falls back to KJV on any of these, so the person still
     // gets to read -- just not in the translation they picked.

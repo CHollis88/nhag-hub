@@ -568,6 +568,10 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   // start in this chapter). Passage-level, not wording-level, so they
   // appear the same on every translation.
   const [chapterExtras, setChapterExtras] = useState(null);
+  // A full book introduction shown IN the reading area (in place of the
+  // chapter text) rather than squeezed into a popup. Cleared whenever
+  // the reader moves to another chapter.
+  const [introView, setIntroView] = useState(null);
   const [copiedVerse, setCopiedVerse] = useState(null);
 
   // ── Derived translation flags ───────────────────────────────────────
@@ -812,6 +816,18 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   }, [book, chapter, studyMode]);
 
   const openLibraryItem = async (collection, id) => {
+    if (collection === "intros") {
+      try {
+        const d = await api.getLibraryItem(collection, id);
+        setIntroView(d.item);
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+      } catch {
+        setPopup({ type: "error", message: "Couldn't load the introduction. Try again in a moment." });
+      }
+      return;
+    }
+    // Theme notes (and anything else) open in the Study Panel on desktop,
+    // or the bottom sheet on a phone -- same place as cross-references.
     setPopup({ type: "loading" });
     try {
       const d = await api.getLibraryItem(collection, id);
@@ -820,6 +836,10 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       setPopup({ type: "error", message: "Couldn't load that. Try again in a moment." });
     }
   };
+
+  useEffect(() => {
+    setIntroView(null);
+  }, [book, chapter]);
 
   const chooseLayout = (id) => {
     setLayout(id);
@@ -917,6 +937,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const goToReference = (ref) => {
     const m = ref.match(/^(\w+)\s+(\d+):(\d+)/);
     if (!m) return;
+    setIntroView(null);
     const [, bookAbbr, chap, verse] = m;
     setBook(bookAbbr);
     setChapter(parseInt(chap, 10));
@@ -2041,6 +2062,124 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     </StudyPopup>
   );
 
+  const summaryList = (summary, size = "sm") =>
+    summary?.length > 0 && (
+      <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5">
+        {summary.map((f) => (
+          <div key={f.label} className="contents">
+            <dt className={`${size === "sm" ? "text-[0.6875rem]" : "text-xs"} font-semibold text-accent pt-0.5`}>{f.label}</dt>
+            <dd className={`${size === "sm" ? "text-xs" : "text-sm"} text-inksoft leading-snug`}>{f.value}</dd>
+          </div>
+        ))}
+      </dl>
+    );
+
+  // Full book introduction, shown in the reading area itself.
+  const introReadingPane = introView && (
+    <article className="max-w-2xl">
+      <button
+        onClick={() => setIntroView(null)}
+        className="flex items-center gap-1.5 text-xs font-medium text-inkfaint mb-4 hover:text-ink"
+      >
+        <ChevronLeft size={14} />
+        Back to {ABBR_TO_NAME[book]} {chapter}
+      </button>
+      <p className="text-xs text-inkfaint mb-1">Introduction</p>
+      <h2 className="font-serif text-3xl text-ink mb-4 leading-tight">{introView.title}</h2>
+      <div className="mb-5 pb-5 border-b border-linesoft">{summaryList(introView.summary, "md")}</div>
+      <RichContent blocks={introView.blocks} onRef={goToReference} />
+      <TyndaleAttribution />
+      <button
+        onClick={() => {
+          setIntroView(null);
+          if (!(book === introView.id && chapter === 1)) {
+            setBook(introView.id);
+            setChapter(1);
+          }
+        }}
+        className="mt-6 text-xs font-semibold rounded-full px-4 py-2 bg-accent text-white"
+      >
+        {book === introView.id && chapter === 1 ? `Continue to ${introView.title} 1` : `Start reading ${introView.title}`}
+      </button>
+    </article>
+  );
+
+  const mainReading = (content) => (introView ? introReadingPane : content);
+
+  // What the desktop Study Panel shows when nothing has been tapped yet:
+  // context for the chapter on screen, instead of an empty prompt.
+  const chapterContextPanel = (
+    <div>
+      {chapterExtras?.book && (
+        <div className="mb-5">
+          <p className="font-serif text-base text-ink mb-2">About {chapterExtras.book.title}</p>
+          <div className="mb-2.5">{summaryList(chapterExtras.book.summary)}</div>
+          <button
+            onClick={() => openLibraryItem("intros", chapterExtras.book.book)}
+            className="text-xs font-medium text-accent underline underline-offset-2"
+          >
+            Read the full introduction
+          </button>
+        </div>
+      )}
+      {(chapterExtras?.themes?.length > 0 || chapterExtras?.activeThemes?.length > 0) && (
+        <div className="mb-5 pt-4 border-t border-linesoft">
+          {chapterExtras.themes?.length > 0 && (
+            <>
+              <p className="text-[0.6875rem] text-inkfaint mb-1.5">Theme notes starting here</p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {chapterExtras.themes.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => openLibraryItem("themes", t.id)}
+                    className="text-xs bg-accent/8 text-accent rounded-full px-3 py-1.5 hover:bg-accent/15"
+                  >
+                    {t.title}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          {chapterExtras.activeThemes?.length > 0 && (
+            <>
+              <p className="text-[0.6875rem] text-inkfaint mb-1.5">Continuing through this chapter</p>
+              <div className="flex flex-wrap gap-1.5">
+                {chapterExtras.activeThemes.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => openLibraryItem("themes", t.id)}
+                    className="text-xs border border-line text-inksoft rounded-full px-3 py-1.5 hover:border-accent/40"
+                  >
+                    {t.title}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      <div className="flex items-center gap-2 text-inkfaint pt-4 border-t border-linesoft">
+        <MousePointerClick size={16} strokeWidth={1.5} className="opacity-60 flex-shrink-0" />
+        <p className="text-xs">Tap an underlined word or a verse number to see study info here.</p>
+      </div>
+    </div>
+  );
+
+  const libraryPopupContent = popup?.type === "library" && popup.item && (
+    <div>
+      {popup.item.ref && (
+        <button
+          onClick={() => goToReference(`${popup.item.ref.book} ${popup.item.ref.c1}:${popup.item.ref.v1}`)}
+          className="text-xs font-medium rounded-full px-3 py-1.5 bg-accent/8 text-accent mb-3"
+        >
+          Go to {ABBR_TO_NAME[popup.item.ref.book]} {popup.item.ref.c1}:{popup.item.ref.v1}
+        </button>
+      )}
+      <RichContent blocks={popup.item.blocks} onRef={goToReference} />
+      <TyndaleAttribution />
+    </div>
+  );
+
   const studyPopupBlock = (
     <>
       {popup && (
@@ -2074,22 +2213,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
               commentaryAttribution={commentarySource === "tyndale"}
             />
           )}
-          {popup.type === "library" && popup.item && (
-            <div>
-              {popup.collection === "intros" && popup.item.summary?.length > 0 && (
-                <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5 mb-4 pb-4 border-b border-linesoft">
-                  {popup.item.summary.map((f) => (
-                    <div key={f.label} className="contents">
-                      <dt className="text-[0.6875rem] font-semibold text-accent pt-0.5">{f.label}</dt>
-                      <dd className="text-xs text-inksoft leading-snug">{f.value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-              <RichContent blocks={popup.item.blocks} onRef={goToReference} />
-              <TyndaleAttribution />
-            </div>
-          )}
+          {popup.type === "library" && libraryPopupContent}
           {popup.type === "verse-strongs" && (
             <VerseStrongsContent
               perVerse={popup.perVerse}
@@ -2128,7 +2252,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           >
             {controls}
             {jumpBar}
-            {readingContent}
+            {mainReading(readingContent)}
           </div>
 
           {/* Fixed (not sticky) so it reliably stays in place regardless of
@@ -2156,11 +2280,12 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
                 </button>
               )}
             </div>
-            {!popup && (
-              <div className="flex flex-col items-center text-center py-16 text-inkfaint">
-                <MousePointerClick size={24} strokeWidth={1.5} className="opacity-50 mb-2.5" />
-                <p className="text-xs">Tap an underlined word or a verse number to see study info here.</p>
-              </div>
+            {!popup && chapterContextPanel}
+            {popup?.type === "library" && popup.item && (
+              <>
+                <p className="font-serif text-lg text-ink mb-2 leading-snug">{popup.item.title}</p>
+                {libraryPopupContent}
+              </>
             )}
             {popup?.type === "loading" && <p className="text-sm text-inkfaint">Loading...</p>}
             {popup?.type === "error" && <p className="text-sm text-accent">{popup.message}</p>}
@@ -2223,7 +2348,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           >
             {controls}
             {jumpBar}
-            {readingContent}
+            {mainReading(readingContent)}
           </div>
           {studyPopupBlock}
         </div>
@@ -2232,7 +2357,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       <div className={desktopMode ? "md:hidden px-5 pt-4 pb-6" : "px-5 pt-4 pb-6"}>
         {controls}
             {jumpBar}
-        {readingContent}
+        {mainReading(readingContent)}
         {studyPopupBlock}
       </div>
     </>
