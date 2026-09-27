@@ -128,8 +128,17 @@ for item in tree.getroot().findall("item"):
     if not text:
         continue
 
+    # Cross-chapter notes carry their real reference (e.g. "1:19–12:50")
+    # so the UI never shows the internal 999 sentinel as "Verses 1-999".
+    ref_label = None
+    if len(spans) > 1:
+        first, last = spans[0], spans[-1]
+        ref_label = f"{first[0]}:{first[1]}\u2013{last[0]}:{last[2]}"
     for (ch, v1, v2) in spans:
-        chapters[f"{abbr}|{ch}"].append({"v1": v1, "v2": v2, "text": text})
+        note = {"v1": v1, "v2": v2, "text": text}
+        if ref_label:
+            note["ref"] = ref_label
+        chapters[f"{abbr}|{ch}"].append(note)
         total += 1
 
 print(f"Wrote {total} note-instances across {len(chapters)} chapter keys")

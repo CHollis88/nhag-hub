@@ -13,6 +13,7 @@ const SOURCES = [
   { key: "torrey", label: "Torrey's Topical Textbook", subtitle: "Verses grouped by topic, not definitions" },
   { key: "webster", label: "Webster's 1828 Dictionary (KJV words)", subtitle: "Old English word meanings, for tricky KJV wording" },
   { key: "tyndale", label: "Tyndale Open Bible Dictionary", subtitle: "Modern, in-depth Bible dictionary — over 6,000 entries" },
+  { key: "tyndale-themes", label: "Tyndale Theme Notes", subtitle: "Topical essays on major biblical themes" },
 ];
 
 const BROWSE_SOURCES = [
@@ -22,6 +23,7 @@ const BROWSE_SOURCES = [
   { key: "torrey", label: "Torrey's", subtitle: "Verses grouped by topic" },
   { key: "webster", label: "Webster's", subtitle: "Old English word meanings" },
   { key: "tyndale", label: "Tyndale", subtitle: "Modern, in-depth Bible dictionary" },
+  { key: "tyndale-themes", label: "Tyndale Themes", subtitle: "Topical essays on major biblical themes" },
   { key: "strongs-hebrew", label: "Strong's Hebrew", subtitle: "Original Hebrew word meanings" },
   { key: "strongs-greek", label: "Strong's Greek", subtitle: "Original Greek word meanings" },
 ];
@@ -85,18 +87,29 @@ function EntryCard({ entry }) {
   );
 }
 
-function BrowseTab() {
-  const [source, setSource] = useState("easton");
+function BrowseTab({ initialSource = "easton" }) {
+  const [source, setSource] = useState(initialSource);
   const [letter, setLetter] = useState("A");
   const [entries, setEntries] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const load = async (src, ltr) => {
     setLoading(true);
-    const d = await api.browseDictionary(src, ltr);
-    setEntries(d.entries);
-    setLoading(false);
+    try {
+      const d = await api.browseDictionary(src, ltr);
+      setEntries(d.entries || []);
+    } catch {
+      setEntries([]);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  // Load the starting letter immediately so Browse never opens blank.
+  useEffect(() => {
+    load(initialSource, "A");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const chooseSource = (src) => {
     setSource(src);
@@ -125,7 +138,7 @@ function BrowseTab() {
       </div>
       <p className="text-[0.6875rem] text-inkfaint mb-4">
         {BROWSE_SOURCES.find((s) => s.key === source)?.subtitle}
-        {source === "tyndale" && " — © Tyndale House Publishers, CC BY-SA 4.0"}
+        {(source === "tyndale" || source === "tyndale-themes") && " — © Tyndale House Publishers, CC BY-SA 4.0"}
       </p>
 
       <select value={letter} onChange={(e) => chooseLetter(e.target.value)} className="sp-input text-sm mb-4">
@@ -268,7 +281,7 @@ function SearchTab() {
               <p className="text-xs uppercase tracking-wide text-inkfaint mb-0.5">{label}</p>
               <p className="text-[0.6875rem] text-inkfaint mb-2">
                 {subtitle}
-                {key === "tyndale" && " — © Tyndale House Publishers, CC BY-SA 4.0"}
+                {(key === "tyndale" || key === "tyndale-themes") && " — © Tyndale House Publishers, CC BY-SA 4.0"}
               </p>
               <div className="space-y-2">
                 {items.map((r) => (
@@ -290,12 +303,14 @@ function SearchTab() {
   );
 }
 
-export default function ConcordanceSearch() {
-  const [mode, setMode] = useState("search"); // "search" | "browse"
+// initialMode / initialBrowseSource let the Library open this straight
+// into a specific view (e.g. "Original Languages" -> Browse, Strong's Greek).
+export default function ConcordanceSearch({ initialMode = "search", initialBrowseSource = "easton", title = "Concordance" }) {
+  const [mode, setMode] = useState(initialMode); // "search" | "browse"
 
   return (
     <div className="px-5 pt-4 pb-6">
-      <h2 className="font-serif text-xl text-ink mb-4">Concordance</h2>
+      <h2 className="font-serif text-xl text-ink mb-4">{title}</h2>
 
       <div className="flex gap-2 mb-4">
         <button
@@ -316,7 +331,7 @@ export default function ConcordanceSearch() {
         </button>
       </div>
 
-      <TabTransition tabKey={mode}>{mode === "search" ? <SearchTab /> : <BrowseTab />}</TabTransition>
+      <TabTransition tabKey={mode}>{mode === "search" ? <SearchTab /> : <BrowseTab initialSource={initialBrowseSource} />}</TabTransition>
     </div>
   );
 }

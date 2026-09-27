@@ -2,7 +2,14 @@ import { NextResponse } from "next/server";
 import { getBrowseEntries } from "@/lib/bible";
 import { withPublicCache } from "@/lib/cacheHeaders";
 
-const VALID_SOURCES = ["easton", "smith", "hitchcock", "torrey", "webster", "strongs-hebrew", "strongs-greek"];
+// Must include every dictionary lib/bible.js loads -- "tyndale" and
+// "tyndale-themes" were missing here, so browsing either one got a 400
+// and the Browse tab sat on "Loading..." forever.
+const VALID_SOURCES = [
+  "easton", "smith", "hitchcock", "torrey", "webster",
+  "tyndale", "tyndale-themes",
+  "strongs-hebrew", "strongs-greek",
+];
 
 export async function GET(req) {
   const source = req.nextUrl.searchParams.get("source");

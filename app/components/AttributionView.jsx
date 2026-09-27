@@ -31,6 +31,10 @@ const SOURCES = [
     category: "Commentary",
     items: [
       { name: "Matthew Henry's Concise Commentary", detail: "Matthew Henry (1662–1714). Public domain." },
+      {
+        name: "Tyndale Open Study Notes",
+        detail: "Study notes, book introductions, and theme notes. © Tyndale House Publishers. Used under CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0).",
+      },
     ],
   },
   {
@@ -41,6 +45,10 @@ const SOURCES = [
       { name: "Hitchcock's Bible Names Dictionary", detail: "Roswell D. Hitchcock, 1869. Public domain." },
       { name: "Torrey's Topical Textbook", detail: "R. A. Torrey, 1897. Public domain." },
       { name: "Webster's 1828 Dictionary", detail: "Noah Webster, 1828. Used for archaic KJV word meanings. Public domain." },
+      {
+        name: "Tyndale Open Bible Dictionary",
+        detail: "Dictionary entries, articles, and charts. © Tyndale House Publishers. Used under CC BY-SA 4.0 (creativecommons.org/licenses/by-sa/4.0).",
+      },
     ],
   },
   {

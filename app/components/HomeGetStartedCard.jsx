@@ -54,15 +54,15 @@ const ITEMS = [
   {
     id: "concordance",
     icon: Search,
-    title: "Search the Concordance",
-    body: "Look up any word or topic across all your dictionaries at once, or browse one from A to Z.",
+    title: "Explore the Library",
+    body: "Book introductions, theme notes, articles, charts, and six Bible dictionaries — all under Library in the Bible tab.",
     tab: "bible",
   },
   {
     id: "glossary",
     icon: Sparkles,
     title: "New here? Read the Glossary",
-    body: "Plain-language explanations of terms like grace, salvation, and baptism — plus what we believe as a church.",
+    body: "Plain-language explanations of terms like grace, salvation, and baptism — plus what we believe as a church. Find it under Library in the Bible tab.",
     tab: "bible",
   },
   {

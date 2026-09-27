@@ -151,8 +151,12 @@ const CATEGORIES = [
         a: "By default you'll see Tyndale's modern Study Notes, which read naturally no matter which translation you're in. Prefer Matthew Henry's classic commentary instead? Switch it from the layout picker above the text (look for \"Reading Layout\") — your choice is remembered. Matthew Henry quotes King James wording specifically, so it's worth knowing his exact phrasing won't always match what's on your screen in another translation.",
       },
       {
-        q: "What are Concordance and Glossary for?",
-        a: "Concordance lets you search for a specific word (like \"faith\") or a Strong's number (like \"G26\") and see every place it appears, across several dictionaries — Easton's, Smith's, Hitchcock's, Torrey's, Webster's, and the modern Tyndale Open Bible Dictionary. Glossary is a lookup of theological and biblical terms — both are their own sections inside the Bible tab, next to Read and My Notes.",
+        q: "What's in the Library?",
+        a: "Library (in the Bible tab, next to Read) is where every study help lives: Book Introductions for all 66 books, Theme Notes on the big ideas in each passage, Articles, Charts, Dictionaries & Concordance (search six Bible dictionaries plus Torrey's topics, or a Strong's number like \"G26\"), Original Languages (Strong's Hebrew and Greek), and the Glossary with What We Believe. Any Bible reference inside these is tappable and opens that passage.",
+      },
+      {
+        q: "What does the Study / Simple switch do?",
+        a: "It's above the text on every translation, and your choice is remembered. Study shows the extras: an \"About this book\" card at the start of each book (purpose, author, date, and setting, with the full introduction a tap away), theme notes where they begin, and word-study underlines. Simple hides all of that for plain reading. Word-by-word Hebrew and Greek tapping is only on the King James and Berean Standard Bible, because only those carry that tagging.",
       },
       {
         q: "How does Bible Plan work, and can I pick which plan I'm on?",

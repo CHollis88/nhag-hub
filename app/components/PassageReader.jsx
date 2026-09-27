@@ -30,6 +30,7 @@ import {
   Type,
 } from "lucide-react";
 import { BOOKS, ABBR_TO_NAME, formatReference, parseQuickReference } from "@/lib/bibleRef";
+import RichContent, { TyndaleAttribution } from "./RichContent";
 import { TRANSLATIONS, DEFAULT_TRANSLATION, getTranslation } from "@/lib/bibleTranslations";
 import { addRecentPassage, getRecentPassages } from "@/lib/recentPassages";
 import { getDesktopMode } from "@/lib/desktopMode";
@@ -224,7 +225,11 @@ function CommentaryNotes({ notes }) {
       {notes.map((n, i) => (
         <div key={i}>
           <p className="text-xs font-semibold text-accent mb-1">
-            {n.v1 === n.v2 ? `Verse ${n.v1}` : `Verses ${n.v1}-${n.v2}`}
+            {n.ref
+              ? `Section ${n.ref}`
+              : n.v1 === n.v2
+              ? `Verse ${n.v1}`
+              : `Verses ${n.v1}-${n.v2}`}
           </p>
           <p className="text-sm md:text-[0.9375rem] text-inksoft leading-relaxed">{n.text}</p>
         </div>
@@ -252,6 +257,7 @@ const DICT_LABELS = {
   torrey: "Torrey's",
   webster: "Webster's",
   tyndale: "Tyndale",
+  "tyndale-themes": "Tyndale Themes",
 };
 
 function WordStudyContent({ entry, id, dictMatches }) {
@@ -429,7 +435,10 @@ function CrossRefRangeContent({ perVerse, onGoTo, showCommentary = true, comment
   for (const { commentary } of perVerse) {
     if (!commentary) continue;
     for (const c of commentary) {
-      const key = `${c.v1}-${c.v2}`;
+      // Include the text: two different section notes can share the
+      // same local v1/v2 (both "1-999" in a chapter they pass through),
+      // and keying on range alone silently dropped the second one.
+      const key = `${c.ref || `${c.v1}-${c.v2}`}|${c.text}`;
       if (!seen.has(key)) {
         seen.add(key);
         allCommentary.push(c);
@@ -494,7 +503,7 @@ function CrossRefRangeContent({ perVerse, onGoTo, showCommentary = true, comment
   );
 }
 
-export default function PassageReader({ initialBook = "Gen", initialChapter = 1, deviceId }) {
+export default function PassageReader({ initialBook = "Gen", initialChapter = 1, initialVerse = null, deviceId }) {
   const [book, setBook] = useState(initialBook);
   const [chapterCounts, setChapterCounts] = useState({});
   const [chapter, setChapter] = useState(initialChapter);
@@ -554,7 +563,11 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const [jumpError, setJumpError] = useState("");
   const [findQuery, setFindQuery] = useState("");
   const [findIndex, setFindIndex] = useState(0);
-  const [pendingScroll, setPendingScroll] = useState(null);
+  const [pendingScroll, setPendingScroll] = useState(initialVerse && initialVerse > 1 ? initialVerse : null);
+  // Study-mode extras (Tyndale book intro on chapter 1, theme notes that
+  // start in this chapter). Passage-level, not wording-level, so they
+  // appear the same on every translation.
+  const [chapterExtras, setChapterExtras] = useState(null);
   const [copiedVerse, setCopiedVerse] = useState(null);
 
   // ── Derived translation flags ───────────────────────────────────────
@@ -745,21 +758,68 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     }
   }, [book, chapter, layout, commentaryAvailable, commentarySource]);
 
+  // The translation whose words are ACTUALLY on screen. When a licensed
+  // translation fails and we fall back to KJV text, highlights must load
+  // and save as KJV -- otherwise KJV word positions get stored as NLT/ESV
+  // and land on the wrong words later.
+  const highlightTranslation = translationFallback ? "kjv" : translation;
+
+  // Every highlight request gets a sequence number; only the newest one
+  // is allowed to write state. Without this, switching translations
+  // quickly let an older, slower response land last and paint the
+  // previous translation's word positions onto the new text.
+  const highlightReqSeq = useRef(0);
+
   const loadMyData = useCallback(() => {
     if (!deviceId) return;
     // Highlights are translation-scoped (word positions don't transfer);
     // notes and tags attach to verse ranges, so they follow you across
     // translations on purpose.
+    const seq = ++highlightReqSeq.current;
     api
-      .getHighlights(deviceId, book, chapter, translation)
-      .then((d) => setHighlights(d.highlights || []));
+      .getHighlights(deviceId, book, chapter, highlightTranslation)
+      .then((d) => {
+        if (seq === highlightReqSeq.current) setHighlights(d.highlights || []);
+      })
+      .catch(() => {
+        if (seq === highlightReqSeq.current) setHighlights([]);
+      });
     api.getNotes(deviceId, book, chapter).then((d) => setMyNotes(d.notes || []));
     api.getTags(deviceId, book, chapter).then((d) => setTags(d.tags || []));
-  }, [deviceId, book, chapter, translation]);
+  }, [deviceId, book, chapter, highlightTranslation]);
+
+  // Drop the previous chapter/translation's highlights immediately, so
+  // they never render against different words while the new set loads.
+  useEffect(() => {
+    setHighlights([]);
+  }, [book, chapter, highlightTranslation]);
 
   useEffect(() => {
     loadMyData();
   }, [loadMyData]);
+
+  useEffect(() => {
+    setChapterExtras(null);
+    if (!studyMode) return;
+    let live = true;
+    api
+      .getChapterExtras(book, chapter)
+      .then((d) => live && setChapterExtras(d))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [book, chapter, studyMode]);
+
+  const openLibraryItem = async (collection, id) => {
+    setPopup({ type: "loading" });
+    try {
+      const d = await api.getLibraryItem(collection, id);
+      setPopup({ type: "library", collection, item: d.item });
+    } catch {
+      setPopup({ type: "error", message: "Couldn't load that. Try again in a moment." });
+    }
+  };
 
   const chooseLayout = (id) => {
     setLayout(id);
@@ -998,7 +1058,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
         device_id: deviceId,
         book,
         chapter,
-        translation,
+        translation: highlightTranslation,
         verse_start: colorPickerFor.verseStart,
         verse_end: colorPickerFor.verseEnd,
         start_pos: colorPickerFor.start_pos,
@@ -1281,11 +1341,15 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             KJV
           </button>
         )}
-        {wordStudyAvailable && (
+        {/* Shown on every translation. Study/Simple is the reader's own
+            preference and carries across translations; only the
+            word-level Strong's tapping inside it is KJV/BSB-specific
+            (handled via wordStudyAvailable below), not the toggle. */}
+        {(
         <button
           onClick={toggleStudyMode}
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-paper text-inkfaint border border-line ml-auto"
-          title={studyMode ? "Showing full word-study detail. Tap to simplify." : "Simplified view. Tap for full word-study detail."}
+          title={studyMode ? "Showing study tools. Tap to simplify." : "Simplified view. Tap for study tools."}
         >
           {studyMode ? <ToggleRight size={16} className="text-accent" /> : <ToggleLeft size={16} />}
           {studyMode ? "Study" : "Simple"}
@@ -1308,7 +1372,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     // as a tappable Strong's word -- only when there's no word-level
     // tap available, so people notice the number itself is now the way
     // in to word meanings for this verse.
-    hintStrongsOnNumber: !wordStudyAvailable,
+    hintStrongsOnNumber: studyMode && !wordStudyAvailable,
     footnotes,
     wordTapMode,
     speakingToken,
@@ -1341,6 +1405,46 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
         <div className="text-xs rounded-lg px-3 py-2 mb-3 bg-accent/10 text-accent">
           Couldn&apos;t load {translationFallback.attempted} just now, so this is the King James
           Version.
+        </div>
+      )}
+
+      {studyMode && verses && !loading && chapterExtras && (chapterExtras.intro || chapterExtras.themes?.length > 0) && (
+        <div className="rounded-xl border border-line bg-card px-4 py-3.5 mb-4">
+          {chapterExtras.intro && (
+            <div className={chapterExtras.themes?.length ? "mb-3 pb-3 border-b border-linesoft" : ""}>
+              <p className="font-serif text-base text-ink mb-2">About {chapterExtras.intro.title}</p>
+              <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5 mb-2.5">
+                {chapterExtras.intro.summary.map((f) => (
+                  <div key={f.label} className="contents">
+                    <dt className="text-[0.6875rem] font-semibold text-accent pt-0.5">{f.label}</dt>
+                    <dd className="text-xs text-inksoft leading-snug">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <button
+                onClick={() => openLibraryItem("intros", chapterExtras.intro.book)}
+                className="text-xs font-medium text-accent underline underline-offset-2"
+              >
+                Read the full introduction
+              </button>
+            </div>
+          )}
+          {chapterExtras.themes?.length > 0 && (
+            <div>
+              <p className="text-[0.6875rem] text-inkfaint mb-1.5">Theme notes starting in this chapter</p>
+              <div className="flex flex-wrap gap-1.5">
+                {chapterExtras.themes.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => openLibraryItem("themes", t.id)}
+                    className="text-xs bg-accent/8 text-accent rounded-full px-3 py-1.5 hover:bg-accent/15"
+                  >
+                    {t.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1950,6 +2054,8 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
               ? `Strong's — ${ABBR_TO_NAME[book]} ${chapter}:${
                   popup.start === popup.end ? popup.start : `${popup.start}-${popup.end}`
                 }`
+              : popup.type === "library"
+              ? popup.item?.title || "Study Notes"
               : "Word Study"
           }
           onClose={() => setPopup(null)}
@@ -1967,6 +2073,22 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
               commentaryLabel={commentaryLabel}
               commentaryAttribution={commentarySource === "tyndale"}
             />
+          )}
+          {popup.type === "library" && popup.item && (
+            <div>
+              {popup.collection === "intros" && popup.item.summary?.length > 0 && (
+                <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1.5 mb-4 pb-4 border-b border-linesoft">
+                  {popup.item.summary.map((f) => (
+                    <div key={f.label} className="contents">
+                      <dt className="text-[0.6875rem] font-semibold text-accent pt-0.5">{f.label}</dt>
+                      <dd className="text-xs text-inksoft leading-snug">{f.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
+              <RichContent blocks={popup.item.blocks} onRef={goToReference} />
+              <TyndaleAttribution />
+            </div>
           )}
           {popup.type === "verse-strongs" && (
             <VerseStrongsContent

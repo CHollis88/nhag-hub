@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import PassageReader from "./PassageReader";
-import ConcordanceSearch from "./ConcordanceSearch";
+import LibraryView from "./LibraryView";
 import MyNotesView from "./MyNotesView";
-import GlossaryView from "./GlossaryView";
 import BibleSearchView from "./BibleSearchView";
 import TabTransition from "./TabTransition";
 
 const MODES = [
   { id: "read", label: "Read" },
-  { id: "concordance", label: "Concordance" },
-  { id: "glossary", label: "Glossary" },
+  // Library holds every reference tool (dictionaries, Strong's,
+  // glossary, and the Tyndale intros/themes/articles/charts) so this
+  // row stays short no matter how many sources get added.
+  { id: "library", label: "Library" },
   { id: "notes", label: "My Notes" },
   { id: "search", label: "Search" },
 ];
@@ -29,8 +30,8 @@ export default function BibleTab({ target, deviceId }) {
     return null;
   });
 
-  const openPassage = (bookAbbr, chapter) => {
-    setReadTarget({ bookAbbr, startChapter: chapter });
+  const openPassage = (bookAbbr, chapter, verse) => {
+    setReadTarget({ bookAbbr, startChapter: chapter, startVerse: verse });
     setMode("read");
   };
 
@@ -55,11 +56,11 @@ export default function BibleTab({ target, deviceId }) {
           <PassageReader
             initialBook={readTarget?.bookAbbr}
             initialChapter={readTarget?.startChapter}
+            initialVerse={readTarget?.startVerse}
             deviceId={deviceId}
           />
         )}
-        {mode === "concordance" && <ConcordanceSearch />}
-        {mode === "glossary" && <GlossaryView />}
+        {mode === "library" && <LibraryView onOpenPassage={openPassage} />}
         {mode === "notes" && <MyNotesView deviceId={deviceId} onOpenPassage={openPassage} />}
         {mode === "search" && <BibleSearchView onOpenPassage={openPassage} />}
       </TabTransition>
