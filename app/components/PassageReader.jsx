@@ -2111,14 +2111,19 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
 
   // What the desktop Study Panel shows when nothing has been tapped yet:
   // context for the chapter on screen, instead of an empty prompt.
+  // `book` is the summary for every chapter; `intro` (chapter 1 only) is
+  // the same data, so it's a safe fallback if an older cached response
+  // without `book` ever reaches the client.
+  const panelBook = chapterExtras?.book || chapterExtras?.intro || null;
+
   const chapterContextPanel = (
     <div>
-      {chapterExtras?.book && (
+      {panelBook && (
         <div className="mb-5">
-          <p className="font-serif text-base text-ink mb-2">About {chapterExtras.book.title}</p>
-          <div className="mb-2.5">{summaryList(chapterExtras.book.summary)}</div>
+          <p className="font-serif text-base text-ink mb-2">About {panelBook.title}</p>
+          <div className="mb-2.5">{summaryList(panelBook.summary)}</div>
           <button
-            onClick={() => openLibraryItem("intros", chapterExtras.book.book)}
+            onClick={() => openLibraryItem("intros", panelBook.book)}
             className="text-xs font-medium text-accent underline underline-offset-2"
           >
             Read the full introduction
