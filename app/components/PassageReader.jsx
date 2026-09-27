@@ -839,7 +839,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
         verseNums.map((v) =>
           api
             .getCrossRefs(book, chapter, v, commentarySource)
-            .then((d) => ({ verse: v, refs: d.refs, commentary: d.commentary }))
+            .then((d) => ({ verse: v, refs: d.refs || [], commentary: d.commentary || [] }))
         )
       );
       setPopup({ type: "verse-range", start: range.start, end: range.end, perVerse });
