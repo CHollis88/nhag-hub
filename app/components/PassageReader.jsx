@@ -81,7 +81,7 @@ function setPref(key, value) {
   if (typeof window !== "undefined") localStorage.setItem(key, value);
 }
 
-function VerseText({ verses, headings, footnotes, highlights, notes, tags, selection, selectedRange, studyMode, wordTapMode, speakingToken, fontClass, onWordTap, onSpeakWord, onVerseNumberTap, onSelectTap, hintStrongsOnNumber }) {
+function VerseText({ verses, headings, superscriptions, footnotes, highlights, notes, tags, selection, selectedRange, studyMode, wordTapMode, speakingToken, fontClass, onWordTap, onSpeakWord, onVerseNumberTap, onSelectTap, hintStrongsOnNumber }) {
   const [openFootnotes, setOpenFootnotes] = useState(() => new Set());
   const toggleFootnote = (verseNum) => {
     setOpenFootnotes((prev) => {
@@ -104,40 +104,14 @@ function VerseText({ verses, headings, footnotes, highlights, notes, tags, selec
           const firstTag = tags?.find((t) => t.verse_start <= verseNum && t.verse_end >= verseNum);
           const isSelecting = selection && verseNum >= selection.rangeStart && verseNum <= selection.rangeEnd;
           const isInActiveRange = selectedRange && verseNum >= selectedRange.start && verseNum <= selectedRange.end;
-          const heading = headings[num];
-          const verseFootnotes = footnotes?.[num] || [];
-
-          return (
-            <div key={num}>
-              {heading && (
-                <p className="font-serif text-lg text-accent font-semibold mt-7 mb-2.5 first:mt-0">{heading}</p>
-              )}
-              <p
-                id={`verse-${verseNum}`}
-                className={`text-[0.9375rem] md:text-base leading-relaxed text-ink scroll-mt-24 rounded ${
-                  isInActiveRange ? "bg-accent/10 dark:bg-accent/25" : ""
-                }`}
-              >
-              <button
-                onClick={() => onVerseNumberTap(verseNum)}
-                title={hintStrongsOnNumber ? "Tap for word meanings, cross-references, and more" : undefined}
-                className={`text-xs align-super text-accent font-semibold mr-1 ${
-                  hintStrongsOnNumber ? "border-b-2 border-dotted border-accent/60" : ""
-                }`}
-              >
-                {num}
-              </button>
-              {hasNote && (
-                <StickyNote size={11} className="inline text-accent mr-1 -translate-y-0.5" strokeWidth={2.2} />
-              )}
-              {hasTags && (
-                <Tag
-                  size={11}
-                  className={`inline mr-1 -translate-y-0.5 ${tagColorClass(firstTag.tag, "icon")}`}
-                  strokeWidth={2.2}
-                />
-              )}
-              {tokens.map((tok, i) => {
+          // Psalm titles ("A Psalm of David.") are a leading run of tokens
+          // flagged "ti" in KJV/BSB. They're drawn on their own line above
+          // the verse rather than after the verse number -- but still by
+          // renderToken with their REAL indices, so highlights and word
+          // study on title words work exactly as before.
+          let titleCount = 0;
+          while (titleCount < tokens.length && (tokens[titleCount].ti || (!tokens[titleCount].t && tokens[titleCount + 1]?.ti))) titleCount++;
+          const renderToken = (tok, i) => {
                 // A token that was only source markup (e.g. a lone "[[" in
                 // KJV Psalms) is kept as an empty placeholder so highlight
                 // positions never shift -- it just renders nothing.
@@ -158,7 +132,7 @@ function VerseText({ verses, headings, footnotes, highlights, notes, tags, selec
                 const redLetterClass = tok.r ? "text-red-700 dark:text-red-400" : "";
                 // Psalm superscriptions ("A Psalm of David...") are part of
                 // verse 1 in KJV; show them as a title, on their own line.
-                const titleClass = tok.ti ? "italic text-inkfaint" : "";
+                const titleClass = "";
                 let next = null;
                 for (let j = i + 1; j < tokens.length; j++) {
                   if (tokens[j].t) {
@@ -166,7 +140,7 @@ function VerseText({ verses, headings, footnotes, highlights, notes, tags, selec
                     break;
                   }
                 }
-                const endsTitle = tok.ti && !(next && next.ti);
+                const endsTitle = false;
                 // No space before a token that's only closing punctuation
                 // (KJV splits some commas into their own token).
                 const spaceAfter = next && /^[,.;:!?)\]\u2019\u201d]+$/.test(next.t) ? "" : " ";
@@ -208,7 +182,49 @@ function VerseText({ verses, headings, footnotes, highlights, notes, tags, selec
                     {endsTitle ? <br /> : spaceAfter}
                   </span>
                 );
-              })}
+              };
+          const heading = headings[num];
+          const verseFootnotes = footnotes?.[num] || [];
+
+          return (
+            <div key={num}>
+              {heading && (
+                <p className="font-serif text-lg text-accent font-semibold mt-7 mb-2.5 first:mt-0">{heading}</p>
+              )}
+              {superscriptions?.[num] && (
+                <p className="font-serif italic text-sm text-inkfaint leading-snug mb-2.5">{superscriptions[num]}</p>
+              )}
+              {titleCount > 0 && (
+                <p className="font-serif italic text-sm text-inkfaint leading-snug mb-2.5">
+                  {tokens.slice(0, titleCount).map((tok, i) => renderToken(tok, i))}
+                </p>
+              )}
+              <p
+                id={`verse-${verseNum}`}
+                className={`text-[0.9375rem] md:text-base leading-relaxed text-ink scroll-mt-24 rounded ${
+                  isInActiveRange ? "bg-accent/10 dark:bg-accent/25" : ""
+                }`}
+              >
+              <button
+                onClick={() => onVerseNumberTap(verseNum)}
+                title={hintStrongsOnNumber ? "Tap for word meanings, cross-references, and more" : undefined}
+                className={`text-xs align-super text-accent font-semibold mr-1 ${
+                  hintStrongsOnNumber ? "border-b-2 border-dotted border-accent/60" : ""
+                }`}
+              >
+                {num}
+              </button>
+              {hasNote && (
+                <StickyNote size={11} className="inline text-accent mr-1 -translate-y-0.5" strokeWidth={2.2} />
+              )}
+              {hasTags && (
+                <Tag
+                  size={11}
+                  className={`inline mr-1 -translate-y-0.5 ${tagColorClass(firstTag.tag, "icon")}`}
+                  strokeWidth={2.2}
+                />
+              )}
+              {tokens.map((tok, i) => (i < titleCount ? null : renderToken(tok, i)))}
               {verseFootnotes.length > 0 && (
                 <button
                   onClick={() => toggleFootnote(verseNum)}
@@ -1403,6 +1419,13 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const verseTextProps = {
     verses,
     headings,
+    // ESV/NLT psalm titles arrive in headings under "_sup:<verse>" (see
+    // lib/bibleProviders.js); KJV/BSB carry theirs as flagged tokens.
+    superscriptions: Object.fromEntries(
+      Object.entries(headings || {})
+        .filter(([k]) => k.startsWith("_sup:"))
+        .map(([k, v]) => [k.slice(5), v])
+    ),
     highlights,
     notes: myNotes,
     tags,
