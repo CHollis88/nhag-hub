@@ -43,13 +43,13 @@ const SECTIONS = [
     id: "dictionaries",
     icon: BookMarked,
     title: "Dictionaries & Concordance",
-    blurb: "Search six Bible dictionaries and Torrey's topics",
+    blurb: "Six Bible dictionaries and Torrey's topics",
   },
   {
     id: "languages",
     icon: Languages,
     title: "Original Languages",
-    blurb: "Strong's Hebrew and Greek word meanings",
+    blurb: "Find the Hebrew and Greek behind any English word",
   },
   {
     id: "glossary",
@@ -288,7 +288,7 @@ export default function LibraryView({ onOpenPassage }) {
         <div className="px-5 pt-4 -mb-2">
           <BackBar label="Library" onBack={goHome} />
         </div>
-        <ConcordanceSearch title="Dictionaries & Concordance" />
+        <ConcordanceSearch title="Dictionaries & Concordance" scope="dictionaries" />
       </div>
     );
   } else if (section === "languages") {
@@ -297,7 +297,7 @@ export default function LibraryView({ onOpenPassage }) {
         <div className="px-5 pt-4 -mb-2">
           <BackBar label="Library" onBack={goHome} />
         </div>
-        <ConcordanceSearch title="Original Languages" initialMode="browse" initialBrowseSource="strongs-greek" />
+        <ConcordanceSearch title="Original Languages" scope="languages" initialBrowseSource="strongs-greek" />
       </div>
     );
   } else if (section === "glossary") {

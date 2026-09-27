@@ -28,6 +28,24 @@ const BROWSE_SOURCES = [
   { key: "strongs-greek", label: "Strong's Greek", subtitle: "Original Greek word meanings" },
 ];
 
+// Each Library section shows only its own material, so nothing appears
+// in two places:
+//   "dictionaries" -- the Bible dictionaries + Torrey's (no Strong's; no
+//                     Theme Notes, which have their own Library section)
+//   "languages"    -- Strong's Hebrew & Greek only
+//   "all"          -- everything (legacy, not used by the Library)
+const STRONGS_KEYS = new Set(["strongs-hebrew", "strongs-greek"]);
+function sourcesFor(scope) {
+  if (scope === "languages") return [];
+  if (scope === "dictionaries") return SOURCES.filter((x) => x.key !== "tyndale-themes");
+  return SOURCES;
+}
+function browseSourcesFor(scope) {
+  if (scope === "languages") return BROWSE_SOURCES.filter((x) => STRONGS_KEYS.has(x.key));
+  if (scope === "dictionaries") return BROWSE_SOURCES.filter((x) => !STRONGS_KEYS.has(x.key) && x.key !== "tyndale-themes");
+  return BROWSE_SOURCES;
+}
+
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 function EntryCard({ entry }) {
@@ -87,7 +105,8 @@ function EntryCard({ entry }) {
   );
 }
 
-function BrowseTab({ initialSource = "easton" }) {
+function BrowseTab({ initialSource = "easton", scope = "all" }) {
+  const BROWSE_SOURCES = browseSourcesFor(scope);
   const [source, setSource] = useState(initialSource);
   const [letter, setLetter] = useState("A");
   const [entries, setEntries] = useState(null);
@@ -167,7 +186,10 @@ function BrowseTab({ initialSource = "easton" }) {
   );
 }
 
-function SearchTab() {
+function SearchTab({ scope = "all" }) {
+  const SOURCES = sourcesFor(scope);
+  const [lexResults, setLexResults] = useState(null);
+  const [numberHint, setNumberHint] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState(null);
   const [strongsResult, setStrongsResult] = useState(null);
@@ -188,6 +210,8 @@ function SearchTab() {
     if (!q.trim()) {
       setResults(null);
       setStrongsResult(null);
+      setLexResults(null);
+      setNumberHint(false);
       setLoading(false);
       return;
     }
@@ -197,8 +221,24 @@ function SearchTab() {
 
     const t = setTimeout(async () => {
       setStrongsResult(null);
+      setLexResults(null);
+      setNumberHint(false);
+      const isNumber = /^[GH]\d+$/i.test(q.trim());
 
-      if (/^[GH]\d+$/i.test(q.trim())) {
+      if (isNumber && scope === "dictionaries") {
+        // Strong's lives in its own Library section now.
+        setResults(null);
+        setNumberHint(true);
+      } else if (!isNumber && scope === "languages") {
+        try {
+          const d = await api.searchLexicon(q.trim());
+          if (requestId !== latestRequestId.current) return;
+          setLexResults(d.results || []);
+        } catch {
+          if (requestId !== latestRequestId.current) return;
+          setLexResults([]);
+        }
+      } else if (isNumber) {
         try {
           const d = await api.getLexiconEntry(q.trim().toUpperCase());
           if (requestId !== latestRequestId.current) return;
@@ -229,7 +269,13 @@ function SearchTab() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search a word (e.g. 'faith') or Strong's number (e.g. G26)"
+          placeholder={
+            scope === "languages"
+              ? "Search an English word (e.g. 'love') or Strong's number (e.g. G26)"
+              : scope === "dictionaries"
+              ? "Search a word or topic (e.g. 'faith')"
+              : "Search a word (e.g. 'faith') or Strong's number (e.g. G26)"
+          }
           className="sp-input pl-9"
         />
       </div>
@@ -268,6 +314,35 @@ function SearchTab() {
         </div>
       )}
 
+      {numberHint && (
+        <p className="text-sm text-inkfaint">
+          Strong&apos;s numbers are in <span className="font-semibold text-ink">Original Languages</span>, in the Library.
+        </p>
+      )}
+
+      {lexResults && lexResults.length === 0 && !loading && (
+        <p className="text-sm text-inkfaint">No Hebrew or Greek words found for &ldquo;{query}&rdquo;.</p>
+      )}
+      {lexResults && lexResults.length > 0 && (
+        <div className="divide-y divide-linesoft">
+          {lexResults.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setQuery(r.id)}
+              className="w-full text-left py-2.5 flex items-baseline gap-3"
+            >
+              <span className="text-xs font-semibold text-accent w-14 flex-shrink-0">{r.id}</span>
+              <span className="min-w-0">
+                <span className="text-sm text-ink">
+                  {r.word} <span className="italic text-inkfaint">{r.transliteration}</span>
+                </span>
+                {r.gloss && <span className="block text-xs text-inkfaint leading-snug line-clamp-2">{r.gloss}</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {results && !hasAnyResults && !strongsResult && !loading && query && (
         <p className="text-sm text-inkfaint">No entries found.</p>
       )}
@@ -294,9 +369,11 @@ function SearchTab() {
 
       {!query && (
         <p className="text-sm text-inkfaint">
-          Search any word or topic to look it up across Easton's, Smith's, Hitchcock's,
-          Torrey's, Webster's, and the Tyndale Open Bible Dictionary — or enter a Strong's number
-          directly (like G26 or H7225) to see its original Hebrew or Greek meaning.
+          {scope === "languages"
+            ? "Search an English word to find the Hebrew and Greek words behind it, or enter a Strong's number (like G26 or H7225) to see its full meaning."
+            : scope === "dictionaries"
+            ? "Search any word or topic to look it up across Easton's, Smith's, Hitchcock's, Torrey's, Webster's, and the Tyndale Open Bible Dictionary."
+            : "Search any word or topic to look it up across Easton's, Smith's, Hitchcock's, Torrey's, Webster's, and the Tyndale Open Bible Dictionary — or enter a Strong's number directly (like G26 or H7225) to see its original Hebrew or Greek meaning."}
         </p>
       )}
     </div>
@@ -305,7 +382,12 @@ function SearchTab() {
 
 // initialMode / initialBrowseSource let the Library open this straight
 // into a specific view (e.g. "Original Languages" -> Browse, Strong's Greek).
-export default function ConcordanceSearch({ initialMode = "search", initialBrowseSource = "easton", title = "Concordance" }) {
+export default function ConcordanceSearch({
+  initialMode = "search",
+  initialBrowseSource = "easton",
+  title = "Concordance",
+  scope = "all",
+}) {
   const [mode, setMode] = useState(initialMode); // "search" | "browse"
 
   return (
@@ -331,7 +413,11 @@ export default function ConcordanceSearch({ initialMode = "search", initialBrows
         </button>
       </div>
 
-      <TabTransition tabKey={mode}>{mode === "search" ? <SearchTab /> : <BrowseTab initialSource={initialBrowseSource} />}</TabTransition>
+      <TabTransition tabKey={mode}>{mode === "search" ? (
+          <SearchTab scope={scope} />
+        ) : (
+          <BrowseTab initialSource={initialBrowseSource} scope={scope} />
+        )}</TabTransition>
     </div>
   );
 }

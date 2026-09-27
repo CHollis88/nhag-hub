@@ -435,7 +435,11 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             {activeGroup ? `← Back to ${activeGroup.name}` : "← Back"}
           </button>
         </header>
-        <main className="flex-1">
+        {/* Must scroll: the wrapper above is a fixed-height,
+            overflow-hidden column, so without overflow-y-auto (and
+            min-h-0, so this flex child can shrink below its content)
+            the scripture ran past the bottom with no way to reach it. */}
+        <main className="flex-1 min-h-0 overflow-y-auto">
           <BibleTab
             deviceId={me.user.id}
             target={{ bookAbbr: bibleOverlay.book, startChapter: bibleOverlay.chapter }}

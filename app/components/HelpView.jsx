@@ -152,7 +152,7 @@ const CATEGORIES = [
       },
       {
         q: "What's in the Library?",
-        a: "Library (in the Bible tab, next to Read) is where every study help lives: Book Introductions for all 66 books, Theme Notes on the big ideas in each passage, Articles, Charts, Dictionaries & Concordance (search six Bible dictionaries plus Torrey's topics, or a Strong's number like \"G26\"), Original Languages (Strong's Hebrew and Greek), and the Glossary with What We Believe. Any Bible reference inside these is tappable and opens that passage.",
+        a: "Library (in the Bible tab, next to Read) is where every study help lives: Book Introductions for all 66 books, Theme Notes on the big ideas in each passage, Articles, Charts, Dictionaries & Concordance (six Bible dictionaries plus Torrey's topics), Original Languages (search an English word like \"love\" to find the Hebrew and Greek words behind it, or a Strong's number like \"G26\"), and the Glossary with What We Believe. Any Bible reference inside these is tappable and opens that passage.",
       },
       {
         q: "What does the Study / Simple switch do?",

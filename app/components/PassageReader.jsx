@@ -29,7 +29,7 @@ import {
   Ear,
   Type,
 } from "lucide-react";
-import { BOOKS, ABBR_TO_NAME, formatReference, parseQuickReference } from "@/lib/bibleRef";
+import { BOOKS, ABBR_TO_NAME, formatReference, parseQuickReference, tokensToText } from "@/lib/bibleRef";
 import RichContent, { TyndaleAttribution } from "./RichContent";
 import { TRANSLATIONS, DEFAULT_TRANSLATION, getTranslation } from "@/lib/bibleTranslations";
 import { addRecentPassage, getRecentPassages } from "@/lib/recentPassages";
@@ -138,6 +138,10 @@ function VerseText({ verses, headings, footnotes, highlights, notes, tags, selec
                 />
               )}
               {tokens.map((tok, i) => {
+                // A token that was only source markup (e.g. a lone "[[" in
+                // KJV Psalms) is kept as an empty placeholder so highlight
+                // positions never shift -- it just renders nothing.
+                if (!tok.t) return null;
                 const highlight = verseHighlights.find((h) => {
                   const lo = h.verse_start === verseNum ? h.start_pos : 0;
                   const hi = h.verse_end === verseNum ? h.end_pos : Infinity;
@@ -152,6 +156,20 @@ function VerseText({ verses, headings, footnotes, highlights, notes, tags, selec
                 // no such flag yet, so tok.r is simply absent for them
                 // and nothing here changes.
                 const redLetterClass = tok.r ? "text-red-700 dark:text-red-400" : "";
+                // Psalm superscriptions ("A Psalm of David...") are part of
+                // verse 1 in KJV; show them as a title, on their own line.
+                const titleClass = tok.ti ? "italic text-inkfaint" : "";
+                let next = null;
+                for (let j = i + 1; j < tokens.length; j++) {
+                  if (tokens[j].t) {
+                    next = tokens[j];
+                    break;
+                  }
+                }
+                const endsTitle = tok.ti && !(next && next.ti);
+                // No space before a token that's only closing punctuation
+                // (KJV splits some commas into their own token).
+                const spaceAfter = next && /^[,.;:!?)\]\u2019\u201d]+$/.test(next.t) ? "" : " ";
 
                 const handleClick = () => {
                   if (wordTapMode) onSpeakWord(tok.t, verseNum, i);
@@ -165,7 +183,7 @@ function VerseText({ verses, headings, footnotes, highlights, notes, tags, selec
                   <span
                     key={i}
                     style={style}
-                    className={`${redLetterClass} ${
+                    className={`${redLetterClass} ${titleClass} ${
                       isPicked
                         ? "ring-2 ring-accent rounded"
                         : isSpeaking
@@ -186,7 +204,8 @@ function VerseText({ verses, headings, footnotes, highlights, notes, tags, selec
                       </button>
                     ) : (
                       tok.t
-                    )}{" "}
+                    )}
+                    {endsTitle ? <br /> : spaceAfter}
                   </span>
                 );
               })}
@@ -964,7 +983,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     const parts = [];
     for (let v = range.start; v <= range.end; v++) {
       const tokens = verses[v];
-      if (tokens) parts.push(tokens.map((t) => t.t).join(" "));
+      if (tokens) parts.push(tokensToText(tokens));
     }
     if (parts.length === 0) return;
     const text = parts.join(" ");
@@ -985,7 +1004,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     if (!verses || !findQuery.trim()) return [];
     const q = findQuery.trim().toLowerCase();
     return Object.entries(verses)
-      .filter(([, tokens]) => tokens.map((t) => t.t).join(" ").toLowerCase().includes(q))
+      .filter(([, tokens]) => tokensToText(tokens).toLowerCase().includes(q))
       .map(([num]) => parseInt(num, 10))
       .sort((a, b) => a - b);
   })();
@@ -1155,6 +1174,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     let text = "";
     for (const vNum of verseNums) {
       verses[vNum].forEach((tok, i) => {
+        if (!tok.t) return; // empty placeholder (see VerseText)
         flatTokens.push({ verse: vNum, index: i, offset: text.length });
         text += tok.t + " ";
       });

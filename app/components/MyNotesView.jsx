@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search, StickyNote, Tag, X } from "lucide-react";
 import { ABBR_TO_NAME } from "@/lib/bibleRef";
 import { api } from "@/lib/api";
@@ -25,12 +25,38 @@ export default function MyNotesView({ deviceId, onOpenPassage }) {
   const [colorFilter, setColorFilter] = useState(null); // null = all colors
   const [tagFilter, setTagFilter] = useState(null); // null = all tags
 
-  useEffect(() => {
+  const [loadError, setLoadError] = useState(false);
+
+  // Each of the three loads fails independently: if one errors, the
+  // others still show and a retry banner appears. Previously a single
+  // failed request left its state null forever, and the whole view
+  // rendered nothing at all -- indistinguishable from "my highlights
+  // didn't save."
+  const load = useCallback(() => {
     if (!deviceId) return;
-    api.getNotes(deviceId).then((d) => setNotes(d.notes || []));
-    api.getHighlights(deviceId).then((d) => setHighlights(d.highlights || []));
-    api.getTags(deviceId).then((d) => setTags(d.tags || []));
+    setLoadError(false);
+    const fail = (setter) => () => {
+      setter((prev) => prev || []);
+      setLoadError(true);
+    };
+    api.getNotes(deviceId).then((d) => setNotes(d.notes || [])).catch(fail(setNotes));
+    api.getHighlights(deviceId).then((d) => setHighlights(d.highlights || [])).catch(fail(setHighlights));
+    api.getTags(deviceId).then((d) => setTags(d.tags || [])).catch(fail(setTags));
   }, [deviceId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Refresh when the app comes back to the foreground, so a highlight
+  // made on another device (or before switching apps) shows up.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [load]);
 
   // Merge notes, highlights, and tags into one entry per exact range, so a
   // range with any combination of the three shows as a single card. Items
@@ -43,7 +69,7 @@ export default function MyNotesView({ deviceId, onOpenPassage }) {
     const ensure = (book, chapter, verseStart, verseEnd, sortAt) => {
       const key = keyOf(book, chapter, verseStart, verseEnd);
       if (!byRange[key]) {
-        byRange[key] = { book, chapter, verseStart, verseEnd, text: "", colors: [], tags: [], sortAt };
+        byRange[key] = { book, chapter, verseStart, verseEnd, text: "", colors: [], tags: [], translations: [], sortAt };
       }
       return byRange[key];
     };
@@ -55,6 +81,8 @@ export default function MyNotesView({ deviceId, onOpenPassage }) {
     for (const h of highlights) {
       const entry = ensure(h.book, h.chapter, h.verse_start, h.verse_end, h.created_at);
       if (!entry.colors.includes(h.color)) entry.colors.push(h.color);
+      const tr = (h.translation || "kjv").toUpperCase();
+      if (!entry.translations.includes(tr)) entry.translations.push(tr);
       if (h.created_at > entry.sortAt) entry.sortAt = h.created_at;
     }
     for (const t of tags) {
@@ -98,6 +126,14 @@ export default function MyNotesView({ deviceId, onOpenPassage }) {
   return (
     <div className="px-5 pt-4 pb-6">
       <h2 className="font-serif text-xl text-ink mb-4">My Notes & Highlights</h2>
+      {loadError && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-line bg-card px-3 py-2 mb-4">
+          <p className="text-xs text-inksoft">Some of your notes or highlights couldn&apos;t load.</p>
+          <button onClick={load} className="text-xs font-semibold text-accent">
+            Try again
+          </button>
+        </div>
+      )}
 
       {isEmpty ? (
         <EmptyState
@@ -187,6 +223,10 @@ export default function MyNotesView({ deviceId, onOpenPassage }) {
                     <p className="text-xs font-semibold text-accent">
                       {ABBR_TO_NAME[e.book] || e.book} {e.chapter}:
                       {e.verseStart === e.verseEnd ? e.verseStart : `${e.verseStart}-${e.verseEnd}`}
+                      {e.translations.length > 0 && (
+                        // Highlights belong to the translation they were made in.
+                        <span className="ml-1.5 font-normal text-inkfaint">{e.translations.join(", ")}</span>
+                      )}
                     </p>
                     {e.colors.length > 0 && (
                       <div className="flex gap-1">

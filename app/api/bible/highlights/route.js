@@ -18,14 +18,20 @@ export async function GET(req) {
   // which only mean anything inside the translation they were made in.
   // See migration_032. Absent param means KJV, matching the default on
   // the column, so older clients keep working.
-  const translation = req.nextUrl.searchParams.get("translation") || "kjv";
+  //
+  // That default only applies when reading a chapter. The list-everything
+  // call (My Notes: no book/chapter) returns EVERY translation -- it used
+  // to fall back to KJV here too, so highlights made in ESV/NLT/BSB saved
+  // fine but never appeared in My Notes.
+  const listMode = !(book && chapter);
+  const translation = req.nextUrl.searchParams.get("translation") || (listMode ? null : "kjv");
 
   const supabase = supabaseServer();
   let query = supabase
     .from("bible_highlights")
     .select("id, book, chapter, translation, verse_start, verse_end, start_pos, end_pos, color, created_at")
-    .eq("user_id", user.id)
-    .eq("translation", translation);
+    .eq("user_id", user.id);
+  if (translation) query = query.eq("translation", translation);
 
   if (book && chapter) {
     query = query.eq("book", book).eq("chapter", chapter);
