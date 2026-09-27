@@ -17,5 +17,5 @@ export async function GET(req) {
 
   const refs = getCrossRefs(book, chapter, verse);
   const commentary = getCommentaryForVerse(book, chapter, verse, source);
-  return withPublicCache({ book, chapter, verse, source, commentary });
+  return withPublicCache({ book, chapter, verse, source, refs, commentary });
 }

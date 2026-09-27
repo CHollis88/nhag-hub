@@ -29,7 +29,7 @@
 
 create table if not exists bible_chapter_cache (
   id            bigserial primary key,
-  translation   text        not null check (translation in ('kjv', 'esv', 'nlt', 'bsb')),
+  translation   text        not null,
   book          text        not null,
   chapter       int         not null,
   verses        jsonb       not null,
@@ -57,7 +57,7 @@ create index if not exists idx_bible_cache_evict
 -- available, so an unset preference never depends on an external API
 -- being up or in quota.
 alter table users
-  add column if not exists preferred_translation text not null default 'kjv' check (preferred_translation in ('kjv', 'esv', 'nlt', 'bsb'));
+  add column if not exists preferred_translation text not null default 'kjv';
 
 -- ── Highlights become per-translation ────────────────────────────────
 -- A highlight stores word positions (start_pos/end_pos) -- an index
@@ -75,7 +75,7 @@ alter table users
 -- Existing rows all predate multi-translation support, so they're all
 -- KJV by definition; the default backfills them correctly.
 alter table bible_highlights
-  add column if not exists translation text not null default 'kjv' check (translation in ('kjv', 'esv', 'nlt', 'bsb'));
+  add column if not exists translation text not null default 'kjv';
 
 -- Replaces the old (user_id, book, chapter) lookup -- every read is now
 -- scoped to a translation as well.
@@ -94,3 +94,38 @@ alter table bible_chapter_cache
   add column if not exists headings jsonb not null default '{}'::jsonb;
 alter table bible_chapter_cache
   add column if not exists footnotes jsonb not null default '{}'::jsonb;
+
+-- ── BSB support + valid-translation constraints ──────────────────────
+-- Added after initial deploy. Postgres skips "add column if not
+-- exists" and "create table if not exists" ENTIRELY when the target
+-- already exists -- any check constraint written inline on those
+-- clauses would silently never apply on a database that already ran
+-- the original version of this file. These are added as their own
+-- guarded statements instead, so they take effect whether this is a
+-- first run or a re-run after the original migration already applied.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'bible_chapter_cache_translation_check'
+  ) then
+    alter table bible_chapter_cache
+      add constraint bible_chapter_cache_translation_check
+      check (translation in ('kjv', 'esv', 'nlt', 'bsb'));
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'users_preferred_translation_check'
+  ) then
+    alter table users
+      add constraint users_preferred_translation_check
+      check (preferred_translation in ('kjv', 'esv', 'nlt', 'bsb'));
+  end if;
+
+  if not exists (
+    select 1 from pg_constraint where conname = 'bible_highlights_translation_check'
+  ) then
+    alter table bible_highlights
+      add constraint bible_highlights_translation_check
+      check (translation in ('kjv', 'esv', 'nlt', 'bsb'));
+  end if;
+end $$;
