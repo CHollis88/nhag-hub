@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchByIds, groupBy } from "@/lib/batchFetch";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { notifyGlobal } from "@/lib/push";
@@ -20,34 +21,40 @@ export async function GET(req) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const withExtras = await Promise.all(
-    events.map(async (ev) => {
-      const { data: rsvps } = await supabase
-        .from("global_event_rsvps")
-        .select("user_id, status")
-        .eq("event_id", ev.id);
+  // RSVPs and volunteers for ALL events in two bulk queries, instead of
+  // one or two queries per event (see lib/batchFetch.js).
+  let rsvpsByEvent, volsByEvent;
+  try {
+    const ids = events.map((ev) => ev.id);
+    const volIds = events.filter((ev) => ev.volunteers_needed).map((ev) => ev.id);
+    const [rsvps, vols] = await Promise.all([
+      fetchByIds(supabase, "global_event_rsvps", "event_id", ids, "event_id, user_id, status"),
+      fetchByIds(supabase, "global_event_volunteers", "event_id", volIds, "event_id, user_id"),
+    ]);
+    rsvpsByEvent = groupBy(rsvps, "event_id");
+    volsByEvent = groupBy(vols, "event_id");
+  } catch (err) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
 
-      const summary = { yes: 0, no: 0, maybe: 0 };
-      let myStatus = null;
-      for (const r of rsvps || []) {
-        summary[r.status] = (summary[r.status] || 0) + 1;
-        if (r.user_id === user.id) myStatus = r.status;
-      }
+  const withExtras = events.map((ev) => {
+    const summary = { yes: 0, no: 0, maybe: 0 };
+    let myStatus = null;
+    for (const r of rsvpsByEvent.get(ev.id) || []) {
+      summary[r.status] = (summary[r.status] || 0) + 1;
+      if (r.user_id === user.id) myStatus = r.status;
+    }
 
-      let volunteerCount = 0;
-      let iVolunteered = false;
-      if (ev.volunteers_needed) {
-        const { data: vols } = await supabase
-          .from("global_event_volunteers")
-          .select("user_id")
-          .eq("event_id", ev.id);
-        volunteerCount = vols?.length || 0;
-        iVolunteered = (vols || []).some((v) => v.user_id === user.id);
-      }
+    let volunteerCount = 0;
+    let iVolunteered = false;
+    if (ev.volunteers_needed) {
+      const vols = volsByEvent.get(ev.id) || [];
+      volunteerCount = vols.length;
+      iVolunteered = vols.some((v) => v.user_id === user.id);
+    }
 
-      return { ...ev, rsvp_summary: summary, my_rsvp: myStatus, volunteer_count: volunteerCount, i_volunteered: iVolunteered };
-    })
-  );
+    return { ...ev, rsvp_summary: summary, my_rsvp: myStatus, volunteer_count: volunteerCount, i_volunteered: iVolunteered };
+  });
 
   return withNoStore({ events: withExtras });
 }

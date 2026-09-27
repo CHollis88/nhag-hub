@@ -1430,7 +1430,10 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       )}
 
       {studyMode && verses && !loading && chapterExtras && (chapterExtras.intro || chapterExtras.themes?.length > 0) && (
-        <div className="rounded-xl border border-line bg-card px-4 py-3.5 mb-4">
+        // On desktop in Study mode the Study Panel already shows this (for
+        // every chapter), so the in-text card is hidden at desktop widths
+        // there. Phones and Simple-desktop still get it inline.
+        <div className={`rounded-xl border border-line bg-card px-4 py-3.5 mb-4 ${desktopMode ? "md:hidden" : ""}`}>
           {chapterExtras.intro && (
             <div className={chapterExtras.themes?.length ? "mb-3 pb-3 border-b border-linesoft" : ""}>
               <p className="font-serif text-base text-ink mb-2">About {chapterExtras.intro.title}</p>
