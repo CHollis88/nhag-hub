@@ -4,8 +4,14 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroup } from "@/lib/push";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { rpcFailure } from "@/lib/rpc";
 
 const VALID_SERVICES = ["AM", "PM", "CP"];
+
+const SETLIST_ERRORS = {
+  NH002: { status: 400, message: "Check the date, the service, and the songs, then try again." },
+  NH003: { status: 400, message: "One of those songs isn't in this ministry's library." },
+};
 
 // Returns setlists WITH their ordered songs in one call, since a setlist
 // is never useful without its song list -- avoids a second round trip per
@@ -54,7 +60,7 @@ export async function POST(req, { params }) {
     );
   }
 
-  const { service_date, service, notify } = await req.json();
+  const { service_date, service, notify, songs } = await req.json();
   if (!service_date || !VALID_SERVICES.includes(service)) {
     return NextResponse.json(
       { error: `service_date is required and service must be one of: ${VALID_SERVICES.join(", ")}` },
@@ -63,14 +69,20 @@ export async function POST(req, { params }) {
   }
   const shouldNotify = notify !== false;
 
+  // v71 #9: the setlist and its whole song list are created in ONE database
+  // transaction (save_setlist, migration_034) -- previously one request for
+  // the header plus one per song, so a failure partway left a setlist with
+  // only some of its songs.
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from("group_setlists")
-    .insert({ group_id: groupId, service_date, service })
-    .select()
-    .single();
+  const { data: saved, error } = await supabase.rpc("save_setlist", {
+    p_group_id: groupId,
+    p_setlist_id: null,
+    p_header: { service_date, service },
+    p_songs: Array.isArray(songs) ? songs.map((s) => ({ song_id: s.song_id, note: s.note || null })) : [],
+  });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return rpcFailure(error, SETLIST_ERRORS);
+  const data = { id: saved.setlist_id, service_date, service };
 
   if (shouldNotify) {
     notifyGroup(groupId, {

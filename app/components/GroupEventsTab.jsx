@@ -1,19 +1,34 @@
 "use client";
 
+import { authorName } from "@/lib/authorName";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, List, CalendarDays, Pencil } from "lucide-react";
 import EventCalendar from "./EventCalendar";
 import { SkeletonList } from "./Skeleton";
 import { formatTime12h } from "@/lib/formatTime";
+import { todayLocal } from "@/lib/localDate";
+import { requestJson } from "@/lib/request";
+import { useFormDisclosure } from "./useFormDisclosure";
+import { useResource } from "@/lib/useResource";
+import { STALE, invalidate } from "@/lib/resourceCache";
+import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
+import { useAction } from "./useAction";
+import { useToast } from "./ToastProvider";
+import EmptyState from "./EmptyState";
 
 function ReplyThread({ groupId, eventId }) {
   const [replies, setReplies] = useState(null);
   const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const run = useAction();
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/events/${eventId}/replies`);
-    const data = await res.json();
-    if (res.ok) setReplies(data.replies);
+    try {
+      const data = await requestJson(`/api/groups/${groupId}/events/${eventId}/replies`);
+      setReplies(data.replies);
+    } catch {
+      setReplies((prev) => prev ?? []);
+    }
   }, [groupId, eventId]);
 
   useEffect(() => {
@@ -22,21 +37,24 @@ function ReplyThread({ groupId, eventId }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    await fetch(`/api/groups/${groupId}/events/${eventId}/replies`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: text }),
-    });
-    setText("");
-    load();
+    if (!text.trim() || sending) return;
+    setSending(true);
+    // The reply stays in the box unless it actually posted.
+    const { ok } = await run(() =>
+      requestJson(`/api/groups/${groupId}/events/${eventId}/replies`, { method: "POST", body: { body: text } })
+    );
+    setSending(false);
+    if (ok) {
+      setText("");
+      load();
+    }
   };
 
   return (
     <div className="mt-3 pt-3 border-t border-linesoft">
       {replies?.map((r) => (
         <div key={r.id} className="text-sm text-inksoft mb-1.5">
-          <strong className="text-ink">{r.users?.display_name}:</strong> {r.body}
+          <strong className="text-ink">{authorName(r.users)}:</strong> {r.body}
         </div>
       ))}
       <form onSubmit={submit} className="flex gap-1.5 mt-2">
@@ -46,7 +64,9 @@ function ReplyThread({ groupId, eventId }) {
           placeholder="Reply…"
           className="sp-input text-sm py-1.5"
         />
-        <button type="submit" className="sp-btn-secondary text-sm py-1.5 px-3">Send</button>
+        <button type="submit" disabled={sending || !text.trim()} aria-busy={sending || undefined} className="sp-btn-secondary text-sm py-1.5 px-3 disabled:opacity-60">
+          {sending ? "Sending…" : "Send"}
+        </button>
       </form>
     </div>
   );
@@ -133,8 +153,9 @@ function VolunteerControl({ event, onSignUp, onCancel, expanded, onToggleExpande
   );
 }
 
-function EditEventControl({ event, onSave }) {
-  const [editing, setEditing] = useState(false);
+function EditEventControl({ event, onSave, editing, onEdit, onClose, formRef }) {
+  // v71 #36: whether this editor is open is owned by the screen, so only ONE
+  // create/edit form is ever open at once (opening one closes the other).
   const [title, setTitle] = useState(event.title);
   const [date, setDate] = useState(event.event_date);
   const [time, setTime] = useState(event.event_time || "");
@@ -142,19 +163,19 @@ function EditEventControl({ event, onSave }) {
 
   if (!editing) {
     return (
-      <button onClick={() => setEditing(true)} className="text-xs text-accent underline flex items-center gap-1">
+      <button onClick={(e) => onEdit(event.id, e.currentTarget)} data-return-focus={`event-edit-${event.id}`} className="text-xs text-accent underline flex items-center gap-1">
         <Pencil size={11} /> Edit
       </button>
     );
   }
 
   const save = async () => {
-    await onSave(event.id, { title, event_date: date, event_time: time || null, location: location || null });
-    setEditing(false);
+    const ok = await onSave(event.id, { title, event_date: date, event_time: time || null, location: location || null });
+    if (ok) onClose();
   };
 
   return (
-    <div className="sp-card mt-2">
+    <div ref={formRef} className="sp-card mt-2" role="group" aria-label="Edit event">
       <input value={title} onChange={(e) => setTitle(e.target.value)} className="sp-input mb-2" />
       <div className="flex gap-2 mb-2">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="sp-input flex-1" />
@@ -168,7 +189,7 @@ function EditEventControl({ event, onSave }) {
       />
       <div className="flex gap-3">
         <button onClick={save} className="sp-btn-primary py-1.5 px-3 text-sm">Save</button>
-        <button onClick={() => setEditing(false)} className="text-xs text-inkfaint underline">Cancel</button>
+        <button onClick={onClose} className="text-xs text-inkfaint underline">Cancel</button>
       </div>
     </div>
   );
@@ -207,7 +228,6 @@ function DeleteControl({ event, onDelete }) {
 }
 
 export default function GroupEventsTab({ groupId, canManage }) {
-  const [events, setEvents] = useState(null);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -223,27 +243,52 @@ export default function GroupEventsTab({ groupId, canManage }) {
   const [rsvpLists, setRsvpLists] = useState({});
   const [expandedVolunteerId, setExpandedVolunteerId] = useState(null);
   const [volunteerLists, setVolunteerLists] = useState({});
-  const [query, setQuery] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [viewMode, setViewMode] = useState("list");
+  // v71 #43: search text and list/calendar view are remembered when you leave and return.
+  const [query, setQuery] = useScreenState(`events:${groupId}:query`, "");
+  // v71 #36: ONE form at a time (a new event OR editing one), "+ Add" becomes
+  // "Cancel", focus lands on the first field, and returns to what opened it.
+  const [editingEventId, setEditingEventId] = useState(null);
+  const form = useFormDisclosure(editingEventId ?? "new");
+  const showForm = form.open && !editingEventId;
+  const closeForm = () => {
+    setEditingEventId(null);
+    form.hide();
+  };
+  const openNew = () => {
+    setEditingEventId(null);
+    form.show();
+  };
+  const openEdit = (id, fromElement) => {
+    setEditingEventId(id);
+    form.show(fromElement);
+  };
+  const [viewMode, setViewMode] = useScreenState(`events:${groupId}:view`, "list");
   const [selectedDate, setSelectedDate] = useState(null);
 
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/events`);
-    const data = await res.json();
-    if (res.ok) setEvents(data.events);
-  }, [groupId]);
+  const eventsUrl = `/api/groups/${groupId}/events`;
+  const run = useAction();
+  const toast = useToast();
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // v71 #42-45: through the shared cache. RSVP/volunteer changes edit the cached
+  // list in place (setEvents) so the screen and cache never disagree.
+  const eventsKey = `group:${groupId}:events`;
+  const { data: events, error: eventsError, setData: setEvents } = useResource(
+    eventsKey,
+    async () => (await requestJson(eventsUrl)).events,
+    { staleMs: STALE.list }
+  );
+  const loadFailed = Boolean(eventsError);
+  const load = () => invalidate(eventsKey);
+  const scrollAnchor = useScrollMemory(`events:${groupId}`, events !== null);
 
   // Tapping an already-selected status clears the RSVP entirely (back to
   // "no response"), rather than only ever letting you switch between
   // Yes/Maybe/No with no way to unselect.
   //
-  // Same optimistic-update pattern as the global EventsTab: update local
-  // state immediately, roll back if the request fails.
+  // Optimistic update: local state (my_rsvp + rsvp_summary counts) changes
+  // immediately, the previous state is captured, and if the request fails
+  // it is restored AND the person is told (v71 #8) -- before, it snapped
+  // back silently and looked like the tap did nothing.
   const rsvp = async (eventId, status) => {
     const current = events.find((ev) => ev.id === eventId);
     if (!current) return;
@@ -261,14 +306,13 @@ export default function GroupEventsTab({ groupId, canManage }) {
       })
     );
 
-    try {
-      const res = await fetch(`/api/groups/${groupId}/events/${eventId}/rsvp`, {
+    const { ok } = await run(() =>
+      requestJson(`${eventsUrl}/${eventId}/rsvp`, {
         method: isUnselecting ? "DELETE" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: isUnselecting ? undefined : JSON.stringify({ status }),
-      });
-      if (!res.ok) throw new Error("RSVP failed");
-    } catch {
+        body: isUnselecting ? undefined : { status },
+      })
+    );
+    if (!ok) {
       setEvents(previousEvents);
       return;
     }
@@ -278,9 +322,17 @@ export default function GroupEventsTab({ groupId, canManage }) {
 
   const loadRsvpList = async (eventId) => {
     setRsvpLists((prev) => ({ ...prev, [eventId]: null }));
-    const res = await fetch(`/api/groups/${groupId}/events/${eventId}/rsvp`);
-    const data = await res.json();
-    if (res.ok) setRsvpLists((prev) => ({ ...prev, [eventId]: data.rsvps }));
+    try {
+      const data = await requestJson(`${eventsUrl}/${eventId}/rsvp`);
+      setRsvpLists((prev) => ({ ...prev, [eventId]: data.rsvps }));
+    } catch (err) {
+      setRsvpLists((prev) => {
+        const next = { ...prev };
+        delete next[eventId]; // not "Loading…" forever, and not a false "No responses yet"
+        return next;
+      });
+      toast.error(err.message);
+    }
   };
 
   const toggleRsvpExpanded = (eventId) => {
@@ -292,6 +344,10 @@ export default function GroupEventsTab({ groupId, canManage }) {
     }
   };
 
+  // The server decides whether there's still room (volunteer_signup runs
+  // under a row lock, migration_034) and answers with the real count -- so
+  // when someone else took the last spot a moment ago, the optimistic "you
+  // signed up" is rolled back and the count corrected to what's true.
   const signUpVolunteer = async (eventId) => {
     const previousEvents = events;
     setEvents((prev) =>
@@ -300,11 +356,18 @@ export default function GroupEventsTab({ groupId, canManage }) {
       )
     );
 
-    const res = await fetch(`/api/groups/${groupId}/events/${eventId}/volunteer`, { method: "POST" });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setEvents(previousEvents);
-      alert(data.error);
+    const { ok, error } = await run(() => requestJson(`${eventsUrl}/${eventId}/volunteer`, { method: "POST" }), {
+      success: "You're signed up",
+    });
+    if (!ok) {
+      const serverCount = error?.data?.volunteer_count;
+      setEvents(
+        typeof serverCount === "number"
+          ? previousEvents.map((ev) =>
+              ev.id === eventId ? { ...ev, volunteer_count: serverCount, i_volunteered: error.status === 409 } : ev
+            )
+          : previousEvents
+      );
       return;
     }
     if (expandedVolunteerId === eventId) loadVolunteerList(eventId);
@@ -320,8 +383,8 @@ export default function GroupEventsTab({ groupId, canManage }) {
       )
     );
 
-    const res = await fetch(`/api/groups/${groupId}/events/${eventId}/volunteer`, { method: "DELETE" });
-    if (!res.ok) {
+    const { ok } = await run(() => requestJson(`${eventsUrl}/${eventId}/volunteer`, { method: "DELETE" }));
+    if (!ok) {
       setEvents(previousEvents);
       return;
     }
@@ -330,9 +393,17 @@ export default function GroupEventsTab({ groupId, canManage }) {
 
   const loadVolunteerList = async (eventId) => {
     setVolunteerLists((prev) => ({ ...prev, [eventId]: null }));
-    const res = await fetch(`/api/groups/${groupId}/events/${eventId}/volunteer`);
-    const data = await res.json();
-    if (res.ok) setVolunteerLists((prev) => ({ ...prev, [eventId]: data.volunteers }));
+    try {
+      const data = await requestJson(`${eventsUrl}/${eventId}/volunteer`);
+      setVolunteerLists((prev) => ({ ...prev, [eventId]: data.volunteers }));
+    } catch (err) {
+      setVolunteerLists((prev) => {
+        const next = { ...prev };
+        delete next[eventId];
+        return next;
+      });
+      toast.error(err.message);
+    }
   };
 
   const toggleVolunteerExpanded = (eventId) => {
@@ -344,51 +415,60 @@ export default function GroupEventsTab({ groupId, canManage }) {
     }
   };
 
+  // The form only clears/closes on success -- on failure everything typed
+  // stays put and the reason is shown.
   const submit = async (e) => {
     e.preventDefault();
-    const res = await fetch(`/api/groups/${groupId}/events`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        event_date: date,
-        event_time: time,
-        location,
-        repeat: repeat || null,
-        repeat_count: repeat ? DEFAULT_REPEAT_COUNT[repeat] : null,
-        volunteers_needed: needsVolunteers ? volunteersNeeded : null,
-        allow_replies: allowReplies,
-        allow_rsvp: allowRsvp,
-        notify,
-      }),
-    });
-    if (res.ok) {
-      setTitle("");
-      setDate("");
-      setTime("");
-      setLocation("");
-      setRepeat("");
-      setNeedsVolunteers(false);
-      setAllowReplies(true);
-      setAllowRsvp(true);
-      setNotify(true);
-      setShowForm(false);
-      load();
+    try {
+      await requestJson(eventsUrl, {
+        method: "POST",
+        body: {
+          title,
+          event_date: date,
+          event_time: time,
+          location,
+          repeat: repeat || null,
+          repeat_count: repeat ? DEFAULT_REPEAT_COUNT[repeat] : null,
+          volunteers_needed: needsVolunteers ? volunteersNeeded : null,
+          allow_replies: allowReplies,
+          allow_rsvp: allowRsvp,
+          notify,
+        },
+      });
+    } catch (err) {
+      toast.error(err.message);
+      return;
     }
+    toast.success("Event added");
+    setTitle("");
+    setDate("");
+    setTime("");
+    setLocation("");
+    setRepeat("");
+    setNeedsVolunteers(false);
+    setAllowReplies(true);
+    setAllowRsvp(true);
+    setNotify(true);
+    closeForm();
+    load();
   };
 
   const remove = async (id, scope) => {
-    await fetch(`/api/groups/${groupId}/events/${id}${scope === "series" ? "?scope=series" : ""}`, { method: "DELETE" });
-    load();
+    const { ok } = await run(
+      () => requestJson(`${eventsUrl}/${id}${scope === "series" ? "?scope=series" : ""}`, { method: "DELETE" }),
+      { success: scope === "series" ? "Events deleted" : "Event deleted" }
+    );
+    if (ok) load();
   };
 
+  // Returns whether it saved, so the edit form can stay open (keeping what
+  // was typed) when it didn't.
   const saveEdit = async (id, updates) => {
-    await fetch(`/api/groups/${groupId}/events/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updates),
+    const { ok } = await run(() => requestJson(`${eventsUrl}/${id}`, { method: "PATCH", body: updates }), {
+      success: "Saved",
     });
-    load();
+    if (ok) load();
+    return ok;
   };
 
   const filtered = useMemo(() => {
@@ -411,7 +491,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
   // picking it, so the split would just be redundant there. Same
   // reasoning as the global Events tab: without this, past events pile
   // up forever at the top of an ascending list.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayLocal();
   const isSearching = query.trim().length > 0;
   const splitApplies = viewMode === "list" && !isSearching;
   const upcoming = splitApplies ? filtered.filter((ev) => ev.event_date >= today) : filtered;
@@ -419,6 +499,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
 
   return (
     <div className="px-5 pt-4 pb-6">
+      <div ref={scrollAnchor} />
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-serif text-2xl text-ink">Group Events</h2>
         <div className="flex items-center gap-2">
@@ -439,8 +520,8 @@ export default function GroupEventsTab({ groupId, canManage }) {
             </button>
           </div>
           {canManage && (
-            <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
-              {showForm ? "Cancel" : "+ Add"}
+            <button ref={form.triggerRef} onClick={() => (form.open ? closeForm() : openNew())} className="sp-btn-pill">
+              {form.open ? "Cancel" : "+ Add"}
             </button>
           )}
         </div>
@@ -451,7 +532,8 @@ export default function GroupEventsTab({ groupId, canManage }) {
       )}
 
       {canManage && showForm && (
-        <form onSubmit={submit} className="sp-card mb-4">
+        <form ref={form.formRef} onSubmit={submit} className="sp-card mb-4" aria-labelledby="new-event-heading">
+          <h3 id="new-event-heading" className="font-serif text-lg text-ink mt-0 mb-3">New event</h3>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -510,7 +592,8 @@ export default function GroupEventsTab({ groupId, canManage }) {
         </form>
       )}
 
-      {events === null && <SkeletonList count={3} />}
+      {events === null && loadFailed && <EmptyState kind="error" text="Couldn't load events." onRetry={load} />}
+      {events === null && !loadFailed && <SkeletonList count={3} />}
       {events !== null && (
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
@@ -572,7 +655,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
                   {openThread === ev.id ? "Hide replies" : "Replies"}
                 </button>
               )}
-              {canManage && <EditEventControl event={ev} onSave={saveEdit} />}
+              {canManage && <EditEventControl event={ev} onSave={saveEdit} editing={editingEventId === ev.id} onEdit={openEdit} onClose={closeForm} formRef={form.formRef} />}
               {canManage && <DeleteControl event={ev} onDelete={remove} />}
             </div>
 

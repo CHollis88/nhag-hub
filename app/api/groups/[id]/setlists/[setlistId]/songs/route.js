@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup } from "@/lib/groupAuth";
+import { canManageGroup, assertInGroup } from "@/lib/groupAuth";
 
 export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
@@ -15,9 +15,21 @@ export async function POST(req, { params }) {
     );
   }
 
+  // v71 #2: the setlist must belong to THIS group.
+  if (!(await assertInGroup("group_setlists", setlistId, groupId))) {
+    return NextResponse.json({ error: "Setlist not found." }, { status: 404 });
+  }
+
   const { song_id, note } = await req.json();
   if (!song_id) {
     return NextResponse.json({ error: "song_id is required." }, { status: 400 });
+  }
+
+  // ...and so must the song being added -- otherwise the insert below
+  // would attach (and the response would return the lyrics/chart links
+  // of) another ministry's song.
+  if (!(await assertInGroup("group_songs", song_id, groupId))) {
+    return NextResponse.json({ error: "Song not found." }, { status: 404 });
   }
 
   const supabase = supabaseServer();

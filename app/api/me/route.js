@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { withColumnFallback } from "@/lib/compat";
+import { invalidateUserSessions } from "@/lib/session";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -16,10 +18,11 @@ export async function GET(req) {
   }
 
   const supabase = supabaseServer();
-  const { data: memberships, error } = await supabase
-    .from("group_members")
-    .select("group_id, role, status, groups(id, name, type, features, image_url, tile_color, hidden, hide_restricts_access)")
-    .eq("user_id", user.id);
+  const MEMBER_COLS = "group_id, role, status, groups(id, name, type, features, image_url, tile_color, hidden, hide_restricts_access";
+  const { data: memberships, error } = await withColumnFallback(
+    () => supabase.from("group_members").select(`${MEMBER_COLS}, archived_at)`).eq("user_id", user.id),
+    () => supabase.from("group_members").select(`${MEMBER_COLS})`).eq("user_id", user.id)
+  );
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -46,9 +49,12 @@ export async function GET(req) {
     userHiddenIds = new Set((userHidden || []).map((r) => r.group_id));
   }
 
+  // v71 #24: an ARCHIVED ministry drops off everyone's Home, admins included
+  // (an admin restores it from the Toolbox, they don't launch it).
+  const notArchived = (memberships || []).filter((m) => !m.groups?.archived_at);
   const visibleMemberships = user.is_church_admin
-    ? memberships || []
-    : (memberships || []).filter(
+    ? notArchived
+    : notArchived.filter(
         (m) => !(m.groups?.hidden && m.groups?.hide_restricts_access) && !userHiddenIds.has(m.group_id)
       );
 
@@ -59,7 +65,16 @@ export async function GET(req) {
         username: user.username,
         display_name: user.display_name,
         bio: user.bio,
+        // v71 #19: EFFECTIVE admin (role AND this device's Admin Privileges
+        // switch). The screens use this to decide what to show; the server
+        // re-checks it on every request regardless.
         is_church_admin: user.is_church_admin,
+        // The underlying role and the switch, for Settings' "Use Admin
+        // Privileges" control (only meaningful to someone who holds the role).
+        has_admin_role: user.has_admin_role,
+        admin_mode: user.admin_mode,
+        // v71: false when this admin has turned OFF admin-duty notifications.
+        admin_notifications_enabled: user.admin_notifications_enabled,
       },
       memberships: visibleMemberships.map((m) => ({
         group_id: m.group_id,
@@ -113,5 +128,6 @@ export async function PATCH(req) {
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  invalidateUserSessions(user.id);
   return NextResponse.json({ user: data });
 }

@@ -28,6 +28,9 @@ import { getPlan, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
 import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
 import { useViewportHeight } from "@/lib/useViewportHeight";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
+import { requestJson } from "@/lib/request";
+import { useToast } from "./ToastProvider";
+import EmptyState from "./EmptyState";
 
 // Tabs that append after the shared News/Events/Prayer/Roster set.
 const APPEND_FEATURE_TABS = {
@@ -66,6 +69,9 @@ export default function GroupShell({
   onBackToHub,
   onOpenBiblePassage,
   refreshMe,
+  hasAdminRole,
+  adminMode,
+  adminNotifications,
   initialTab,
   initialThreadId,
   initialChannel,
@@ -183,45 +189,53 @@ export default function GroupShell({
   const [progress, setProgress] = useState({});
   const [journal, setJournal] = useState({});
   const [readingPlanLoaded, setReadingPlanLoaded] = useState(false);
+  const toast = useToast();
   const [activePlanId, setActivePlanId] = useState(DEFAULT_PLAN_ID);
   const [planLocked, setPlanLocked] = useState(false);
+  // If the plan can't be loaded, say so and offer a retry -- it used to
+  // leave Today/Plan/Journal on a loading skeleton forever.
+  const [planLoadFailed, setPlanLoadFailed] = useState(false);
+  const [planLoadNonce, setPlanLoadNonce] = useState(0);
 
   useEffect(() => {
     if (!hasReadingPlan) return;
     let cancelled = false;
+    setPlanLoadFailed(false);
 
     (async () => {
-      const groupRes = await fetch(`/api/groups/${group.id}`);
-      const groupData = await groupRes.json();
-      const locked = groupRes.ok && groupData.group?.reading_plan_locked;
-      const lockedPlanId = groupData.group?.reading_plan_id;
+      try {
+        const groupData = await requestJson(`/api/groups/${group.id}`);
+        const locked = groupData.group?.reading_plan_locked;
+        const lockedPlanId = groupData.group?.reading_plan_id;
 
-      let resolvedPlanId = DEFAULT_PLAN_ID;
-      if (locked) {
-        resolvedPlanId = lockedPlanId || DEFAULT_PLAN_ID;
-      } else {
-        const selRes = await fetch("/api/reading-plan/selection");
-        const selData = await selRes.json();
-        resolvedPlanId = (selRes.ok && selData.active_reading_plan) || DEFAULT_PLAN_ID;
+        let resolvedPlanId = DEFAULT_PLAN_ID;
+        if (locked) {
+          resolvedPlanId = lockedPlanId || DEFAULT_PLAN_ID;
+        } else {
+          const selData = await requestJson("/api/reading-plan/selection");
+          resolvedPlanId = selData.active_reading_plan || DEFAULT_PLAN_ID;
+        }
+
+        const [p, j] = await Promise.all([
+          requestJson(`/api/reading-plan/progress?plan_id=${resolvedPlanId}`),
+          requestJson(`/api/reading-plan/journal?plan_id=${resolvedPlanId}`),
+        ]);
+
+        if (cancelled) return;
+        setPlanLocked(Boolean(locked));
+        setActivePlanId(resolvedPlanId);
+        setProgress(p.progress || {});
+        setJournal(j.journal || {});
+        setReadingPlanLoaded(true);
+      } catch {
+        if (!cancelled) setPlanLoadFailed(true);
       }
-
-      const [p, j] = await Promise.all([
-        fetch(`/api/reading-plan/progress?plan_id=${resolvedPlanId}`).then((r) => r.json()),
-        fetch(`/api/reading-plan/journal?plan_id=${resolvedPlanId}`).then((r) => r.json()),
-      ]);
-
-      if (cancelled) return;
-      setPlanLocked(Boolean(locked));
-      setActivePlanId(resolvedPlanId);
-      setProgress(p.progress || {});
-      setJournal(j.journal || {});
-      setReadingPlanLoaded(true);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [hasReadingPlan, group.id]);
+  }, [hasReadingPlan, group.id, planLoadNonce]);
 
   const activePlan = getPlan(activePlanId);
 
@@ -229,11 +243,15 @@ export default function GroupShell({
   // available when their group hasn't locked the plan) -- re-resolves
   // everything against the new plan_id, same as the initial load.
   const switchPlan = async (newPlanId) => {
-    await fetch("/api/reading-plan/selection", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan_id: newPlanId }),
-    });
+    // v71 #8: if the server didn't accept the new plan, stay on the current
+    // one. It used to switch the screen anyway, so it looked like the choice
+    // had saved and reverted itself at the next visit.
+    try {
+      await requestJson("/api/reading-plan/selection", { method: "PATCH", body: { plan_id: newPlanId } });
+    } catch (err) {
+      toast.error(err.message);
+      return;
+    }
     setReadingPlanLoaded(false);
     const [p, j] = await Promise.all([
       fetch(`/api/reading-plan/progress?plan_id=${newPlanId}`).then((r) => r.json()),
@@ -299,7 +317,11 @@ export default function GroupShell({
         <main className="flex-1 overflow-y-auto">
           <TabTransition tabKey={`${tab}-${refreshNonce}`}>
             {hasReadingPlan && !readingPlanLoaded && ["today", "plan", "journal"].includes(tab) ? (
-              <div className="px-5 pt-4"><SkeletonList count={2} /></div>
+              planLoadFailed ? (
+                <EmptyState kind="error" text="Couldn't load your reading plan." onRetry={() => setPlanLoadNonce((n) => n + 1)} />
+              ) : (
+                <div className="px-5 pt-4"><SkeletonList count={2} /></div>
+              )
 
             ) : (
               <>
@@ -334,6 +356,7 @@ export default function GroupShell({
                     setDayNum={setDayNum}
                     journal={journal}
                     setJournal={setJournal}
+                    userId={currentUserId}
                   />
                 )}
               </>
@@ -396,7 +419,10 @@ export default function GroupShell({
 
       {settingsOpen && (
         <SettingsView
-          isAdmin={effectiveRole === "admin"}
+          hasAdminRole={hasAdminRole}
+          adminMode={adminMode}
+          adminNotifications={adminNotifications}
+          refreshMe={refreshMe}
           onClose={() => setSettingsOpen(false)}
           onOpenHelp={() => {
             setSettingsOpen(false);

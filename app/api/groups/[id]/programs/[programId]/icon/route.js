@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup } from "@/lib/groupAuth";
+import { canManageGroup, assertInGroup } from "@/lib/groupAuth";
+import { ensureBucket, cleanupUploadOnFailure } from "@/lib/storage";
 
 // Reuses the same "group-icons" Storage bucket a ministry's own icon
 // lives in, rather than creating a whole separate bucket for what's
@@ -11,13 +12,6 @@ import { canManageGroup } from "@/lib/groupAuth";
 const BUCKET = "group-icons";
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
-
-let bucketReady = false;
-async function ensureBucket(supabase) {
-  if (bucketReady) return;
-  await supabase.storage.createBucket(BUCKET, { public: true }).catch(() => {});
-  bucketReady = true;
-}
 
 export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
@@ -31,6 +25,13 @@ export async function POST(req, { params }) {
       { error: "Only this group's leaders or a Church Admin can change a program's icon." },
       { status: 403 }
     );
+  }
+
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
   const formData = await req.formData();
@@ -59,11 +60,15 @@ export async function POST(req, { params }) {
   if (programError) return NextResponse.json({ error: programError.message }, { status: 500 });
   if (!program) return NextResponse.json({ error: "Program not found." }, { status: 404 });
 
-  await ensureBucket(supabase);
+  await ensureBucket(supabase, BUCKET, { isPublic: true });
 
   const ext = file.type.split("/")[1];
   const path = `program-${programId}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  // Same rule as the ministry icon: never delete a file that was already
+  // there before this upload overwrote it.
+  const { data: existedBefore } = await supabase.storage.from(BUCKET).exists(path);
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
@@ -74,10 +79,18 @@ export async function POST(req, { params }) {
   const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
   const imageUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
 
-  const { error: updateError } = await supabase
-    .from("programs")
-    .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
-    .eq("id", programId);
+  // v71 #15: clean up the uploaded object if the database update fails.
+  const { error: updateError } = await cleanupUploadOnFailure(
+    supabase,
+    BUCKET,
+    path,
+    () =>
+      supabase
+        .from("programs")
+        .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
+        .eq("id", programId),
+    { createdNew: !existedBefore }
+  );
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
   return NextResponse.json({ image_url: imageUrl });

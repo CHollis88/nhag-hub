@@ -37,7 +37,7 @@ export async function PATCH(req, { params }) {
   // never notified when it was first saved.
   let draftKind;
   if (status === "published") {
-    const { data: before } = await supabase.from("group_news").select("status, kind").eq("id", newsId).maybeSingle();
+    const { data: before } = await supabase.from("group_news").select("status, kind").eq("id", newsId).eq("group_id", groupId).maybeSingle();
     publishing = before?.status === "draft";
     draftKind = before?.kind;
   }

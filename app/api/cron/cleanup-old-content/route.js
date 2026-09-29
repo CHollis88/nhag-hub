@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { purgeInBatches } from "@/lib/cleanup";
 
 // Called on a schedule by Vercel Cron (see vercel.json) -- protected by
 // the same shared secret as the reading reminder. Per the project's
@@ -24,6 +25,13 @@ import { supabaseServer } from "@/lib/supabaseServer";
 // via a message_type discriminator, so a DB-level cascade isn't
 // possible -- meaning a deleted message's reactions must be deleted
 // here explicitly first, or they'd become permanently orphaned rows.
+// post_reactions (migration_030) has the same no-foreign-key shape for
+// News, so a deleted News post's reactions are removed with it (v71 #16).
+//
+// v71 #16: every step's result is CHECKED; deletes run in bounded batches
+// (lib/cleanup.js) instead of loading every id at once; and a failure is
+// reported as a failure -- a non-2xx response, visible in Vercel's cron
+// logs -- rather than "ok: true". One table failing doesn't stop the rest.
 export async function GET(req) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -35,66 +43,40 @@ export async function GET(req) {
   const thirtyDaysAgoDate = thirtyDaysAgo.slice(0, 10); // date-only, for event_date columns
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
+  // Stop starting new batches well before a serverless time limit; whatever
+  // is left is simply picked up by tomorrow's run.
+  const deadline = Date.now() + 8000;
+
+  const tasks = [
+    { key: "global_news", table: "global_news", column: "created_at", cutoff: thirtyDaysAgo,
+      reactions: { table: "post_reactions", typeColumn: "post_type", type: "global_news", idColumn: "post_id" } },
+    { key: "global_events", table: "global_events", column: "event_date", cutoff: thirtyDaysAgoDate },
+    { key: "group_news", table: "group_news", column: "created_at", cutoff: thirtyDaysAgo,
+      reactions: { table: "post_reactions", typeColumn: "post_type", type: "group_news", idColumn: "post_id" } },
+    { key: "group_events", table: "group_events", column: "event_date", cutoff: thirtyDaysAgoDate },
+    { key: "dm_messages", table: "group_dm_messages", column: "created_at", cutoff: ninetyDaysAgo,
+      reactions: { table: "message_reactions", typeColumn: "message_type", type: "dm", idColumn: "message_id" } },
+    { key: "chat_messages", table: "group_chat_messages", column: "created_at", cutoff: ninetyDaysAgo,
+      reactions: { table: "message_reactions", typeColumn: "message_type", type: "group_chat", idColumn: "message_id" } },
+  ];
+
   const results = {};
+  const errors = [];
+  const incomplete = [];
 
-  const { count: globalNews } = await supabase
-    .from("global_news")
-    .delete({ count: "exact" })
-    .lt("created_at", thirtyDaysAgo);
-  results.global_news_deleted = globalNews || 0;
-
-  const { count: globalEvents } = await supabase
-    .from("global_events")
-    .delete({ count: "exact" })
-    .lt("event_date", thirtyDaysAgoDate);
-  results.global_events_deleted = globalEvents || 0;
-
-  const { count: groupNews } = await supabase
-    .from("group_news")
-    .delete({ count: "exact" })
-    .lt("created_at", thirtyDaysAgo);
-  results.group_news_deleted = groupNews || 0;
-
-  const { count: groupEvents } = await supabase
-    .from("group_events")
-    .delete({ count: "exact" })
-    .lt("event_date", thirtyDaysAgoDate);
-  results.group_events_deleted = groupEvents || 0;
-
-  // DM messages: fetch the IDs about to be deleted first, so their
-  // reactions can be cleaned up by ID before the messages themselves go.
-  const { data: oldDmMessages } = await supabase
-    .from("group_dm_messages")
-    .select("id")
-    .lt("created_at", ninetyDaysAgo);
-  const oldDmMessageIds = (oldDmMessages || []).map((m) => m.id);
-  if (oldDmMessageIds.length) {
-    await supabase.from("message_reactions").delete().eq("message_type", "dm").in("message_id", oldDmMessageIds);
+  for (const task of tasks) {
+    const outcome = await purgeInBatches(supabase, task, { deadline });
+    results[`${task.key}_deleted`] = outcome.deleted;
+    if (outcome.error) errors.push(outcome.error);
+    else if (!outcome.complete) incomplete.push(task.key);
   }
-  const { count: dmMessages } = await supabase
-    .from("group_dm_messages")
-    .delete({ count: "exact" })
-    .lt("created_at", ninetyDaysAgo);
-  results.dm_messages_deleted = dmMessages || 0;
 
-  // Group Chat messages: same reactions-first pattern.
-  const { data: oldChatMessages } = await supabase
-    .from("group_chat_messages")
-    .select("id")
-    .lt("created_at", ninetyDaysAgo);
-  const oldChatMessageIds = (oldChatMessages || []).map((m) => m.id);
-  if (oldChatMessageIds.length) {
-    await supabase
-      .from("message_reactions")
-      .delete()
-      .eq("message_type", "group_chat")
-      .in("message_id", oldChatMessageIds);
+  const body = { ok: errors.length === 0, ...results };
+  if (incomplete.length) body.incomplete = incomplete; // more remains; next run continues
+  if (errors.length) {
+    body.errors = errors;
+    console.error("cleanup-old-content failed:", errors);
+    return NextResponse.json(body, { status: 500 });
   }
-  const { count: chatMessages } = await supabase
-    .from("group_chat_messages")
-    .delete({ count: "exact" })
-    .lt("created_at", ninetyDaysAgo);
-  results.chat_messages_deleted = chatMessages || 0;
-
-  return NextResponse.json({ ok: true, ...results });
+  return NextResponse.json(body);
 }

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Home, Book, Megaphone, CalendarDays, CalendarRange, Mic, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { useSimpleMode } from "@/lib/useSimpleMode";
+import { visibleTabs } from "@/lib/simpleMode";
 
 // Desktop counterpart to BottomNav -- same tabs, same order, just a
 // persistent left sidebar instead of a bottom bar once there's enough
@@ -21,26 +23,29 @@ const TABS = [
 
 export default function Sidebar({ tab, setTab, badges = {} }) {
   const [collapsed, setCollapsed] = useState(false);
+  const simple = useSimpleMode();
 
   return (
     <nav
+      aria-label="Main"
       className={`hidden md:flex flex-col flex-shrink-0 bg-card border-r border-line py-4 sticky top-0 h-full overflow-y-auto transition-all ${
         collapsed ? "w-16" : "w-56"
       }`}
     >
-      {TABS.map(({ key, label, icon: Icon }) => {
+      {visibleTabs(TABS, tab, simple).map(({ key, label, icon: Icon }) => {
         const active = tab === key;
         return (
           <button
             key={key}
             onClick={() => setTab(key)}
             title={collapsed ? label : undefined}
-            className={`flex items-center gap-3 px-5 py-3 text-sm border-l-2 ${
+            aria-current={active ? "page" : undefined}
+            className={`flex items-center gap-3 px-5 ${simple ? "py-4 text-base" : "py-3 text-sm"} border-l-2 ${
               active ? "font-semibold text-accent border-accent bg-accent/5" : "text-inkfaint border-transparent"
             }`}
           >
             <span className="relative flex-shrink-0">
-              <Icon size={18} strokeWidth={active ? 2.3 : 1.8} />
+              <Icon size={simple ? 22 : 18} strokeWidth={active ? 2.3 : 1.8} />
               {badges[key] && (
                 <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent border border-card" />
               )}

@@ -1,6 +1,8 @@
 "use client";
 
 import { Home, Book, Megaphone, CalendarDays, CalendarRange, Mic, Users } from "lucide-react";
+import { useSimpleMode } from "@/lib/useSimpleMode";
+import { visibleTabs } from "@/lib/simpleMode";
 
 // The universal bottom nav. Icon-first, matching the Young Adults app's
 // own bottom nav pattern -- a small label underneath each icon, not a
@@ -16,24 +18,30 @@ export const TABS = [
 ];
 
 export default function BottomNav({ tab, setTab, badges = {} }) {
+  // Simple mode (v71): five tabs instead of seven, bigger icons and words.
+  const simple = useSimpleMode();
   return (
-    <nav className="md:hidden sticky bottom-0 z-30 bg-card border-t border-line px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+    <nav
+      aria-label="Main"
+      className="md:hidden sticky bottom-0 z-30 bg-card border-t border-line px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+    >
       <div className="max-w-lg mx-auto flex justify-between">
-        {TABS.map(({ key, label, icon: Icon }) => {
+        {visibleTabs(TABS, tab, simple).map(({ key, label, icon: Icon }) => {
           const active = tab === key;
           return (
             <button
               key={key}
               onClick={() => setTab(key)}
-              className="relative flex-1 flex flex-col items-center gap-1 py-1.5"
+              aria-current={active ? "page" : undefined}
+              className={`relative flex-1 flex flex-col items-center gap-1 py-1.5 ${simple ? "min-h-[60px] justify-center" : ""}`}
             >
               <span className="relative">
-                <Icon size={19} strokeWidth={active ? 2.3 : 1.8} className={active ? "text-accent" : "text-inkfaint"} />
+                <Icon size={simple ? 26 : 19} strokeWidth={active ? 2.3 : 1.8} className={active ? "text-accent" : "text-inkfaint"} />
                 {badges[key] && (
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent border border-card" />
                 )}
               </span>
-              <span className={`text-[0.625rem] font-medium ${active ? "text-accent" : "text-inkfaint"}`}>
+              <span className={`${simple ? "text-[0.8125rem]" : "text-[0.625rem]"} font-medium ${active ? "text-accent" : "text-inkfaint"}`}>
                 {label}
               </span>
             </button>

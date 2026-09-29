@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
+import Modal from "./Modal";
 
 // General-member-facing categories, roughly in the order a new member
 // would actually need them: getting the app on their phone first, then
@@ -44,11 +45,11 @@ const CATEGORIES = [
       },
       {
         q: "What do the tabs at the bottom do?",
-        a: "Home is where you see the ministries you're part of, and browse or request joining others. Bible is the full study suite. News, Events, Calendar, and Sermons show church-wide content — Calendar pulls together everything from church-wide Events plus every ministry you're actually in, color-coded so you can tell at a glance where each thing is coming from.",
+        a: "Home is where you see the ministries you're part of, and browse or request joining others. Bible is the full study suite. News, Events, Calendar, and Sermons show church-wide content — Calendar pulls together everything from church-wide Events plus every ministry you're actually in, color-coded so you can tell at a glance where each thing is coming from. Want fewer buttons? Turn on Simple mode in Settings: the bar then shows just Home, Bible, News, Events, and Sermons, with bigger labels (Calendar and Directory are still reachable from Home).",
       },
       {
         q: "How do I join a ministry?",
-        a: "From the Home tab, tap a ministry under \"Other ministries\" to see what it's about — its description and who leads it — then tap \"Request to Join\" from there. That ministry's leader (or a Church Admin) will need to approve it before you're fully in. While you're waiting, that ministry's card shows \"Pending\" instead of \"Join,\" so you always know where a request stands.",
+        a: "From the Home tab, find the ministry under \"Other ministries\" and tap \"Request to Join\" — or tap its name first to read what it's about and who leads it, and request from there. That ministry's leader (or a Church Admin) will need to approve it before you're fully in. You'll get a confirmation message, and while you wait the row shows \"Request pending\" instead of a button, so you always know where a request stands.",
       },
     ],
   },
@@ -57,7 +58,7 @@ const CATEGORIES = [
     items: [
       {
         q: "What happens when I tap a ministry to open it?",
-        a: "You enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: a Song library and Setlists, a Programs tab for organizing things like a seasonal cantata or special production, Messages for private conversation with that ministry's leaders, Chat for a shared conversation with the whole ministry, or a Bible Plan bolt-on with Today, Plan, and Journal. Tap \"← Home\" at the top to leave and go back.",
+        a: "Tap a ministry's card on Home and you enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: a Song library and Setlists, a Programs tab for organizing things like a seasonal cantata or special production, Messages for private conversation with that ministry's leaders, Chat for a shared conversation with the whole ministry, or a Bible Plan bolt-on with Today, Plan, and Journal. Tap \"← Home\" at the top to leave and go back.",
       },
       {
         q: "Can I leave a ministry?",
@@ -92,6 +93,10 @@ const CATEGORIES = [
         q: "Do events always have RSVP or replies?",
         a: "Not necessarily — whoever creates an event can choose whether RSVPs and replies are turned on for that specific event. Not every event needs a headcount or a discussion thread.",
       },
+      {
+        q: "Why does a post or message say \"Former member\"?",
+        a: "When an administrator deletes someone's account, the things they shared with the group — news posts, prayer requests, replies, and chat messages — are kept so conversations still make sense, and are shown as coming from \"Former member\". Their private things (direct messages, journal, notes and highlights) are deleted along with the account.",
+      },
     ],
   },
   {
@@ -109,6 +114,10 @@ const CATEGORIES = [
             ],
           },
         ],
+      },
+      {
+        q: "What are the buttons above the Bible text?",
+        a: "Along the top: the arrows go to the previous or next chapter (and carry on into the next book, so you can read straight through), and the middle button picks a book and chapter. Below that, four labeled tools — Listen reads the chapter aloud, Word tap lets you tap a word to hear it, Find jumps to a reference or searches the chapter, and Font changes how the text looks. A tool that is switched on shows a check mark. Underneath, you can change translation or layout, switch between Study and Simple, and a line always tells you what's showing, like \"NLT · Study\".",
       },
       {
         q: "What translations are available, and how are they different?",
@@ -177,11 +186,15 @@ const CATEGORIES = [
       },
       {
         q: "Can I make the text bigger?",
-        a: "Yes — Settings has a Text Size option with eight sizes, from Tiny to Maximum.",
+        a: "Yes — Settings has a Text Size option with eight sizes, from Tiny to Maximum. Turning on Simple mode also makes the text a little larger if you haven't chosen a size yourself.",
+      },
+      {
+        q: "What is Simple mode?",
+        a: "Simple mode is a switch at the top of Settings for anyone who would like the app to be easier to use. It shows a shorter bottom bar (Home, Bible, News, Events, and Sermons), puts a word under every button at the top of the screen (Help, Alerts, Settings, Me), makes the labels bigger, keeps messages on the screen longer, and starts the Bible in the plainer Simple view. Nothing is taken away — Calendar and Directory are still reachable from Home — and you can switch it off any time. It's saved on the device you turn it on, so a family member can set it up for you.",
       },
       {
         q: "Can I edit my name, username, or PIN?",
-        a: "Yes — tap the profile icon in the header and choose \"Edit Profile\" to change your display name, username, or PIN any time. Usernames still need to be unique, same as when you first signed up.",
+        a: "Yes — tap the profile icon in the header (or \"Me\" in Simple mode) and choose \"Edit Profile\" to change your display name, username, or short bio. To change your PIN, scroll to \"Security\" at the bottom of your profile and tap \"Change PIN\". Usernames still need to be unique, same as when you first signed up.",
       },
     ],
   },
@@ -218,15 +231,19 @@ const LEADER_SUBFOLDERS = [
     items: [
       {
         q: "Can a ministry change its own name, icon, color, or description?",
-        a: "Yes — a ministry's own leaders (or a Church Admin) can rename it, change its type/category label, write a short description shown to people considering joining, upload an icon, and pick its tile color, all from inside that ministry's Roster tab.",
+        a: "Yes — a ministry's own leaders (or a Church Admin) can rename it, change its type/category label, write a short description shown to people considering joining, upload an icon, and pick its tile color. Open that ministry's Roster tab and tap \"Ministry settings\".",
       },
       {
         q: "How do I turn Programs, Messages, Chat, or Bible Plan on for my ministry?",
-        a: "From that ministry's Roster tab, scroll to \"Bolt-on Modules\" — each one (Songs & Setlists, Bible Plan, Programs, Messages, and Chat's Members and Leaders Only channels) is its own checkbox, so you can turn on exactly the combination your ministry needs. Chat's two channels are independent: you can turn on just Leaders Only without opening a general Members channel, or the other way around.",
+        a: "Open that ministry's Roster tab, tap \"Ministry settings\", and scroll to \"Bolt-on modules\" — each one (Songs & Setlists, Bible Plan, Programs, Messages, and Chat's Members and Leaders Only channels) is its own On/Off switch, so you can turn on exactly the combination your ministry needs. Turning a module off only hides it; nothing in it is deleted. Chat's two channels are independent: you can turn on just Leaders Only without opening a general Members channel, or the other way around.",
       },
       {
         q: "How do I approve someone who wants to join?",
-        a: "Pending join requests show up right on that ministry's own Roster tab, for that ministry's leaders (or a Church Admin) to approve or decline.",
+        a: "Pending join requests show up right on that ministry's own Roster tab, with Approve and Reject buttons, for that ministry's leaders (or a Church Admin). Church Admins also see every waiting request from every ministry in one list under \"Needs attention\" in the Admin Toolbox.",
+      },
+      {
+        q: "How do I make someone a leader, or remove them?",
+        a: "On the Roster tab, tap the ⋯ button next to their name and choose \"Make leader\" (or \"Make member\") or \"Remove from ministry\". Removing someone asks you to confirm first. Leaders are listed first, then everyone else in alphabetical order, and once a ministry has more than eight people a search box appears above the list.",
       },
     ],
   },
@@ -248,7 +265,7 @@ const LEADER_SUBFOLDERS = [
     items: [
       {
         q: "Where's the Admin Toolbox, and what can I do from it?",
-        a: "Tap the toolbox icon in the header (only Church Admins see it). From there you can create ministries, manage or delete any ministry, promote or remove other people's admin access, search the full user directory, and see a log of recent admin activity.",
+        a: "Tap the toolbox icon in the header (only Church Admins see it). At the top, \"Needs attention\" lists everything waiting on you — join requests, requests to post something church-wide, and feedback — each with its own button, so you can deal with it without leaving the list. Below that you can create ministries, manage, archive or delete any ministry, make or remove other people's admin access, delete accounts, and read a plain-language log of recent admin activity.",
       },
       {
         q: "How do I hide a ministry, or block it for one specific person?",
@@ -259,8 +276,20 @@ const LEADER_SUBFOLDERS = [
         a: "From the Toolbox's \"Set up an account without email\" section, choose their username and PIN directly — they sign in with just those two, no email step ever involved. Good for a member who can't manage email on their own but can still tap in a PIN on their own device.",
       },
       {
-        q: "Can I hide the Toolbox icon from my own view?",
-        a: "Yes — there's a toggle in Settings for this. It's purely a personal display choice and never actually changes your access; it's just there so the icon isn't cluttering your header day-to-day if you'd rather open the Toolbox less often.",
+        q: "What does \"Use Admin Privileges\" do?",
+        a: "It's a switch in Settings, for Church Admins. While it's off, the app treats you as an ordinary member on that device: the toolbox and every admin power are switched off, so nothing can be changed by accident — but you stay an admin, and no one else's access changes. Turning it off is instant. Turning it back on asks for your PIN, so someone who picks up an unlocked phone can't simply switch it on.",
+      },
+      {
+        q: "Can I stop getting admin notifications?",
+        a: "Yes. Settings has an \"Admin notifications\" switch (for Church Admins). Turning it off stops the alerts for new join requests, feedback, and requests to post something church-wide — you keep every admin permission, and anything waiting still appears under \"Needs attention\" in the Toolbox. Another admin can also switch it off for you from the Toolbox's people list, which is handy for an admin who wants the authority but not the alerts.",
+      },
+      {
+        q: "What's the difference between archiving and deleting a ministry?",
+        a: "Archiving hides a ministry from everyone but admins and keeps everything — its members, posts, songs, and files — and you can restore it whenever you like. Deleting is permanent and can't be undone: the Toolbox first tells you exactly what will be destroyed (for example \"12 members, 34 news posts, 298 songs\") and then asks for your PIN. If you only want a ministry out of sight, archive it.",
+      },
+      {
+        q: "How do I delete someone's account?",
+        a: "In the Toolbox's people list, tap \"Delete account…\" next to the person. It tells you what will be deleted with them (direct messages, journal, notes, memberships) and what stays as \"Former member\" (news posts, prayer requests, chat messages), then asks for your PIN. You can't delete your own account, and an admin has to have their admin access removed first.",
       },
     ],
   },
@@ -336,22 +365,13 @@ function Subfolder({ subfolder }) {
 
 export default function HelpView({ onClose, isLeader }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-end z-[60]" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-card rounded-t-2xl w-full max-h-[85vh] overflow-y-auto p-6"
-      >
-        <div className="flex justify-between items-center mb-2 gap-2">
-          <h2 className="font-serif text-xl text-ink m-0 min-w-0 truncate">Help &amp; FAQ</h2>
-          <button onClick={onClose} className="text-2xl text-inkfaint leading-none flex-shrink-0">×</button>
-        </div>
-        {CATEGORIES.map((cat, i) => (
-          <Category key={i} category={cat} defaultOpen={i === 0} />
-        ))}
-        {isLeader && (
-          <Category category={{ title: "Leader Tools", subfolders: LEADER_SUBFOLDERS }} />
-        )}
-      </div>
-    </div>
+    <Modal title="Help & FAQ" onClose={onClose} z={60} maxHeight="85vh">
+      {CATEGORIES.map((cat, i) => (
+        <Category key={i} category={cat} defaultOpen={i === 0} />
+      ))}
+      {isLeader && (
+        <Category category={{ title: "Leader Tools", subfolders: LEADER_SUBFOLDERS }} />
+      )}
+    </Modal>
   );
 }

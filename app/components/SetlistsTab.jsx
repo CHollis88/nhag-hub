@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useFormDisclosure } from "./useFormDisclosure";
 import { Plus, Trash2, Pencil, PlayCircle } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
+import EmptyState from "./EmptyState";
+import { useConfirm } from "./ConfirmDialog";
+import { useAction } from "./useAction";
+import { requestJson } from "@/lib/request";
+import { useResource } from "@/lib/useResource";
+import { STALE, invalidate } from "@/lib/resourceCache";
+import { useScrollMemory } from "@/lib/useScreenState";
 import SetlistForm from "./SetlistForm";
 import MediaViewerModal from "./MediaViewerModal";
 import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
@@ -17,10 +25,24 @@ function fmtDate(d) {
 }
 
 export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
-  const [setlists, setSetlists] = useState(null);
-  const [songs, setSongs] = useState([]);
-  const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
+  // v71 #36: ONE form at a time (new OR editing one setlist), "Add" turns into
+  // "Cancel" while it's open, focus lands on the first field, and comes back to
+  // what opened it when it closes.
+  const form = useFormDisclosure(editing?.id ?? "new");
+  const showForm = form.open && !editing;
+  const openNew = () => {
+    setEditing(null);
+    form.show();
+  };
+  const openEdit = (setlist, fromElement) => {
+    setEditing(setlist);
+    form.show(fromElement);
+  };
+  const closeForm = () => {
+    setEditing(null);
+    form.hide();
+  };
   // The full linked song object + which field to open on first render --
   // MediaViewerModal is the exact same full-screen viewer Songs uses,
   // so opening it here (as an overlay on top of this screen) and
@@ -34,102 +56,107 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
   const url = baseUrl || `/api/groups/${groupId}/setlists`;
   const songLibraryUrl = songsUrl || `/api/groups/${groupId}/songs`;
 
-  const load = async () => {
-    const res = await fetch(url);
-    const data = await res.json();
-    if (res.ok) setSetlists(data.setlists);
-  };
+  const confirm = useConfirm();
+  const run = useAction();
 
-  useEffect(() => {
-    load();
-    fetch(songLibraryUrl)
-      .then((r) => r.json())
-      .then((d) => setSongs(d.songs || []));
-  }, [url, songLibraryUrl]);
+  // v71 #42-45: through the shared cache. The song picker reads the SAME entry
+  // the Songs screen uses, so if you've just been on Songs it costs no request.
+  const setlistsKey = `group:${groupId}:${url}`;
+  const { data: setlists, error: setlistsError, refresh: load } = useResource(
+    setlistsKey,
+    async () => (await requestJson(url)).setlists,
+    { staleMs: STALE.list }
+  );
+  const loadFailed = Boolean(setlistsError);
+  const { data: songsData } = useResource(`group:${groupId}:${songLibraryUrl}`, async () => (await requestJson(songLibraryUrl)).songs, {
+    staleMs: STALE.list,
+  });
+  const songs = songsData || [];
+  const scrollAnchor = useScrollMemory(`setlists:${url}`, setlists !== null);
+  const reload = () => invalidate(setlistsKey);
 
   // The form hands back the whole intended song list (with notes, in
   // order) in one go, matching the real Choir app's UX -- reorder/add/
   // remove/edit-note all happen locally in the form, then get saved as
-  // one action. This app's API is still per-song rather than one bulk
-  // endpoint, so a save just replays that intent as a short sequence of
-  // calls against the existing add/remove endpoints -- same end result,
-  // no new API surface needed.
+  // one action.
+  //
+  // v71 #9: that one action is now ONE request and ONE database transaction
+  // (save_setlist / save_program_setlist, migration_034) -- create is a
+  // POST with the songs in the body, edit is a PUT. Before, a save was a
+  // header update plus a delete per song plus an add per song, and a
+  // failure partway left the setlist half-empty. Now a failure changes
+  // nothing, and the form stays open with everything still typed in.
+  // Both return { ok } so the form knows whether to close.
   const create = async ({ service_date, service, songs: entries, notify }) => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ service_date, service, notify }),
-    });
-    const data = await res.json();
-    if (!res.ok) return;
-    for (const entry of entries) {
-      await fetch(`${url}/${data.setlist.id}/songs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ song_id: entry.song_id, note: entry.note }),
-      });
+    const result = await run(
+      () => requestJson(url, { method: "POST", body: { service_date, service, notify, songs: entries } }),
+      { success: "Setlist posted" }
+    );
+    if (result.ok) {
+      closeForm();
+      reload();
     }
-    setShowForm(false);
-    load();
+    return result;
   };
 
   const saveEdit = async ({ service_date, service, songs: entries }) => {
-    await fetch(`${url}/${editing.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ service_date, service }),
+    const result = await run(
+      () => requestJson(`${url}/${editing.id}`, { method: "PUT", body: { service_date, service, songs: entries } }),
+      { success: "Setlist saved" }
+    );
+    if (result.ok) {
+      closeForm();
+      reload();
+    }
+    return result;
+  };
+
+  const remove = async (s) => {
+    const yes = await confirm({
+      title: `Delete the ${s.service} setlist for ${fmtDate(s.service_date)}?`,
+      message: "The songs stay in the library; only this setlist is removed.",
+      confirmLabel: "Delete setlist",
     });
-    // Replace the whole song list: remove every existing entry, then
-    // re-add the form's current list fresh, in order.
-    for (const existingEntry of editing.songs) {
-      await fetch(`${url}/${editing.id}/songs/${existingEntry.id}`, {
-        method: "DELETE",
-      });
-    }
-    for (const entry of entries) {
-      await fetch(`${url}/${editing.id}/songs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ song_id: entry.song_id, note: entry.note }),
-      });
-    }
-    setEditing(null);
-    load();
+    if (!yes) return;
+    const { ok } = await run(() => requestJson(`${url}/${s.id}`, { method: "DELETE" }), { success: "Setlist deleted" });
+    if (ok) reload();
   };
 
-  const remove = async (id) => {
-    if (!confirm("Delete this whole setlist?")) return;
-    await fetch(`${url}/${id}`, { method: "DELETE" });
-    load();
-  };
-
+  if (setlists === null && loadFailed) return <EmptyState kind="error" text="Couldn't load setlists." onRetry={load} />;
   if (setlists === null) return <div className="px-5 pt-4"><SkeletonList count={3} /></div>;
 
   return (
     <div className="px-5 pt-4 pb-6">
+      <div ref={scrollAnchor} />
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-serif text-xl text-ink">Setlists</h2>
         {canManage && (
-          <button onClick={() => setShowForm(true)} className="sp-btn-pill">
-            <Plus size={14} /> Add
+          <button ref={form.triggerRef} onClick={() => (form.open ? closeForm() : openNew())} className="sp-btn-pill">
+            {form.open ? (
+              "Cancel"
+            ) : (
+              <>
+                <Plus size={14} aria-hidden="true" /> Add
+              </>
+            )}
           </button>
         )}
       </div>
 
-      {showForm && (
-        <SetlistForm allSongs={songs} onCancel={() => setShowForm(false)} onSave={create} />
-      )}
+      {showForm && <SetlistForm formRef={form.formRef} allSongs={songs} onCancel={closeForm} onSave={create} />}
       {editing && (
         <SetlistForm
+          key={editing.id}
+          formRef={form.formRef}
           initial={editing}
           allSongs={songs}
-          onCancel={() => setEditing(null)}
+          onCancel={closeForm}
           onSave={saveEdit}
         />
       )}
 
-      {setlists.length === 0 && !showForm && (
-        <p className="text-sm text-inkfaint text-center py-6">No setlists posted yet.</p>
+      {setlists.length === 0 && !form.open && (
+        <EmptyState icon={PlayCircle} text="No setlists posted yet." action={{ label: "Add a setlist", onClick: openNew }} canAct={canManage} />
       )}
 
       <div className="space-y-3">
@@ -176,10 +203,10 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
             )}
             {canManage && (
               <div className="absolute top-4 right-4 flex items-center gap-3">
-                <button onClick={() => setEditing(s)} className="text-inkfaint" aria-label="Edit">
+                <button onClick={(e) => openEdit(s, e.currentTarget)} data-return-focus={`setlist-edit-${s.id}`} className="text-inkfaint p-1" aria-label={`Edit ${s.service} setlist`}>
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => remove(s.id)} className="text-inkfaint" aria-label="Delete">
+                <button onClick={() => remove(s)} className="text-inkfaint p-1" aria-label={`Delete ${s.service} setlist`}>
                   <Trash2 size={14} />
                 </button>
               </div>

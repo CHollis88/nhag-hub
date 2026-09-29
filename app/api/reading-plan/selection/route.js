@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { PLANS } from "@/lib/planRegistry";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { invalidateUserSessions } from "@/lib/session";
 
 export async function GET(req) {
   const user = await getCurrentUser(req);
@@ -26,5 +27,6 @@ export async function PATCH(req) {
     .eq("id", user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  invalidateUserSessions(user.id);
   return NextResponse.json({ ok: true });
 }

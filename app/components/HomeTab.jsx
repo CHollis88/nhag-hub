@@ -5,22 +5,33 @@ import HomeGetStartedCard from "./HomeGetStartedCard";
 import MinistryPreview from "./MinistryPreview";
 import { readableTextColor } from "@/lib/colorContrast";
 import { formatTime12h } from "@/lib/formatTime";
+import { todayLocal } from "@/lib/localDate";
+import { requestJson } from "@/lib/request";
+import { useToast } from "./ToastProvider";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 const CHURCH_WIDE_COLOR = "#16296B"; // same brand navy used for "Church-wide" everywhere else (Calendar)
 
-function MinistryTile({ group, leaders, myRole, isPending, onLaunch, onRequestJoin, onPreview }) {
-  const isMember = Boolean(myRole);
+// One of YOUR ministries. The whole card is a single real button that opens
+// the ministry -- the most natural thing to tap (the icon, the name) now does
+// what people expect, instead of opening an "About" sheet and needing a second
+// tap on a small "Launch" button. (Before, the card body was a <div
+// role="button"> that keyboards could not reach, with a real button nested
+// inside it.) The pill at the bottom is just a visible label for the action,
+// not a second control. Only ministries you belong to use this card -- others
+// are the rows below -- so there is no Join / Pending state here.
+function MinistryTile({ group, leaders, myRole, onOpen }) {
   const bg = group.tile_color || DEFAULT_TILE_COLOR;
 
   return (
-    <div className="sp-card p-0 overflow-hidden flex flex-col h-full">
-      <div className="h-2 flex-shrink-0" style={{ background: bg }} />
-      <div
-        className="p-3 md:p-5 lg:p-6 flex flex-col items-center text-center flex-1"
-        onClick={onPreview}
-        role="button"
-      >
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Open ${group.name}`}
+      className="sp-card p-0 overflow-hidden flex flex-col h-full w-full text-left"
+    >
+      <div className="h-2 flex-shrink-0 w-full" style={{ background: bg }} />
+      <div className="p-3 md:p-5 lg:p-6 flex flex-col items-center text-center flex-1 w-full">
         {group.image_url ? (
           <img
             src={group.image_url}
@@ -31,105 +42,73 @@ function MinistryTile({ group, leaders, myRole, isPending, onLaunch, onRequestJo
           <div
             className="w-14 h-14 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-xl flex-shrink-0 flex items-center justify-center font-serif text-xl md:text-3xl lg:text-4xl mb-2 md:mb-3"
             style={{ background: bg, color: readableTextColor(bg) }}
+            aria-hidden="true"
           >
             {group.name?.[0]?.toUpperCase() || "?"}
           </div>
         )}
-        <p className="font-serif text-base md:text-xl lg:text-2xl text-ink leading-snug break-words">{group.name}</p>
-        {/* Everything below is hidden on mobile (the compact, icon-and-name-
-            first view Cam asked for) and only shown from md: up -- on a
-            phone, tapping the tile itself opens the full preview instead,
-            where the type, leaders, and description are all still there. */}
-        {group.type && <p className="hidden md:block text-xs md:text-sm text-inkfaint break-words mt-0.5">{group.type}</p>}
+        <span className="font-serif text-base md:text-xl lg:text-2xl text-ink leading-snug break-words">{group.name}</span>
+        {/* Below: hidden on a phone (the compact, icon-and-name-first view),
+            shown from md: up. */}
+        {group.type && <span className="hidden md:block text-xs md:text-sm text-inkfaint break-words mt-0.5">{group.type}</span>}
         {leaders?.length > 0 && (
-          <p className="hidden md:block text-xs md:text-sm text-inkfaint break-words mt-0.5">
+          <span className="hidden md:block text-xs md:text-sm text-inkfaint break-words mt-0.5">
             {leaders.length === 1 ? "Leader: " : "Leaders: "}
             {leaders.join(", ")}
-          </p>
+          </span>
         )}
-        {isMember && (
-          <p className="hidden md:block text-xs md:text-sm text-inkfaint mt-0.5">
-            {myRole === "leader" ? "Ministry Leader" : "Member"}
-          </p>
-        )}
-        {!isMember && group.description && (
-          <p className="hidden md:block text-xs md:text-sm text-inksoft mt-1.5 line-clamp-2">{group.description}</p>
-        )}
-
-        <div className="mt-auto pt-3 md:pt-4 w-full" onClick={(e) => e.stopPropagation()}>
-          {isMember ? (
-            <button onClick={onLaunch} className="sp-btn-pill w-full md:text-base md:py-2">Launch</button>
-          ) : isPending ? (
-            // Disabled on purpose -- a second tap here used to silently
-            // re-send the same join request and get rejected by the
-            // server (already-pending, 409) with no visual cue beforehand
-            // that one was already sent. This makes the already-pending
-            // state visible instead of indistinguishable from "not yet
-            // requested."
-            <button
-              disabled
-              onClick={(e) => e.stopPropagation()}
-              className="sp-btn-secondary text-xs py-1.5 w-full opacity-60 cursor-default"
-            >
-              Pending
-            </button>
-          ) : (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onRequestJoin();
-              }}
-              className="sp-btn-secondary text-xs py-1.5 w-full"
-            >
-              Join
-            </button>
-          )}
-        </div>
+        <span className="hidden md:block text-xs md:text-sm text-inkfaint mt-0.5">
+          {myRole === "leader" ? "Ministry Leader" : "Member"}
+        </span>
+        <span aria-hidden="true" className="sp-btn-pill w-full md:text-base md:py-2 mt-auto block text-center">
+          Open
+        </span>
       </div>
-    </div>
+    </button>
   );
 }
 
-// Deliberately a different shape from MinistryTile above -- a compact,
-// muted row rather than a full card -- so browsing ministries you're NOT
-// in never looks visually identical to (or as prominent as) the ones
-// you're actually part of. Per Cam's decision, this distinction matters:
-// "your ministries" are what you launch into daily; "other ministries" is
-// just discovery, so it should read as secondary at a glance.
+// A ministry you are NOT in: deliberately a different shape from the card above
+// -- a compact, muted row -- so browsing never looks identical to (or as
+// prominent as) the ones you belong to. Two separate controls, side by side:
+// the left side opens the "About this ministry" sheet, and "Request to Join" is
+// its own real button with a proper tap target (it used to be a small
+// underlined link inside a clickable div).
 function BrowseMinistryRow({ group, leaders, isPending, onRequestJoin, onPreview }) {
   const bg = group.tile_color || DEFAULT_TILE_COLOR;
 
   return (
-    <div
-      className="flex items-center gap-3 bg-paper border border-linesoft rounded-lg px-3 py-2.5 opacity-90"
-      onClick={onPreview}
-      role="button"
-    >
-      {group.image_url ? (
-        <img src={group.image_url} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0 grayscale-[30%]" />
-      ) : (
-        <div
-          className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center font-serif text-sm opacity-80"
-          style={{ background: bg, color: readableTextColor(bg) }}
-        >
-          {group.name?.[0]?.toUpperCase() || "?"}
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-inksoft truncate">{group.name}</p>
-        {leaders?.length > 0 && (
-          <p className="text-xs text-inkfaint truncate">{leaders.join(", ")}</p>
+    <div className="flex items-center gap-2 bg-paper border border-linesoft rounded-lg pl-3 pr-2 py-1.5">
+      <button
+        type="button"
+        onClick={onPreview}
+        aria-label={`About ${group.name}`}
+        className="flex items-center gap-3 flex-1 min-w-0 min-h-[44px] text-left opacity-90"
+      >
+        {group.image_url ? (
+          <img src={group.image_url} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0 grayscale-[30%]" />
+        ) : (
+          <div
+            className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center font-serif text-sm opacity-80"
+            style={{ background: bg, color: readableTextColor(bg) }}
+            aria-hidden="true"
+          >
+            {group.name?.[0]?.toUpperCase() || "?"}
+          </div>
         )}
-      </div>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm text-inksoft truncate">{group.name}</span>
+          {leaders?.length > 0 && <span className="block text-xs text-inkfaint truncate">{leaders.join(", ")}</span>}
+        </span>
+      </button>
       {isPending ? (
-        <span className="text-xs text-inkfaint flex-shrink-0 opacity-70">Pending</span>
+        <span className="text-xs text-inkfaint flex-shrink-0 px-2">Request pending</span>
       ) : (
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRequestJoin();
-          }}
-          className="text-xs text-accent underline flex-shrink-0"
+          type="button"
+          onClick={onRequestJoin}
+          aria-label={`Request to join ${group.name}`}
+          className="sp-btn-secondary text-xs px-3 min-h-[44px] flex-shrink-0"
         >
           Request to Join
         </button>
@@ -144,19 +123,19 @@ function UpcomingEventsPreview({ me, onSeeAll }) {
   useEffect(() => {
     const myGroups = (me?.memberships || []).filter((m) => m.status === "active");
 
-    Promise.all([
-      fetch("/api/global/events").then((r) => r.json()),
-      ...myGroups.map((m) => fetch(`/api/groups/${m.group_id}/events`).then((r) => r.json())),
-    ]).then(([globalRes, ...groupResults]) => {
-      const today = new Date().toISOString().slice(0, 10);
+    // One request for church-wide + all my ministries' events (v71 #1).
+    fetch("/api/events/mine")
+      .then((r) => r.json())
+      .then((mine) => {
+      const today = todayLocal();
 
-      const globalEvents = (globalRes.events || []).map((ev) => ({
+      const globalEvents = (mine.global || []).map((ev) => ({
         ...ev,
         sourceName: "Church-wide",
         color: CHURCH_WIDE_COLOR,
       }));
-      const groupEvents = myGroups.flatMap((m, i) =>
-        (groupResults[i]?.events || []).map((ev) => ({
+      const groupEvents = myGroups.flatMap((m) =>
+        ((mine.groups || {})[m.group_id] || []).map((ev) => ({
           ...ev,
           sourceName: m.group?.name || "Ministry",
           color: m.group?.tile_color || DEFAULT_TILE_COLOR,
@@ -242,7 +221,7 @@ function AnnouncementsPreview({ onSeeAll }) {
 // Everything admin-only lives in the separate Admin Toolbox below.
 export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenSettings, onOpenDirectory }) {
   const [groups, setGroups] = useState([]);
-  const [message, setMessage] = useState("");
+  const toast = useToast();
   const [previewGroup, setPreviewGroup] = useState(null);
 
   const loadGroups = useCallback(async () => {
@@ -267,22 +246,31 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
     me.memberships.filter((m) => m.status === "pending").map((m) => m.group_id)
   );
 
-  const requestJoin = async (groupId) => {
-    setMessage("");
-    const res = await fetch(`/api/groups/${groupId}/join-request`, { method: "POST" });
-    const data = await res.json();
-    setMessage(res.ok ? "Join request sent." : data.error);
-    refreshMe();
+  // The result is a toast (announced to screen readers, and visible wherever
+  // you're scrolled) -- it used to be a line at the very BOTTOM of the page.
+  const requestJoin = async (groupId, name) => {
+    try {
+      await requestJson(`/api/groups/${groupId}/join-request`, { method: "POST" });
+      toast.success(name ? `Request sent to join ${name}. A leader will review it.` : "Join request sent.");
+    } catch (err) {
+      toast.error(err.message);
+    }
+    refreshMe(); // either way, show the real state (e.g. "pending")
   };
 
-  const myGroups = groups.filter((g) => myGroupIds.has(g.id));
+  const myGroups = groups.filter((g) => myGroupIds.has(g.id) && !g.archived_at);
   // Church Admins get every group back from /api/groups (including hidden
   // ones), so they can find and un-hide them from the Admin Toolbox. But
   // this "Other ministries" browse list is Cam-as-a-member browsing, not
   // Cam-as-admin managing -- a hidden ministry should disappear from here
   // for an admin exactly like it does for anyone else, since management
   // of hidden ministries already has its own dedicated place (Toolbox).
-  const otherGroups = groups.filter((g) => !myGroupIds.has(g.id) && !g.hidden);
+  const otherGroups = groups.filter((g) => !myGroupIds.has(g.id) && !g.hidden && !g.archived_at);
+  const listedOtherIds = new Set(otherGroups.map((g) => g.id));
+  const pendingNotListed = me.memberships
+    .filter((m) => m.status === "pending" && !listedOtherIds.has(m.group_id))
+    .map((m) => m.group?.name)
+    .filter(Boolean);
 
   return (
     <div className="px-5 pt-4 pb-6">
@@ -307,16 +295,15 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
             group={g}
             leaders={g.leaders}
             myRole={membershipByGroupId[g.id]?.role}
-            onLaunch={() => onOpenGroup(g.id, g.name, membershipByGroupId[g.id]?.role, g.features)}
-            onPreview={() => setPreviewGroup(g)}
+            onOpen={() => onOpenGroup(g.id, g.name, membershipByGroupId[g.id]?.role, g.features)}
           />
         ))}
       </div>
-      {me.memberships.some((m) => m.status === "pending") && (
-        <p className="text-xs text-inkfaint mb-4">
-          {me.memberships.filter((m) => m.status === "pending").map((m) => m.group?.name).join(", ")}{" "}
-          — request pending approval.
-        </p>
+      {/* Pending requests already show on their row in "Other ministries"; this
+          line only covers one that ISN'T listed there (e.g. a hidden ministry),
+          so a request is never mentioned twice or missed. */}
+      {pendingNotListed.length > 0 && (
+        <p className="text-xs text-inkfaint mb-4">{pendingNotListed.join(", ")} — request pending approval.</p>
       )}
 
       {otherGroups.length > 0 && (
@@ -329,15 +316,13 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
                 group={g}
                 leaders={g.leaders}
                 isPending={pendingGroupIds.has(g.id)}
-                onRequestJoin={() => requestJoin(g.id)}
+                onRequestJoin={() => requestJoin(g.id, g.name)}
                 onPreview={() => setPreviewGroup(g)}
               />
             ))}
           </div>
         </>
       )}
-
-      {message && <p className="text-sm text-inksoft mt-3">{message}</p>}
 
       {previewGroup && (
         <MinistryPreview
@@ -346,7 +331,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
           isPending={pendingGroupIds.has(previewGroup.id)}
           isMember={myGroupIds.has(previewGroup.id)}
           onClose={() => setPreviewGroup(null)}
-          onRequestJoin={() => requestJoin(previewGroup.id)}
+          onRequestJoin={() => requestJoin(previewGroup.id, previewGroup.name)}
           onLaunch={() => onOpenGroup(previewGroup.id, previewGroup.name, membershipByGroupId[previewGroup.id]?.role, previewGroup.features)}
         />
       )}

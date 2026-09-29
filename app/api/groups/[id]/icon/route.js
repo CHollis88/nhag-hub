@@ -2,20 +2,11 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup } from "@/lib/groupAuth";
+import { ensureBucket, cleanupUploadOnFailure } from "@/lib/storage";
 
 const BUCKET = "group-icons";
 const MAX_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
-
-let bucketReady = false;
-async function ensureBucket(supabase) {
-  if (bucketReady) return;
-  // Idempotent -- if it already exists this just errors quietly and we
-  // move on. Avoids a manual "create this bucket in the dashboard" setup
-  // step, matching how the rest of this app is just SQL files to run.
-  await supabase.storage.createBucket(BUCKET, { public: true }).catch(() => {});
-  bucketReady = true;
-}
 
 export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
@@ -44,11 +35,18 @@ export async function POST(req, { params }) {
   }
 
   const supabase = supabaseServer();
-  await ensureBucket(supabase);
+  // Icons are public on purpose (they show on the home screen tiles).
+  // Idempotent create -- no manual "create this bucket" dashboard step.
+  await ensureBucket(supabase, BUCKET, { isPublic: true });
 
   const ext = file.type.split("/")[1];
   const path = `${groupId}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
+
+  // An icon upload overwrites in place (same path). If this path already
+  // held a file, a failed database update must NOT delete it; only a brand
+  // new object (e.g. first PNG after a JPEG) is an orphan worth removing.
+  const { data: existedBefore } = await supabase.storage.from(BUCKET).exists(path);
 
   const { error: uploadError } = await supabase.storage
     .from(BUCKET)
@@ -61,10 +59,18 @@ export async function POST(req, { params }) {
   // (and therefore the URL) is identical to whatever was there before.
   const imageUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
 
-  const { error: updateError } = await supabase
-    .from("groups")
-    .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
-    .eq("id", groupId);
+  // v71 #15: clean up the uploaded object if the database update fails.
+  const { error: updateError } = await cleanupUploadOnFailure(
+    supabase,
+    BUCKET,
+    path,
+    () =>
+      supabase
+        .from("groups")
+        .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
+        .eq("id", groupId),
+    { createdNew: !existedBefore }
+  );
 
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
   return NextResponse.json({ image_url: imageUrl });

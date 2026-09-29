@@ -218,3 +218,43 @@ body {
     animation: none;
   }
 }
+
+/* Toast entrance (v71 #40): opacity only, no transform, for the same
+   reason as tab-fade-in above. Fully off under reduced motion. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.toast-in {
+  animation: toast-in 150ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-in {
+    animation: none;
+  }
+}
+
+/* v71 #45 -- "Reduce motion" honoured EVERYWHERE, not screen by screen.
+   Tailwind's animate-pulse (the skeleton placeholders pulse forever) and every
+   transition-* class (sidebars, the glossary, message bubbles, switches...) are
+   turned off here in one place, so a screen added later can't forget to. The
+   animation is cut to a single instantaneous frame rather than removed, so
+   anything that relies on an animation ENDING still ends. Scrolling that the
+   code asks to be smooth is handled in JS (lib/motion.js), because a script's
+   explicit "smooth" overrides CSS. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

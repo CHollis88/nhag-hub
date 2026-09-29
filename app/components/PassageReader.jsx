@@ -3,8 +3,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   ChevronLeft,
-  ChevronRight,
-  ChevronDown,
   AlignLeft,
   BookOpen,
   Rows,
@@ -16,22 +14,19 @@ import {
   StickyNote,
   Trash2,
   FileText,
-  Search,
   Copy,
   Check,
-  ToggleLeft,
-  ToggleRight,
   Tag,
-  Volume2,
   Play,
   Pause,
   Square,
-  Ear,
-  Type,
 } from "lucide-react";
-import { BOOKS, ABBR_TO_NAME, formatReference, parseQuickReference, tokensToText } from "@/lib/bibleRef";
+import { BOOKS, ABBR_TO_NAME, adjacentChapter, formatReference, parseQuickReference, tokensToText } from "@/lib/bibleRef";
 import RichContent, { TyndaleAttribution } from "./RichContent";
-import { TRANSLATIONS, DEFAULT_TRANSLATION, getTranslation } from "@/lib/bibleTranslations";
+import BibleToolbar from "./BibleToolbar";
+import { scrollBehavior } from "@/lib/motion";
+import { getSimpleMode } from "@/lib/simpleMode";
+import { TRANSLATIONS, DEFAULT_TRANSLATION, getTranslation, translationCapabilityText } from "@/lib/bibleTranslations";
 import { addRecentPassage, getRecentPassages } from "@/lib/recentPassages";
 import { getDesktopMode } from "@/lib/desktopMode";
 import { api } from "@/lib/api";
@@ -39,6 +34,7 @@ import StudyPopup from "./StudyPopup";
 import InfoTooltip from "./InfoTooltip";
 import { cleanOccurrences } from "@/lib/lexiconFormat";
 import { tagColorClass } from "@/lib/tagColor";
+import { useAction } from "./useAction";
 
 const FONT_OPTIONS = [
   { id: "sans", label: "Sans-serif", className: "font-bible-sans" },
@@ -539,6 +535,7 @@ function CrossRefRangeContent({ perVerse, onGoTo, showCommentary = true, comment
 }
 
 export default function PassageReader({ initialBook = "Gen", initialChapter = 1, initialVerse = null, deviceId }) {
+  const run = useAction();
   const [book, setBook] = useState(initialBook);
   const [chapterCounts, setChapterCounts] = useState({});
   const [chapter, setChapter] = useState(initialChapter);
@@ -658,7 +655,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
 
   useEffect(() => {
     setLayout(getPref("sp_bible_layout", "text"));
-    setStudyModeState(getPref("sp_bible_study_mode", "study") !== "simple");
+    setStudyModeState(getPref("sp_bible_study_mode", getSimpleMode() ? "simple" : "study") !== "simple");
     setBibleFontState(getPref("sp_bible_font", "sans"));
     const savedTranslation = getPref("sp_bible_translation", DEFAULT_TRANSLATION);
     if (getTranslation(savedTranslation)) setTranslationState(savedTranslation);
@@ -779,7 +776,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   useEffect(() => {
     if (!verses || pendingScroll == null) return;
     const el = document.getElementById(`verse-${pendingScroll}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
     setPendingScroll(null);
   }, [verses, pendingScroll]);
 
@@ -787,7 +784,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   useEffect(() => {
     if (!speakingToken) return;
     const el = document.getElementById(`verse-${speakingToken.verse}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
   }, [speakingToken?.verse]);
 
   useEffect(() => {
@@ -855,7 +852,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       try {
         const d = await api.getLibraryItem(collection, id);
         setIntroView(d.item);
-        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+        if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: scrollBehavior() });
       } catch {
         setPopup({ type: "error", message: "Couldn't load the introduction. Try again in a moment." });
       }
@@ -963,10 +960,17 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     }
   };
 
+  // Previous / Next chapter, crossing book boundaries (v71 #6/#27). null
+  // means "nowhere to go" and the matching button is disabled.
+  const prevTarget = adjacentChapter(book, chapter, -1, chapterCounts);
+  const nextTarget = adjacentChapter(book, chapter, 1, chapterCounts);
+
   const changeChapter = (delta) => {
-    const newChapter = chapter + delta;
-    if (newChapter < 1) return;
-    setChapter(newChapter);
+    const target = delta < 0 ? prevTarget : nextTarget;
+    if (!target) return;
+    setIntroView(null);
+    if (target.book !== book) setBook(target.book);
+    setChapter(target.chapter);
   };
 
   const goToReference = (ref) => {
@@ -1109,8 +1113,10 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
 
   const saveHighlight = async (color) => {
     if (!colorPickerFor || !deviceId) return;
-    try {
-      await api.addHighlight({
+    // v71 #8: a failed highlight now says so (it used to fail silently and
+    // the highlight simply never appeared). The picker closes either way.
+    const { ok } = await run(() =>
+      api.addHighlight({
         device_id: deviceId,
         book,
         chapter,
@@ -1120,11 +1126,10 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
         start_pos: colorPickerFor.start_pos,
         end_pos: colorPickerFor.end_pos,
         color,
-      });
-      loadMyData();
-    } finally {
-      setColorPickerFor(null);
-    }
+      })
+    );
+    setColorPickerFor(null);
+    if (ok) loadMyData();
   };
 
   const clearRangeHighlights = async (range) => {
@@ -1132,7 +1137,8 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     // just ones matching it exactly -- "clear what I've selected" is the
     // more intuitive reading than requiring an exact range match.
     const toRemove = highlights.filter((h) => h.verse_start <= range.end && h.verse_end >= range.start);
-    await Promise.all(toRemove.map((h) => api.removeHighlight(h.id, deviceId)));
+    // Refreshes either way so the screen shows what's actually left.
+    await run(() => Promise.all(toRemove.map((h) => api.removeHighlight(h.id, deviceId))));
     loadMyData();
   };
 
@@ -1143,43 +1149,56 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
 
   const saveNote = async (text) => {
     if (!noteEditor || !deviceId) return;
-    await api.saveNote({
-      device_id: deviceId,
-      book,
-      chapter,
-      verse_start: noteEditor.verseStart,
-      verse_end: noteEditor.verseEnd,
-      text,
-    });
-    setNoteEditor(null);
-    loadMyData();
+    // The note editor stays open, with the text in it, if this fails.
+    const { ok } = await run(
+      () =>
+        api.saveNote({
+          device_id: deviceId,
+          book,
+          chapter,
+          verse_start: noteEditor.verseStart,
+          verse_end: noteEditor.verseEnd,
+          text,
+        }),
+      { success: "Note saved" }
+    );
+    if (ok) {
+      setNoteEditor(null);
+      loadMyData();
+    }
   };
 
   const deleteNote = async () => {
     if (!noteEditor?.existing || !deviceId) return;
-    await api.removeNote(noteEditor.existing.id, deviceId);
-    setNoteEditor(null);
-    loadMyData();
+    const { ok } = await run(() => api.removeNote(noteEditor.existing.id, deviceId), { success: "Note deleted" });
+    if (ok) {
+      setNoteEditor(null);
+      loadMyData();
+    }
   };
 
   const addTag = async () => {
     const tag = tagInput.trim();
     if (!tag || !deviceId || !tagEditor) return;
-    await api.addTag({
-      device_id: deviceId,
-      book,
-      chapter,
-      verse_start: tagEditor.start,
-      verse_end: tagEditor.end,
-      tag,
-    });
-    setTagInput("");
-    loadMyData();
+    const { ok } = await run(() =>
+      api.addTag({
+        device_id: deviceId,
+        book,
+        chapter,
+        verse_start: tagEditor.start,
+        verse_end: tagEditor.end,
+        tag,
+      })
+    );
+    if (ok) {
+      setTagInput(""); // the tag stays typed if it didn't save
+      loadMyData();
+    }
   };
 
   const removeTag = async (id) => {
     if (!deviceId) return;
-    await api.removeTag(id, deviceId);
+    await run(() => api.removeTag(id, deviceId));
     loadMyData();
   };
 
@@ -1305,115 +1324,36 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     setPref("sp_bible_compare_kjv", next ? "on" : "off");
   };
 
+  // v71 #27: the toolbar is its own component (BibleToolbar.jsx). Every tool
+  // stays on it -- none goes into a "More" menu -- and it says what's active.
+  const layoutNow = LAYOUTS.find((l) => l.id === layout);
   const controls = (
-    <div className="sticky top-0 z-20 bg-paper pt-1 pb-1 -mx-5 px-5 md:mx-0 md:px-0">
-      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-        <button onClick={() => changeChapter(-1)} className="text-inkfaint p-1.5 flex-shrink-0" aria-label="Previous chapter">
-          <ChevronLeft size={18} />
-        </button>
-        <button
-          onClick={() => setBookChapterPickerOpen(true)}
-          className="sp-input text-sm flex items-center justify-center gap-1.5 flex-1 min-w-0"
-        >
-          <span className="truncate">
-            {ABBR_TO_NAME[book]} {chapter}
-          </span>
-          <ChevronDown size={14} className="opacity-60 flex-shrink-0" />
-        </button>
-        <button onClick={() => changeChapter(1)} className="text-inkfaint p-1.5 flex-shrink-0" aria-label="Next chapter">
-          <ChevronRight size={18} />
-        </button>
-        <button
-          onClick={() => setTtsOpen(true)}
-          className={`p-1.5 flex-shrink-0 ${chapterPlaying ? "text-accent" : "text-inkfaint"}`}
-          aria-label="Listen to this chapter"
-        >
-          <Volume2 size={18} />
-        </button>
-        <button
-          onClick={() => setWordTapMode(!wordTapMode)}
-          className={`p-1.5 flex-shrink-0 ${wordTapMode ? "text-accent" : "text-inkfaint"}`}
-          aria-label="Tap a word to hear it"
-          title={wordTapMode ? "Tap-a-word is on" : "Tap-a-word is off"}
-        >
-          <Ear size={18} />
-        </button>
-        <button
-          onClick={() => setJumpOpen(true)}
-          className="text-inkfaint p-1.5 flex-shrink-0"
-          aria-label="Jump to a reference or find in this chapter"
-        >
-          <Search size={18} />
-        </button>
-        <button
-          onClick={() => setFontPickerOpen(true)}
-          className="text-inkfaint p-1.5 flex-shrink-0"
-          aria-label="Change reading font"
-        >
-          <Type size={18} />
-        </button>
-      </div>
-
-      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-        {/* Translation stays FIRST in this row so it doesn't shift
-            position when the layout button appears and disappears with
-            the translation -- a control that moves under your thumb as
-            you use it is worse than one that's a little further right. */}
-        <button
-          onClick={() => setTranslationPickerOpen(true)}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-paper text-inkfaint border border-line"
-        >
-          {activeTranslation.label}
-          <ChevronDown size={12} className="opacity-60" />
-        </button>
-        {commentaryAvailable && (
-        <button
-          onClick={() => setLayoutPickerOpen(true)}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-paper text-inkfaint border border-line"
-        >
-          {(() => {
-            const current = LAYOUTS.find((l) => l.id === layout);
-            const Icon = current?.icon || AlignLeft;
-            return (
-              <>
-                <Icon size={14} />
-                {current?.label || "Layout"}
-                <ChevronDown size={12} className="opacity-60" />
-              </>
-            );
-          })()}
-        </button>
-        )}
-        {translation !== "kjv" && (
-          <button
-            onClick={toggleCompare}
-            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border ${
-              compareWithKjv
-                ? "bg-accent/10 text-accent border-accent/40"
-                : "bg-paper text-inkfaint border-line"
-            }`}
-            title={compareWithKjv ? "Showing KJV alongside. Tap to hide." : "Show the KJV alongside"}
-          >
-            <Columns2 size={14} />
-            KJV
-          </button>
-        )}
-        {/* Shown on every translation. Study/Simple is the reader's own
-            preference and carries across translations; only the
-            word-level Strong's tapping inside it is KJV/BSB-specific
-            (handled via wordStudyAvailable below), not the toggle. */}
-        {(
-        <button
-          onClick={toggleStudyMode}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-paper text-inkfaint border border-line ml-auto"
-          title={studyMode ? "Showing study tools. Tap to simplify." : "Simplified view. Tap for study tools."}
-        >
-          {studyMode ? <ToggleRight size={16} className="text-accent" /> : <ToggleLeft size={16} />}
-          {studyMode ? "Study" : "Simple"}
-        </button>
-        )}
-      </div>
-    </div>
+    <BibleToolbar
+      bookName={ABBR_TO_NAME[book]}
+      chapter={chapter}
+      canGoPrev={Boolean(prevTarget)}
+      canGoNext={Boolean(nextTarget)}
+      onPrev={() => changeChapter(-1)}
+      onNext={() => changeChapter(1)}
+      onOpenBookPicker={() => setBookChapterPickerOpen(true)}
+      chapterPlaying={chapterPlaying}
+      onListen={() => setTtsOpen(true)}
+      wordTapMode={wordTapMode}
+      onToggleWordTap={() => setWordTapMode(!wordTapMode)}
+      onFind={() => setJumpOpen(true)}
+      onFont={() => setFontPickerOpen(true)}
+      translationLabel={activeTranslation.label}
+      onTranslation={() => setTranslationPickerOpen(true)}
+      showLayout={commentaryAvailable}
+      layoutLabel={layoutNow?.label}
+      LayoutIcon={layoutNow?.icon}
+      onLayout={() => setLayoutPickerOpen(true)}
+      showCompare={translation !== "kjv"}
+      compareOn={compareWithKjv}
+      onToggleCompare={toggleCompare}
+      studyMode={studyMode}
+      onToggleStudy={toggleStudyMode}
+    />
   );
 
   const verseTextProps = {
@@ -2092,9 +2032,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
               <span className="text-xs text-inkfaint truncate">{t.fullName}</span>
             </span>
             <span className="block text-[0.6875rem] text-inkfaint mt-0.5">
-              {t.supportsStrongs
-                ? "Word study, commentary and cross-references available"
-                : "Reading only \u2014 word study stays in the KJV"}
+              {translationCapabilityText(t)}
             </span>
           </button>
         ))}

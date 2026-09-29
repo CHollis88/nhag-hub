@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
+import { canManageGroup, isActiveGroupMember, assertInGroup } from "@/lib/groupAuth";
 import { withNoStore } from "@/lib/cacheHeaders";
 
 // Deliberately its own table (program_songs, migration_025) rather than
@@ -18,6 +18,13 @@ export async function GET(req, { params }) {
   const { id: groupId, programId } = await params;
   if (!(await isActiveGroupMember(user, groupId))) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
+  }
+
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
   const supabase = supabaseServer();
@@ -41,6 +48,13 @@ export async function POST(req, { params }) {
       { error: "Only this group's leaders or a Church Admin can add songs." },
       { status: 403 }
     );
+  }
+
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
   const body = await req.json();

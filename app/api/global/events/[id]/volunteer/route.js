@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { rpcFailure } from "@/lib/rpc";
 
 export async function GET(req, { params }) {
   const { id } = await params;
@@ -27,33 +28,28 @@ export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
+  // v71 #10: capacity check + insert are one locked database step
+  // (global_volunteer_signup, migration_034) -- no overbooking under
+  // simultaneous taps.
   const supabase = supabaseServer();
-  const { data: event, error: eventError } = await supabase
-    .from("global_events")
-    .select("volunteers_needed")
-    .eq("id", id)
-    .maybeSingle();
-  if (eventError) return NextResponse.json({ error: eventError.message }, { status: 500 });
-  if (!event?.volunteers_needed) {
-    return NextResponse.json({ error: "This event isn't taking volunteer sign-ups." }, { status: 400 });
-  }
+  const { data, error } = await supabase.rpc("global_volunteer_signup", {
+    p_event_id: id,
+    p_user_id: user.id,
+  });
+  if (error) return rpcFailure(error);
 
-  const { count } = await supabase
-    .from("global_event_volunteers")
-    .select("user_id", { count: "exact", head: true })
-    .eq("event_id", id);
-  if ((count || 0) >= event.volunteers_needed) {
-    return NextResponse.json({ error: "All volunteer spots for this event are filled." }, { status: 400 });
+  switch (data?.status) {
+    case "ok":
+      return NextResponse.json({ ok: true, volunteer_count: data.count });
+    case "already":
+      return NextResponse.json({ error: "You're already signed up.", volunteer_count: data.count }, { status: 409 });
+    case "full":
+      return NextResponse.json({ error: "All volunteer spots for this event are filled.", volunteer_count: data.count }, { status: 400 });
+    case "closed":
+      return NextResponse.json({ error: "This event isn't taking volunteer sign-ups." }, { status: 400 });
+    default:
+      return NextResponse.json({ error: "Event not found." }, { status: 404 });
   }
-
-  const { error } = await supabase
-    .from("global_event_volunteers")
-    .insert({ event_id: id, user_id: user.id });
-  if (error) {
-    if (error.code === "23505") return NextResponse.json({ error: "You're already signed up." }, { status: 409 });
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req, { params }) {

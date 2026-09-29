@@ -1,37 +1,53 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Search, Plus, Trash2, Pencil } from "lucide-react";
 import { SkeletonRowList } from "./Skeleton";
 import SongForm from "./SongForm";
+import { useFormDisclosure } from "./useFormDisclosure";
 import MediaViewerModal from "./MediaViewerModal";
+import EmptyState from "./EmptyState";
+import { useConfirm } from "./ConfirmDialog";
+import { useAction } from "./useAction";
+import { requestJson } from "@/lib/request";
+import { useResource } from "@/lib/useResource";
+import { STALE, invalidate } from "@/lib/resourceCache";
+import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
 import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
 
-function SongRow({ baseUrl, song, canManage, onUpdated }) {
+function SongRow({ baseUrl, song, canManage, onUpdated, editing, onEdit, onCloseEdit, formRef }) {
   const [open, setOpen] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [viewerField, setViewerField] = useState(null);
+  const confirm = useConfirm();
+  const run = useAction();
 
   const availableLinks = SONG_MEDIA_FIELDS.filter(([key]) => song[key]);
 
+  // The form stays open, with everything typed, unless this really saved.
   const saveEdit = async (fields) => {
-    await fetch(`${baseUrl}/${song.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fields),
+    const result = await run(() => requestJson(`${baseUrl}/${song.id}`, { method: "PATCH", body: fields }), {
+      success: "Song saved",
     });
-    setEditing(false);
-    onUpdated();
+    if (result.ok) {
+      onCloseEdit();
+      onUpdated();
+    }
+    return result;
   };
 
   const remove = async () => {
-    if (!confirm("Delete this song? It will also be removed from any setlists it's in.")) return;
-    await fetch(`${baseUrl}/${song.id}`, { method: "DELETE" });
-    onUpdated();
+    const yes = await confirm({
+      title: `Delete "${song.title}"?`,
+      message: "It will also be removed from any setlists it's in. This can't be undone.",
+      confirmLabel: "Delete song",
+    });
+    if (!yes) return;
+    const { ok } = await run(() => requestJson(`${baseUrl}/${song.id}`, { method: "DELETE" }), { success: "Song deleted" });
+    if (ok) onUpdated();
   };
 
   if (editing) {
-    return <SongForm initial={song} onCancel={() => setEditing(false)} onSave={saveEdit} />;
+    return <SongForm formRef={formRef} initial={song} onCancel={onCloseEdit} onSave={saveEdit} />;
   }
 
   return (
@@ -65,7 +81,7 @@ function SongRow({ baseUrl, song, canManage, onUpdated }) {
 
           {canManage && (
             <div className="flex gap-3 pt-1">
-              <button onClick={() => setEditing(true)} className="text-xs text-inkfaint flex items-center gap-1">
+              <button onClick={(e) => onEdit(song.id, e.currentTarget)} data-return-focus={`song-edit-${song.id}`} className="text-xs text-inkfaint flex items-center gap-1">
                 <Pencil size={12} /> Edit
               </button>
               <button onClick={remove} className="text-xs text-inkfaint flex items-center gap-1">
@@ -84,9 +100,18 @@ function SongRow({ baseUrl, song, canManage, onUpdated }) {
 }
 
 export default function SongsTab({ groupId, canManage, baseUrl }) {
-  const [songs, setSongs] = useState(null);
-  const [query, setQuery] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  // v71 #42-45: the song list comes through the shared cache (Setlists uses the
+  // same entry for its song picker, so opening it after Songs costs no request);
+  // the search text and scroll position are remembered.
+  // v71 #36: ONE form at a time -- adding a song OR editing one -- with "Add"
+  // becoming "Cancel", focus on the first field, and focus returned afterwards.
+  const [editingId, setEditingId] = useState(null);
+  const form = useFormDisclosure(editingId ?? "new");
+  const showForm = form.open && !editingId;
+  const closeForm = () => {
+    setEditingId(null);
+    form.hide();
+  };
 
   // Defaults to the group's own song library URL so every existing
   // caller (Choir's Songs tab) behaves exactly as before -- Programs
@@ -96,15 +121,20 @@ export default function SongsTab({ groupId, canManage, baseUrl }) {
   // an identical shape and behavior.
   const url = baseUrl || `/api/groups/${groupId}/songs`;
 
-  const load = async () => {
-    const res = await fetch(url);
-    const data = await res.json();
-    if (res.ok) setSongs(data.songs);
+  const run = useAction();
+  const songsKey = `group:${groupId}:${url}`;
+  const { data: songs, error: songsError, refresh: load } = useResource(songsKey, async () => (await requestJson(url)).songs, {
+    staleMs: STALE.list,
+  });
+  const loadFailed = Boolean(songsError);
+  const [query, setQuery] = useScreenState(`songs:${url}:query`, "");
+  const scrollAnchor = useScrollMemory(`songs:${url}`, songs !== null);
+  // After a change: this list refreshes, and setlists (which embed songs, and
+  // lose a deleted one) go stale too.
+  const reload = () => {
+    invalidate(songsKey);
+    invalidate((k) => k.startsWith(`group:${groupId}:`) && k.includes("/setlists"));
   };
-
-  useEffect(() => {
-    load();
-  }, [url]);
 
   const filtered = useMemo(() => {
     if (!songs) return [];
@@ -115,25 +145,40 @@ export default function SongsTab({ groupId, canManage, baseUrl }) {
     );
   }, [songs, query]);
 
+  // The form stays open, with everything typed, unless this really saved.
   const create = async (fields) => {
-    await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fields),
-    });
-    setShowForm(false);
-    load();
+    const result = await run(() => requestJson(url, { method: "POST", body: fields }), { success: "Song added" });
+    if (result.ok) {
+      closeForm();
+      reload();
+    }
+    return result;
   };
 
+  if (songs === null && loadFailed) return <EmptyState kind="error" text="Couldn't load songs." onRetry={load} />;
   if (songs === null) return <div className="px-5 pt-4"><SkeletonRowList count={5} /></div>;
 
   return (
     <div className="px-5 pt-4 pb-6">
+      <div ref={scrollAnchor} />
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-serif text-xl text-ink">Songs</h2>
         {canManage && (
-          <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
-            <Plus size={14} /> Add
+          <button
+            ref={form.triggerRef}
+            onClick={() => {
+              if (form.open) closeForm();
+              else form.show();
+            }}
+            className="sp-btn-pill"
+          >
+            {form.open ? (
+              "Cancel"
+            ) : (
+              <>
+                <Plus size={14} aria-hidden="true" /> Add
+              </>
+            )}
           </button>
         )}
       </div>
@@ -148,9 +193,9 @@ export default function SongsTab({ groupId, canManage, baseUrl }) {
         />
       </div>
 
-      {showForm && <SongForm onCancel={() => setShowForm(false)} onSave={create} />}
+      {showForm && <SongForm formRef={form.formRef} onCancel={closeForm} onSave={create} />}
 
-      {filtered.length === 0 && !showForm && (
+      {filtered.length === 0 && !form.open && (
         <p className="text-sm text-inkfaint text-center py-6">
           {query ? "No songs match that search." : "No songs yet."}
         </p>
@@ -158,7 +203,20 @@ export default function SongsTab({ groupId, canManage, baseUrl }) {
 
       <div className="space-y-2">
         {filtered.map((song) => (
-          <SongRow key={song.id} baseUrl={url} song={song} canManage={canManage} onUpdated={load} />
+          <SongRow
+            key={song.id}
+            baseUrl={url}
+            song={song}
+            canManage={canManage}
+            onUpdated={reload}
+            editing={editingId === song.id}
+            onEdit={(id, fromElement) => {
+              setEditingId(id);
+              form.show(fromElement);
+            }}
+            onCloseEdit={closeForm}
+            formRef={form.formRef}
+          />
         ))}
       </div>
 

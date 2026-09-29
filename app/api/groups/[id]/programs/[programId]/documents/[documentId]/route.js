@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup } from "@/lib/groupAuth";
+import { canManageGroup, assertInGroup } from "@/lib/groupAuth";
+import { storagePathFrom, removeQuietly } from "@/lib/storage";
 
 const BUCKET = "program-documents";
 
@@ -15,6 +16,13 @@ export async function DELETE(req, { params }) {
       { error: "Only this group's leaders or a Church Admin can delete documents." },
       { status: 403 }
     );
+  }
+
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
   const supabase = supabaseServer();
@@ -31,10 +39,7 @@ export async function DELETE(req, { params }) {
   // Best-effort storage cleanup -- the row is the source of truth for
   // "does this document exist," so a failed storage delete (network
   // blip, file already gone) shouldn't block removing the row itself.
-  const storagePath = doc.file_url.split(`${BUCKET}/`)[1];
-  if (storagePath) {
-    await supabase.storage.from(BUCKET).remove([storagePath]).catch(() => {});
-  }
+  await removeQuietly(supabase, BUCKET, storagePathFrom(BUCKET, doc.file_url));
 
   const { error } = await supabase.from("program_documents").delete().eq("id", documentId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

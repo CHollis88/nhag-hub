@@ -1,6 +1,7 @@
 "use client";
 
 import { Megaphone, CalendarDays, Heart, Users } from "lucide-react";
+import { useSimpleMode } from "@/lib/useSimpleMode";
 
 export const BASE_TABS = [
   { key: "news", label: "News", icon: Megaphone },
@@ -20,8 +21,11 @@ export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 // Songs/Setlists for Choir). Roster is always last.
 export default function GroupBottomNav({ tab, setTab, prependTabs = [], appendTabs = [], badges = {} }) {
   const tabs = [...prependTabs, ...BASE_TABS, ...appendTabs, ROSTER_TAB];
+  // Simple mode (v71): bigger icons and words. Nothing is hidden inside a
+  // ministry -- a choir member still needs Songs and Setlists.
+  const simple = useSimpleMode();
   return (
-    <nav className="md:hidden sticky bottom-0 z-30 bg-card border-t border-line px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] overflow-x-auto">
+    <nav aria-label="Ministry" className="md:hidden sticky bottom-0 z-30 bg-card border-t border-line px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] overflow-x-auto">
       <div className="flex justify-between gap-1">
         {tabs.map(({ key, label, icon: Icon }) => {
           const active = tab === key;
@@ -29,15 +33,16 @@ export default function GroupBottomNav({ tab, setTab, prependTabs = [], appendTa
             <button
               key={key}
               onClick={() => setTab(key)}
-              className="flex-1 flex flex-col items-center gap-1 py-1.5 px-2 min-w-[64px]"
+              aria-current={active ? "page" : undefined}
+              className={`flex-1 flex flex-col items-center gap-1 py-1.5 px-2 ${simple ? "min-w-[76px] min-h-[60px] justify-center" : "min-w-[64px]"}`}
             >
               <span className="relative">
-                {Icon && <Icon size={19} strokeWidth={active ? 2.3 : 1.8} className={active ? "text-accent" : "text-inkfaint"} />}
+                {Icon && <Icon size={simple ? 26 : 19} strokeWidth={active ? 2.3 : 1.8} className={active ? "text-accent" : "text-inkfaint"} />}
                 {badges[key] && (
                   <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent border border-card" />
                 )}
               </span>
-              <span className={`text-[0.625rem] font-medium whitespace-nowrap ${active ? "text-accent" : "text-inkfaint"}`}>
+              <span className={`${simple ? "text-[0.8125rem]" : "text-[0.625rem]"} font-medium whitespace-nowrap ${active ? "text-accent" : "text-inkfaint"}`}>
                 {label}
               </span>
             </button>

@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { requestJson } from "@/lib/request";
+import { useToast } from "./ToastProvider";
 
 // Fixed 5-emoji set (mirrors MessageReactions' 4-emoji pattern, plus 😢
 // for prayer/grief content). Self-contained: fetches and toggles its
@@ -11,12 +13,15 @@ const ALLOWED_EMOJI = ["👍", "❤️", "🙏", "😂", "😢"];
 export default function PostReactions({ postType, postId }) {
   const [reactions, setReactions] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const busyRef = useRef(false);
+  const toast = useToast();
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/posts/${postType}/${postId}/reactions`);
-    if (res.ok) {
-      const data = await res.json();
+    try {
+      const data = await requestJson(`/api/posts/${postType}/${postId}/reactions`);
       setReactions(data.reactions);
+    } catch {
+      // Reactions are decoration; a failed load just shows none.
     }
   }, [postType, postId]);
 
@@ -25,6 +30,11 @@ export default function PostReactions({ postType, postId }) {
   }, [load]);
 
   const toggle = async (emoji) => {
+    // Ignore a second tap while one is in flight -- two toggles in a row
+    // (a double tap) used to undo each other.
+    if (busyRef.current) return;
+    busyRef.current = true;
+    const before = reactions;
     // Optimistic: flip mine/count locally, then reconcile.
     setReactions((prev) => {
       const list = prev || [];
@@ -37,11 +47,15 @@ export default function PostReactions({ postType, postId }) {
       return [...list, { emoji, count: 1, mine: true }];
     });
     setPickerOpen(false);
-    await fetch(`/api/posts/${postType}/${postId}/reactions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emoji }),
-    });
+    try {
+      await requestJson(`/api/posts/${postType}/${postId}/reactions`, { method: "POST", body: { emoji } });
+    } catch (err) {
+      setReactions(before); // put it back exactly as it was, and say why
+      toast.error(err.message);
+      busyRef.current = false;
+      return;
+    }
+    busyRef.current = false;
     load();
   };
 
@@ -51,6 +65,8 @@ export default function PostReactions({ postType, postId }) {
         <button
           key={r.emoji}
           onClick={() => toggle(r.emoji)}
+          aria-pressed={Boolean(r.mine)}
+          aria-label={`${r.emoji} ${r.count}${r.mine ? ", you reacted" : ""}`}
           className={`text-[0.6875rem] leading-none rounded-full px-1.5 py-1 border shadow-sm bg-card ${
             r.mine ? "border-accent" : "border-line"
           }`}

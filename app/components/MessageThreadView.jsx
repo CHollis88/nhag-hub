@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { authorName } from "@/lib/authorName";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Send, Bell, BellOff, MoreVertical } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import MessageReactions from "./MessageReactions";
@@ -42,9 +43,13 @@ export default function MessageThreadView({
   onClear,
   onDelete,
   emptyText = "No messages yet — say hello.",
+  hasEarlier = false,
+  loadingEarlier = false,
+  onLoadEarlier,
 }) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
   const [pickerForId, setPickerForId] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [composeFocused, setComposeFocused] = useState(false);
@@ -55,22 +60,70 @@ export default function MessageThreadView({
 
   const scrollToBottom = () => bottomRef.current?.scrollIntoView({ block: "end" });
 
+  // Jump to the bottom when the thread first appears and when a NEW message
+  // arrives at the end -- keyed on the last message's id, not the message count.
+  // (v71 #44: loading OLDER messages changes the count too, and must not throw
+  // you to the bottom while you're reading back.)
+  const lastMessageId = messages?.length ? messages[messages.length - 1].id : null;
+  const hasMessages = messages != null;
   useEffect(() => {
     scrollToBottom();
-  }, [messages?.length]);
+  }, [lastMessageId, hasMessages]);
 
+  // Loading earlier messages adds height ABOVE what you're reading. Browsers
+  // with scroll anchoring keep your place; iOS Safari (this app's main
+  // platform) doesn't, so the place is kept by hand: remember the height before,
+  // and after the new messages are in, scroll down by exactly how much was added.
+  const scrollerRef = useRef(null);
+  const keepPlace = useRef(null);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const loadEarlier = async () => {
+    if (loadingOlder || loadingEarlier || !onLoadEarlier) return;
+    const el = scrollerRef.current;
+    if (el) keepPlace.current = { height: el.scrollHeight, top: el.scrollTop };
+    setLoadingOlder(true);
+    try {
+      await onLoadEarlier();
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    const saved = keepPlace.current;
+    if (!el || !saved) return;
+    if (el.scrollHeight === saved.height) return; // nothing was added (yet, or it failed)
+    el.scrollTop = saved.top + (el.scrollHeight - saved.height);
+    keepPlace.current = null;
+  }, [messages]);
+
+  // v71 #14: onSend THROWS if the message didn't go (requestJson does). The
+  // text is only cleared once it actually sent -- before, a failed send
+  // wiped what you'd typed and left the button stuck disabled forever
+  // (no finally). Now: the message stays in the box, the reason shows right
+  // by the composer, and the button always comes back. `sending` also
+  // blocks a second tap while the first is in flight (no double send).
   const submit = async (e) => {
     e.preventDefault();
-    if (!body.trim() || sending) return;
+    const text = body.trim();
+    if (!text || sending) return;
     setSending(true);
-    await onSend(body.trim());
-    setBody("");
-    setSending(false);
-    // Dismisses the keyboard and, via the blur handler below, brings the
-    // bottom nav bar back -- per Cam's explicit call that it should
-    // return once a message is sent, not just whenever the person
-    // happens to tap away.
-    inputRef.current?.blur();
+    setSendError("");
+    try {
+      await onSend(text);
+      setBody("");
+      // Dismisses the keyboard and, via the blur handler below, brings the
+      // bottom nav bar back -- per Cam's explicit call that it should
+      // return once a message is sent, not just whenever the person
+      // happens to tap away.
+      inputRef.current?.blur();
+    } catch (err) {
+      setSendError(
+        err?.message ? `${err.message} Your message is still here.` : "Couldn't send. Your message is still here — try again."
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   // iMessage-style: tapping in keeps the most recent messages in view
@@ -102,6 +155,7 @@ export default function MessageThreadView({
       <div className="flex justify-between items-center px-5 pt-2 relative">
         <button
           onClick={onToggleMute}
+          aria-pressed={Boolean(muted)}
           className="flex items-center gap-1.5 text-xs text-inkfaint"
           title={muted ? "Unmute notifications" : "Mute notifications"}
         >
@@ -151,8 +205,22 @@ export default function MessageThreadView({
       </div>
 
       <div
+        ref={scrollerRef}
         className={`flex-1 overflow-y-auto px-5 py-3 space-y-4 ${composeFocused ? "pb-20 md:pb-3" : ""}`}
       >
+        {hasEarlier && (
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={loadEarlier}
+              disabled={loadingOlder || loadingEarlier}
+              aria-busy={loadingOlder || loadingEarlier || undefined}
+              className="sp-btn-secondary text-xs px-4 min-h-[44px] disabled:opacity-60"
+            >
+              {loadingOlder || loadingEarlier ? "Loading…" : "Load earlier messages"}
+            </button>
+          </div>
+        )}
         {messages === null && <SkeletonList count={3} />}
         {messages?.length === 0 && <p className="text-sm text-inkfaint text-center mt-6">{emptyText}</p>}
         {messages?.map((m) => {
@@ -160,7 +228,7 @@ export default function MessageThreadView({
           return (
             <div key={m.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[80%] ${isMine ? "items-end" : "items-start"} flex flex-col relative`}>
-                {!isMine && <p className="text-xs text-inkfaint mb-0.5">{m.users?.display_name}</p>}
+                {!isMine && <p className="text-xs text-inkfaint mb-0.5">{authorName(m.users)}</p>}
                 <div className="relative">
                   <div
                     onPointerDown={() => startPress(m.id)}
@@ -230,16 +298,31 @@ export default function MessageThreadView({
         <input
           ref={inputRef}
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          onChange={(e) => {
+            setBody(e.target.value);
+            if (sendError) setSendError("");
+          }}
+          aria-label="Message"
           onFocus={handleComposeFocus}
           onBlur={() => setComposeFocused(false)}
           placeholder="Message..."
           className="sp-input flex-1"
         />
-        <button type="submit" disabled={!body.trim() || sending} className="sp-btn-primary p-2.5 disabled:opacity-50">
+        <button
+          type="submit"
+          disabled={!body.trim() || sending}
+          aria-label={sending ? "Sending…" : "Send message"}
+          aria-busy={sending || undefined}
+          className="sp-btn-primary p-2.5 disabled:opacity-50"
+        >
           <Send size={16} />
         </button>
       </form>
+      {sendError && (
+        <p role="alert" className="px-5 pb-2 -mt-1 text-xs text-red-600 dark:text-red-400 bg-paper">
+          {sendError}
+        </p>
+      )}
     </div>
   );
 }

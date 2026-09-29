@@ -3,20 +3,17 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { withPrivateCache } from "@/lib/cacheHeaders";
+import { ensureBucket, cleanupUploadOnFailure } from "@/lib/storage";
 import crypto from "crypto";
 
 // Same bucket-per-content-type pattern as program-documents -- PDFs are
 // a distinct content type from icons, so this stays its own bucket.
+// PRIVATE (v71 #18), same model as program documents: `file_url` holds the
+// object path and files are served only through .../[curriculumId]/download
+// after a membership check.
 const BUCKET = "curriculum-materials";
 const MAX_BYTES = 20 * 1024 * 1024;
 const ALLOWED_TYPES = ["application/pdf"];
-
-let bucketReady = false;
-async function ensureBucket(supabase) {
-  if (bucketReady) return;
-  await supabase.storage.createBucket(BUCKET, { public: true }).catch(() => {});
-  bucketReady = true;
-}
 
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
@@ -30,7 +27,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("curriculum_materials")
-    .select("id, title, description, file_url, created_at, users(display_name)")
+    .select("id, title, description, created_at, users(display_name)")
     .eq("group_id", groupId)
     .order("created_at", { ascending: false });
 
@@ -69,7 +66,7 @@ export async function POST(req, { params }) {
   }
 
   const supabase = supabaseServer();
-  await ensureBucket(supabase);
+  await ensureBucket(supabase, BUCKET, { isPublic: false });
 
   const path = `${groupId}/${crypto.randomUUID()}.pdf`;
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -79,19 +76,20 @@ export async function POST(req, { params }) {
     .upload(path, buffer, { contentType: "application/pdf" });
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
 
-  const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
-  const { data, error } = await supabase
-    .from("curriculum_materials")
-    .insert({
-      group_id: groupId,
-      title: title.trim(),
-      description: description?.trim() || null,
-      file_url: publicUrlData.publicUrl,
-      created_by: user.id,
-    })
-    .select("id, title, description, file_url, created_at")
-    .single();
+  // v71 #15: a failed insert deletes the file that was just uploaded.
+  const { data, error } = await cleanupUploadOnFailure(supabase, BUCKET, path, () =>
+    supabase
+      .from("curriculum_materials")
+      .insert({
+        group_id: groupId,
+        title: title.trim(),
+        description: description?.trim() || null,
+        file_url: path, // the object path in the private bucket
+        created_by: user.id,
+      })
+      .select("id, title, description, created_at")
+      .single()
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ material: data });

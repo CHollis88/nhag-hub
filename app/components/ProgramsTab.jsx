@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Plus, ChevronLeft, Music, ListMusic, FileText, Settings, EyeOff, Eye, Trash2, Camera } from "lucide-react";
+import { useState } from "react";
+import { Plus, ChevronLeft, Music, ListMusic, FileText, Settings } from "lucide-react";
 import Image from "next/image";
 import { SkeletonList } from "./Skeleton";
 import TabTransition from "./TabTransition";
@@ -9,8 +9,14 @@ import { readableTextColor } from "@/lib/colorContrast";
 import SongsTab from "./SongsTab";
 import SetlistsTab from "./SetlistsTab";
 import ProgramDocumentsTab from "./ProgramDocumentsTab";
+import EmptyState from "./EmptyState";
+import { useConfirm } from "./ConfirmDialog";
+import ProgramSettingsPanel, { DEFAULT_TILE_COLOR } from "./ProgramSettingsPanel";
+import { useFormDisclosure } from "./useFormDisclosure";
+import { requestJson } from "@/lib/request";
+import { useResource } from "@/lib/useResource";
+import { STALE, invalidate } from "@/lib/resourceCache";
 
-const DEFAULT_TILE_COLOR = "#4A5568";
 const SUB_TABS = [
   { key: "songs", label: "Songs", icon: Music },
   { key: "setlist", label: "Setlist", icon: ListMusic },
@@ -27,65 +33,42 @@ const SUB_TABS = [
 function ProgramShell({ groupId, program, canManage, onBack, onUpdated }) {
   const [subTab, setSubTab] = useState("songs");
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [name, setName] = useState(program.name);
-  const [color, setColor] = useState(program.tile_color || DEFAULT_TILE_COLOR);
-  const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef(null);
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const confirm = useConfirm();
+  const color = program.tile_color || DEFAULT_TILE_COLOR;
 
-  const patch = async (fields) => {
-    const res = await fetch(`/api/groups/${groupId}/programs/${program.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(fields),
+  // Leaving with unsaved settings edits asks first (v71 #35: edits are local
+  // until "Save changes").
+  const confirmDiscard = async () => {
+    if (!settingsDirty) return true;
+    return confirm({
+      title: "Discard your changes?",
+      message: "The program settings you haven't saved will be lost.",
+      confirmLabel: "Discard changes",
     });
-    const data = await res.json();
-    if (res.ok) onUpdated(data.program);
-    return res.ok;
   };
-
-  const saveName = async () => {
-    if (!name.trim() || name.trim() === program.name) return;
-    await patch({ name: name.trim() });
+  const toggleSettings = async () => {
+    if (settingsOpen && !(await confirmDiscard())) return;
+    setSettingsOpen((o) => !o);
   };
-
-  const saveColor = async (c) => {
-    setColor(c);
-    await patch({ tile_color: c });
-  };
-
-  const toggleHidden = async () => {
-    await patch({ hidden: !program.hidden });
-  };
-
-  const uploadIcon = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch(`/api/groups/${groupId}/programs/${program.id}/icon`, {
-      method: "POST",
-      body: formData,
-    });
-    const data = await res.json();
-    setUploading(false);
-    if (res.ok) onUpdated({ ...program, image_url: data.image_url });
-  };
-
-  const deleteProgram = async () => {
-    if (!confirm(`Delete "${program.name}"? This removes all of its Songs, Setlists, and Documents. This can't be undone.`)) return;
-    await fetch(`/api/groups/${groupId}/programs/${program.id}`, { method: "DELETE" });
+  const goBack = async () => {
+    if (!(await confirmDiscard())) return;
     onBack();
   };
 
   return (
     <div>
       <div className="px-5 pt-4 flex items-center justify-between mb-3">
-        <button onClick={onBack} className="flex items-center gap-1 text-sm text-accent">
+        <button onClick={goBack} className="flex items-center gap-1 text-sm text-accent min-h-[44px]">
           <ChevronLeft size={16} /> Programs
         </button>
         {canManage && (
-          <button onClick={() => setSettingsOpen((s) => !s)} className="text-inkfaint" aria-label="Program settings">
+          <button
+            onClick={toggleSettings}
+            className="text-inkfaint min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Program settings"
+            aria-expanded={settingsOpen}
+          >
             <Settings size={18} />
           </button>
         )}
@@ -111,41 +94,14 @@ function ProgramShell({ groupId, program, canManage, onBack, onUpdated }) {
       </div>
 
       {canManage && settingsOpen && (
-        <div className="mx-5 sp-card mb-4">
-          <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Program settings</p>
-          <div className="flex items-center gap-3 mb-3">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-10 h-10 rounded-lg border border-line flex items-center justify-center text-inkfaint flex-shrink-0"
-              aria-label="Change icon"
-            >
-              <Camera size={16} />
-            </button>
-            <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadIcon} className="hidden" />
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onBlur={saveName}
-              className="sp-input flex-1"
-            />
-            <input
-              type="color"
-              value={color}
-              onChange={(e) => saveColor(e.target.value)}
-              className="w-10 h-8 rounded border border-line flex-shrink-0"
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <button onClick={toggleHidden} className="flex items-center gap-1.5 text-xs text-inksoft">
-              {program.hidden ? <Eye size={13} /> : <EyeOff size={13} />}
-              {program.hidden ? "Unhide this program" : "Hide this program"}
-            </button>
-            <button onClick={deleteProgram} className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
-              <Trash2 size={13} /> Delete
-            </button>
-          </div>
-        </div>
+        <ProgramSettingsPanel
+          groupId={groupId}
+          program={program}
+          onSaved={onUpdated}
+          onDeleted={onBack}
+          onClose={() => setSettingsOpen(false)}
+          onDirtyChange={setSettingsDirty}
+        />
       )}
 
       <div className="px-5 flex gap-2 mb-2 flex-wrap">
@@ -187,46 +143,44 @@ function ProgramShell({ groupId, program, canManage, onBack, onUpdated }) {
 }
 
 export default function ProgramsTab({ groupId, canManage }) {
-  const [programs, setPrograms] = useState(null);
   const [openProgram, setOpenProgram] = useState(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
+  const createForm = useFormDisclosure();
+  const showCreateForm = createForm.open;
   const [newName, setNewName] = useState("");
   const [error, setError] = useState("");
 
-  const load = async () => {
-    const res = await fetch(`/api/groups/${groupId}/programs`);
-    const data = await res.json();
-    if (res.ok) setPrograms(data.programs);
-  };
-
-  useEffect(() => {
-    load();
-  }, [groupId]);
+  // v71 #42-45: the programs list comes through the shared cache; coming back
+  // from inside a program shows it at once instead of a blank skeleton.
+  const programsKey = `group:${groupId}:programs`;
+  const { data: programs, error: programsError, refresh: load } = useResource(
+    programsKey,
+    async () => (await requestJson(`/api/groups/${groupId}/programs`)).programs,
+    { staleMs: STALE.list }
+  );
+  const loadFailed = Boolean(programsError);
+  const reload = () => invalidate(programsKey);
 
   const createProgram = async (e) => {
     e.preventDefault();
     if (!newName.trim()) return;
     setError("");
-    const res = await fetch(`/api/groups/${groupId}/programs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName.trim() }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error);
+    try {
+      await requestJson(`/api/groups/${groupId}/programs`, { method: "POST", body: { name: newName.trim() } });
+    } catch (err) {
+      setError(err.message); // the name stays typed
       return;
     }
     setNewName("");
-    setShowCreateForm(false);
-    load();
+    createForm.hide();
+    reload();
   };
 
   const handleProgramUpdated = (updated) => {
     setOpenProgram(updated);
-    load();
+    reload();
   };
 
+  if (programs === null && loadFailed) return <EmptyState kind="error" text="Couldn't load programs." onRetry={load} />;
   if (programs === null) return <div className="px-5 pt-4"><SkeletonList count={3} /></div>;
 
   if (openProgram) {
@@ -237,7 +191,7 @@ export default function ProgramsTab({ groupId, canManage }) {
         canManage={canManage}
         onBack={() => {
           setOpenProgram(null);
-          load();
+          reload();
         }}
         onUpdated={handleProgramUpdated}
       />
@@ -249,18 +203,31 @@ export default function ProgramsTab({ groupId, canManage }) {
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-serif text-2xl text-ink">Programs</h2>
         {canManage && (
-          <button onClick={() => setShowCreateForm((s) => !s)} className="sp-btn-pill">
-            <Plus size={14} /> New Program
+          <button
+            ref={createForm.triggerRef}
+            onClick={() => (createForm.open ? createForm.hide() : createForm.show())}
+            className="sp-btn-pill"
+          >
+            {createForm.open ? (
+              "Cancel"
+            ) : (
+              <>
+                <Plus size={14} aria-hidden="true" /> New Program
+              </>
+            )}
           </button>
         )}
       </div>
 
       {showCreateForm && (
-        <form onSubmit={createProgram} className="sp-card mb-4">
+        <form ref={createForm.formRef} onSubmit={createProgram} className="sp-card mb-4" aria-labelledby="new-program-heading">
+          <h3 id="new-program-heading" className="font-serif text-lg text-ink mt-0 mb-3">New program</h3>
+          <label htmlFor="new-program-name" className="block text-xs uppercase tracking-wide text-inkfaint mb-1">Program name</label>
           <input
+            id="new-program-name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            placeholder="Program name (e.g. Christmas Cantata)"
+            placeholder="e.g. Christmas Cantata"
             required
             className="sp-input mb-2"
           />

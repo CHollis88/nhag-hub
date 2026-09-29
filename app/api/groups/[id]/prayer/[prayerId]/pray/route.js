@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroupMember } from "@/lib/push";
+import { rpcFailure } from "@/lib/rpc";
 
 // Toggles: tapping "I'm praying" again removes it and decrements the
 // count, so the count always reflects how many people currently have it
@@ -18,63 +19,37 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }
 
+  // v71 #12: the toggle and the count change happen together in the
+  // database, with the prayer row locked (toggle_prayer, migration_034), and
+  // the AUTHORITATIVE result comes back -- the client shows exactly this,
+  // never a guess. It also enforces that the request belongs to this group.
   const supabase = supabaseServer();
-
-  const { data: existing } = await supabase
-    .from("group_prayer_supporters")
-    .select("user_id")
-    .eq("prayer_id", prayerId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { data: current, error: fetchError } = await supabase
-    .from("group_prayer")
-    .select("pray_count, created_by")
-    .eq("id", prayerId)
-    .single();
-  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
-
-  if (existing) {
-    const { error: deleteError } = await supabase
-      .from("group_prayer_supporters")
-      .delete()
-      .eq("prayer_id", prayerId)
-      .eq("user_id", user.id);
-    if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
-
-    const { error: updateError } = await supabase
-      .from("group_prayer")
-      .update({ pray_count: Math.max(0, (current.pray_count || 0) - 1) })
-      .eq("id", prayerId);
-    if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
-
-    return NextResponse.json({ ok: true, praying: false });
-  }
-
-  const { error: insertError } = await supabase
-    .from("group_prayer_supporters")
-    .insert({ prayer_id: prayerId, user_id: user.id });
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
-
-  const { error: updateError } = await supabase
-    .from("group_prayer")
-    .update({ pray_count: (current.pray_count || 0) + 1 })
-    .eq("id", prayerId);
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  const { data, error } = await supabase.rpc("toggle_prayer", {
+    p_prayer_id: prayerId,
+    p_group_id: groupId,
+    p_user_id: user.id,
+  });
+  if (error) return rpcFailure(error);
+  if (data?.status !== "ok") return NextResponse.json({ error: "Prayer request not found." }, { status: 404 });
 
   // Only the prayer's own author needs to know someone's supporting
   // their request -- not the whole group, and not the author themselves
   // if they're the one who tapped it (praying for your own request
-  // doesn't need a notification). created_by can be null for a request
-  // whose author account was later deleted (schema: `on delete set
-  // null`), so this is skipped gracefully in that case too.
-  if (current.created_by && current.created_by !== user.id) {
-    notifyGroupMember(groupId, current.created_by, {
+  // doesn't need a notification), and not when someone un-marks it.
+  // created_by can be null for a request whose author account was later
+  // deleted (schema: `on delete set null`), so this is skipped gracefully.
+  if (data.i_prayed && data.created_by && data.created_by !== user.id) {
+    notifyGroupMember(groupId, data.created_by, {
       title: "Someone is praying for your request",
       body: "Tap to view.",
       url: `/?group=${groupId}&tab=prayer`,
     }).catch(() => {});
   }
 
-  return NextResponse.json({ ok: true, praying: true });
+  return NextResponse.json({
+    ok: true,
+    praying: data.i_prayed, // (kept for older clients)
+    i_prayed: data.i_prayed,
+    pray_count: data.pray_count,
+  });
 }

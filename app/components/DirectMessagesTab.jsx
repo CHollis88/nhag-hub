@@ -4,6 +4,13 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { ArrowLeft, MessageCirclePlus } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import MessageThreadView from "./MessageThreadView";
+import Modal from "./Modal";
+import EmptyState from "./EmptyState";
+import { useConfirm } from "./ConfirmDialog";
+import { useAction } from "./useAction";
+import { requestJson } from "@/lib/request";
+import { mergeLatest, prependOlder } from "@/lib/messagePaging";
+import { useAdaptivePolling, messagesSignature } from "@/lib/useAdaptivePolling";
 
 // Direct Messages (feature key "direct_messages"). A regular member
 // picks one or more of the group's leaders to start a private thread
@@ -16,17 +23,25 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
   const [threads, setThreads] = useState(null);
   const [openThreadId, setOpenThreadId] = useState(null);
   const [messages, setMessages] = useState(null);
+  const [hasEarlier, setHasEarlier] = useState(false); // v71 #44
   const [muted, setMuted] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [recipients, setRecipients] = useState([]);
   const [selectedRecipientIds, setSelectedRecipientIds] = useState([]);
-  const pollRef = useRef(null);
   const deepLinkOpenedRef = useRef(false);
 
+  const [threadsFailed, setThreadsFailed] = useState(false);
+  const confirm = useConfirm();
+  const run = useAction();
+
   const loadThreads = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/dm-threads`);
-    const data = await res.json();
-    if (res.ok) setThreads(data.threads);
+    try {
+      const data = await requestJson(`/api/groups/${groupId}/dm-threads`);
+      setThreads(data.threads);
+      setThreadsFailed(false);
+    } catch {
+      setThreadsFailed(true);
+    }
   }, [groupId]);
 
   useEffect(() => {
@@ -48,9 +63,8 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
   // dm-threads POST route enforces this exact same split -- this is
   // just which names the picker offers, not the actual authority check).
   const loadRecipients = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/members`);
-    const data = await res.json();
-    if (res.ok) {
+    const { ok, data } = await run(() => requestJson(`/api/groups/${groupId}/members`));
+    if (ok) {
       const active = data.active || [];
       setRecipients(
         canManage
@@ -68,13 +82,11 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
 
   const startThread = async () => {
     if (!selectedRecipientIds.length) return;
-    const res = await fetch(`/api/groups/${groupId}/dm-threads`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ participant_ids: selectedRecipientIds }),
-    });
-    const data = await res.json();
-    if (res.ok) {
+    // The picker stays open (selection intact) if this fails.
+    const { ok, data } = await run(() =>
+      requestJson(`/api/groups/${groupId}/dm-threads`, { method: "POST", body: { participant_ids: selectedRecipientIds } })
+    );
+    if (ok) {
       setPickerOpen(false);
       openThread(data.thread_id);
       loadThreads();
@@ -83,9 +95,20 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
 
   const loadMessages = useCallback(
     async (threadId) => {
-      const res = await fetch(`/api/groups/${groupId}/dm-threads/${threadId}/messages`);
-      const data = await res.json();
-      if (res.ok) setMessages(data.messages);
+      // Polled every 10-30 s: a failed poll must stay quiet (no toast every
+      // few seconds while offline) -- it just tries again next time.
+      try {
+        const data = await requestJson(`/api/groups/${groupId}/dm-threads/${threadId}/messages`);
+        // Merge onto what's loaded (v71 #44): a poll refreshes only the newest
+        // page and must not throw away older messages already loaded.
+        setMessages((current) => {
+          if (current === null) setHasEarlier(Boolean(data.has_more));
+          return mergeLatest(current, data.messages);
+        });
+        return messagesSignature(data.messages);
+      } catch {
+        return undefined;
+      }
     },
     [groupId]
   );
@@ -93,69 +116,92 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
   const openThread = (threadId) => {
     setOpenThreadId(threadId);
     setMessages(null);
+    setHasEarlier(false);
     const thread = threads?.find((t) => t.id === threadId);
     setMuted(Boolean(thread?.muted));
     loadMessages(threadId);
-    fetch(`/api/groups/${groupId}/dm-threads/${threadId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mark_read: true }),
-    }).then(loadThreads);
+    // Marking read is housekeeping -- never worth interrupting anyone over.
+    requestJson(`/api/groups/${groupId}/dm-threads/${threadId}`, { method: "PATCH", body: { mark_read: true } })
+      .then(loadThreads)
+      .catch(() => {});
   };
 
   // Light polling while a thread is open -- this app has no realtime
-  // transport, so a short interval keeps a conversation feeling current
-  // without needing one.
-  useEffect(() => {
-    if (!openThreadId) return;
-    pollRef.current = setInterval(() => loadMessages(openThreadId), 4000);
-    return () => clearInterval(pollRef.current);
-  }, [openThreadId, loadMessages]);
+  // transport. 10 s while messages are flowing, 30 s after 2 quiet
+  // minutes, paused while the page is hidden (see lib/useAdaptivePolling).
+  const pollOpenThread = useCallback(() => loadMessages(openThreadId), [loadMessages, openThreadId]);
+  const nudgePolling = useAdaptivePolling(pollOpenThread, { enabled: Boolean(openThreadId), resetKey: openThreadId });
 
+  // "Load earlier messages": the page older than the oldest one shown.
+  const loadEarlier = async () => {
+    const oldest = messages?.[0]?.created_at;
+    if (!oldest) return;
+    const { ok, data } = await run(() =>
+      requestJson(`/api/groups/${groupId}/dm-threads/${openThreadId}/messages?before=${encodeURIComponent(oldest)}`)
+    );
+    if (!ok) return;
+    setMessages((current) => prependOlder(current, data.messages));
+    setHasEarlier(Boolean(data.has_more));
+  };
+
+  // Throws on failure -- MessageThreadView keeps the text in the box and
+  // shows the reason next to the composer (v71 #14).
   const send = async (body) => {
-    await fetch(`/api/groups/${groupId}/dm-threads/${openThreadId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
-    });
-    loadMessages(openThreadId);
+    await requestJson(`/api/groups/${groupId}/dm-threads/${openThreadId}/messages`, { method: "POST", body: { body } });
+    nudgePolling(); // refresh now and go back to the fast rate
   };
 
   const react = async (messageId, emoji) => {
-    await fetch(`/api/messages/dm/${messageId}/reactions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emoji }),
-    });
-    loadMessages(openThreadId);
+    const { ok } = await run(() =>
+      requestJson(`/api/messages/dm/${messageId}/reactions`, { method: "POST", body: { emoji } })
+    );
+    if (ok) loadMessages(openThreadId);
   };
 
+  // Optimistic; put back (and say so) if the server refuses.
   const toggleMute = async () => {
     const next = !muted;
     setMuted(next);
-    await fetch(`/api/groups/${groupId}/dm-threads/${openThreadId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ muted: next }),
-    });
-    loadThreads();
+    const { ok } = await run(() =>
+      requestJson(`/api/groups/${groupId}/dm-threads/${openThreadId}`, { method: "PATCH", body: { muted: next } })
+    );
+    if (!ok) setMuted(!next);
+    else loadThreads();
   };
 
   // Wipes the messages but keeps the conversation itself -- so it's
   // still there in your list, just empty, ready to use again.
   const clearChat = async () => {
-    if (!confirm("Clear this conversation's messages? This can't be undone.")) return;
-    await fetch(`/api/groups/${groupId}/dm-threads/${openThreadId}/messages`, { method: "DELETE" });
-    loadMessages(openThreadId);
+    const yes = await confirm({
+      title: "Clear this conversation?",
+      message: "All of its messages are removed for everyone in it. The conversation itself stays. This can't be undone.",
+      confirmLabel: "Clear messages",
+    });
+    if (!yes) return;
+    const { ok } = await run(
+      () => requestJson(`/api/groups/${groupId}/dm-threads/${openThreadId}/messages`, { method: "DELETE" }),
+      { success: "Messages cleared" }
+    );
+    if (ok) loadMessages(openThreadId);
   };
 
   // Removes the conversation entirely -- for everyone in it, not just
   // you -- and returns to the thread list.
   const deleteConversation = async () => {
-    if (!confirm("Delete this conversation for everyone in it? This can't be undone.")) return;
-    await fetch(`/api/groups/${groupId}/dm-threads/${openThreadId}`, { method: "DELETE" });
-    setOpenThreadId(null);
-    loadThreads();
+    const yes = await confirm({
+      title: "Delete this conversation?",
+      message: "It is deleted for everyone in it, along with all of its messages. This can't be undone.",
+      confirmLabel: "Delete conversation",
+    });
+    if (!yes) return;
+    const { ok } = await run(
+      () => requestJson(`/api/groups/${groupId}/dm-threads/${openThreadId}`, { method: "DELETE" }),
+      { success: "Conversation deleted" }
+    );
+    if (ok) {
+      setOpenThreadId(null);
+      loadThreads();
+    }
   };
 
   if (openThreadId) {
@@ -172,6 +218,8 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
         </div>
         <div className="flex-1 min-h-0">
           <MessageThreadView
+            hasEarlier={hasEarlier}
+            onLoadEarlier={loadEarlier}
             messages={messages}
             currentUserId={currentUserId}
             onSend={send}
@@ -195,13 +243,18 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
         </button>
       </div>
 
-      {threads === null && <SkeletonList count={3} />}
+      {threads === null && threadsFailed && <EmptyState kind="error" text="Couldn't load conversations." onRetry={loadThreads} />}
+      {threads === null && !threadsFailed && <SkeletonList count={3} />}
       {threads?.length === 0 && (
-        <p className="text-sm text-inkfaint">
-          {canManage
-            ? 'No conversations yet. Tap "New" to message someone in this ministry.'
-            : 'No conversations yet. Tap "New" to message this ministry\'s leaders.'}
-        </p>
+        <EmptyState
+          icon={MessageCirclePlus}
+          text={
+            canManage
+              ? "No conversations yet. Message someone in this ministry."
+              : "No conversations yet. Message this ministry's leaders."
+          }
+          action={{ label: "New message", onClick: openPicker }}
+        />
       )}
       <div className="space-y-2">
         {threads?.map((t) => (
@@ -226,50 +279,43 @@ export default function DirectMessagesTab({ groupId, currentUserId, canManage, i
       </div>
 
       {pickerOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-end z-[60]" onClick={() => setPickerOpen(false)}>
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-card rounded-t-2xl w-full max-h-[70vh] overflow-y-auto p-6"
-          >
-            <div className="flex justify-between items-center mb-3 gap-2">
-              <h3 className="font-serif text-lg text-ink m-0 min-w-0 truncate">
-                {canManage ? "New message" : "Message a leader"}
-              </h3>
-              <button onClick={() => setPickerOpen(false)} className="text-2xl text-inkfaint leading-none flex-shrink-0">
-                ×
-              </button>
-            </div>
-            {recipients.length === 0 && (
-              <p className="text-sm text-inkfaint">
-                {canManage ? "No one else is active in this ministry yet." : "This ministry has no other leaders yet."}
-              </p>
-            )}
-            <div className="space-y-1.5 mb-4">
-              {recipients.map((r) => (
-                <label key={r.user_id} className="flex items-center gap-2 text-sm text-inksoft">
-                  <input
-                    type="checkbox"
-                    checked={selectedRecipientIds.includes(r.user_id)}
-                    onChange={(e) =>
-                      setSelectedRecipientIds((prev) =>
-                        e.target.checked ? [...prev, r.user_id] : prev.filter((id) => id !== r.user_id)
-                      )
-                    }
-                  />
-                  {r.users?.display_name}
-                  {canManage && r.role === "leader" && <span className="text-inkfaint text-xs">· Leader</span>}
-                </label>
-              ))}
-            </div>
-            <button
-              onClick={startThread}
-              disabled={!selectedRecipientIds.length}
-              className="sp-btn-primary w-full disabled:opacity-50"
-            >
-              Start conversation
-            </button>
-          </div>
+        <Modal
+          title={canManage ? "New message" : "Message a leader"}
+          headingClassName="font-serif text-lg text-ink m-0 min-w-0 truncate"
+          onClose={() => setPickerOpen(false)}
+          z={60}
+          maxHeight="70vh"
+        >
+        {recipients.length === 0 && (
+          <p className="text-sm text-inkfaint">
+            {canManage ? "No one else is active in this ministry yet." : "This ministry has no other leaders yet."}
+          </p>
+        )}
+        <div className="space-y-1.5 mb-4">
+          {recipients.map((r) => (
+            <label key={r.user_id} className="flex items-center gap-2 text-sm text-inksoft">
+              <input
+                type="checkbox"
+                checked={selectedRecipientIds.includes(r.user_id)}
+                onChange={(e) =>
+                  setSelectedRecipientIds((prev) =>
+                    e.target.checked ? [...prev, r.user_id] : prev.filter((id) => id !== r.user_id)
+                  )
+                }
+              />
+              {r.users?.display_name}
+              {canManage && r.role === "leader" && <span className="text-inkfaint text-xs">· Leader</span>}
+            </label>
+          ))}
         </div>
+        <button
+          onClick={startThread}
+          disabled={!selectedRecipientIds.length}
+          className="sp-btn-primary w-full disabled:opacity-50"
+        >
+          Start conversation
+        </button>
+        </Modal>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { logActivity } from "@/lib/activityLog";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { withColumnFallback } from "@/lib/compat";
 
 // Recognized feature keys. There's no fixed set of ministry "types" --
 // type is just a free-text label -- but features are a controlled set
@@ -46,10 +47,11 @@ export async function GET(req) {
   }
 
   const supabase = supabaseServer();
-  const { data: groups, error } = await supabase
-    .from("groups")
-    .select("id, name, type, features, image_url, tile_color, description, created_at, hidden, hide_restricts_access")
-    .order("name", { ascending: true });
+  const GROUP_COLS = "id, name, type, features, image_url, tile_color, description, created_at, hidden, hide_restricts_access";
+  const { data: groups, error } = await withColumnFallback(
+    () => supabase.from("groups").select(`${GROUP_COLS}, archived_at`).order("name", { ascending: true }),
+    () => supabase.from("groups").select(GROUP_COLS).order("name", { ascending: true })
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -70,14 +72,12 @@ export async function GET(req) {
 
   const withLeaders = groups.map((g) => ({ ...g, leaders: leadersByGroup[g.id] || [] }));
 
-  let visible = withLeaders;
+  // v71 #24: an archived ministry is gone from discovery for everyone who
+  // isn't an admin (admins still get it back, flagged, so they can restore it).
+  let visible = user.is_church_admin ? withLeaders : withLeaders.filter((g) => !g.archived_at);
   if (!user.is_church_admin) {
-    const { data: myMemberships } = await supabase
-      .from("group_members")
-      .select("group_id")
-      .eq("user_id", user.id)
-      .eq("status", "active");
-    const myActiveGroupIds = new Set((myMemberships || []).map((m) => m.group_id));
+    // Active memberships ride along with the session lookup (v71 #1).
+    const myActiveGroupIds = new Set((user.memberships || []).map((m) => m.group_id));
 
     // Per-user hiding (migration_029): a specific ministry blocked for
     // this specific person -- e.g. one member who shouldn't be
@@ -90,7 +90,7 @@ export async function GET(req) {
       .eq("user_id", user.id);
     const userHiddenIds = new Set((userHidden || []).map((r) => r.group_id));
 
-    visible = withLeaders.filter((g) => {
+    visible = visible.filter((g) => {
       if (userHiddenIds.has(g.id)) return false;
       if (!g.hidden) return true;
       if (g.hide_restricts_access) return false;

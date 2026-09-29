@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Modal from "./Modal";
 
 // A lightweight, read-only card for viewing another member's
 // self-disclosed profile fields. No group-membership check on the
@@ -26,30 +27,18 @@ export default function MemberProfileModal({ userId, onClose }) {
   }, [userId]);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-end z-[70]" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-card rounded-t-2xl w-full max-h-[70vh] overflow-y-auto p-6"
-      >
-        <div className="flex justify-between items-center mb-3 gap-2">
-          <h2 className="font-serif text-xl text-ink m-0 min-w-0 truncate">
-            {profile?.display_name || "Profile"}
-          </h2>
-          <button onClick={onClose} className="text-2xl text-inkfaint leading-none flex-shrink-0">×</button>
+    <Modal title={profile?.display_name || "Profile"} onClose={onClose} z={70} maxHeight="70vh">
+      {!profile && !error && <p className="text-sm text-inkfaint">Loading…</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      {profile && (
+        <div className="space-y-3">
+          {profile.bio ? (
+            <p className="text-sm text-inksoft whitespace-pre-wrap">{profile.bio}</p>
+          ) : (
+            <p className="text-sm text-inkfaint italic">No bio yet.</p>
+          )}
         </div>
-
-        {!profile && !error && <p className="text-sm text-inkfaint">Loading…</p>}
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-        {profile && (
-          <div className="space-y-3">
-            {profile.bio ? (
-              <p className="text-sm text-inksoft whitespace-pre-wrap">{profile.bio}</p>
-            ) : (
-              <p className="text-sm text-inkfaint italic">No bio yet.</p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 }

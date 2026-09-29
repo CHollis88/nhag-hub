@@ -60,11 +60,14 @@ export async function POST(req, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  notifyAdmins({
-    title: "Promotion Request",
-    body: `${news.groups?.name || "A ministry"} wants to promote "${news.title}" to church-wide.`,
-    url: "/?tab=news",
-  }).catch(() => {});
+  notifyAdmins(
+    {
+      title: "Promotion Request",
+      body: `${news.groups?.name || "A ministry"} wants to promote "${news.title}" to church-wide.`,
+      url: "/?admin=toolbox", // the Toolbox's "Needs attention" list (v71 #22)
+    },
+    { actorId: user.id }
+  ).catch(() => {});
 
   return NextResponse.json({ request: data });
 }

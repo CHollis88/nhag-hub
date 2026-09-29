@@ -49,19 +49,17 @@ export default function CalendarTab({ me }) {
   );
 
   const load = useCallback(async () => {
-    const [globalRes, ...groupResults] = await Promise.all([
-      fetch("/api/global/events").then((r) => r.json()),
-      ...myGroups.map((m) => fetch(`/api/groups/${m.group_id}/events`).then((r) => r.json())),
-    ]);
+    // One request for church-wide + all my ministries' events (v71 #1).
+    const mine = await fetch("/api/events/mine").then((r) => r.json());
 
-    const globalEvents = (globalRes.events || []).map((ev) => ({
+    const globalEvents = (mine.global || []).map((ev) => ({
       ...ev,
       sourceId: "global",
       sourceName: "Church-wide",
       color: CHURCH_WIDE_COLOR,
     }));
-    const groupEvents = myGroups.flatMap((m, i) =>
-      (groupResults[i]?.events || []).map((ev) => ({
+    const groupEvents = myGroups.flatMap((m) =>
+      ((mine.groups || {})[m.group_id] || []).map((ev) => ({
         ...ev,
         sourceId: m.group_id,
         sourceName: m.group?.name || "Ministry",

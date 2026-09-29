@@ -4,6 +4,8 @@ import { ChevronLeft, ChevronRight, Check, Flame, BookOpen } from "lucide-react"
 import { computeStreak } from "@/lib/streak";
 import { parseReference } from "@/lib/bibleRef";
 import ReadingHistoryStrip from "./ReadingHistoryStrip";
+import { requestJson } from "@/lib/request";
+import { useToast } from "./ToastProvider";
 
 export default function TodayTab({ plan, progress, setProgress, activePlanId, dayNum, setDayNum, setTab, onOpenBiblePassage }) {
   const totalDays = plan.PLAN.length;
@@ -11,19 +13,26 @@ export default function TodayTab({ plan, progress, setProgress, activePlanId, da
   const dayProgress = progress[dayNum] || { p: false, r: false, m: false };
   const doneCount = Object.values(progress).filter((v) => v.p && v.r && v.m).length;
   const streak = computeStreak(progress);
+  const toast = useToast();
 
+  // Optimistic so a tap feels instant -- but if the server doesn't accept it
+  // the checkmark is put back and the person is told. It used to stay
+  // ticked (and count toward the streak) even though it never saved.
   const toggle = async (key) => {
+    const before = progress;
     const next = { ...dayProgress, [key]: !dayProgress[key], at: new Date().toISOString() };
-    const updated = { ...progress, [dayNum]: next };
-    setProgress(updated);
+    const day = dayNum;
+    setProgress({ ...progress, [day]: next });
     try {
-      await fetch("/api/reading-plan/progress", {
+      await requestJson("/api/reading-plan/progress", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ day: dayNum, p: next.p, r: next.r, m: next.m, plan_id: activePlanId }),
+        body: { day, p: next.p, r: next.r, m: next.m, plan_id: activePlanId },
       });
-    } catch {
-      /* best-effort; local state already updated for responsiveness */
+    } catch (err) {
+      // Restore only this day's previous value (later taps may have changed
+      // other days in the meantime).
+      setProgress((prev) => ({ ...prev, [day]: before[day] }));
+      toast.error(err.message);
     }
   };
 

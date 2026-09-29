@@ -1,5 +1,6 @@
 import "./globals.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import UiProviders from "./components/UiProviders";
 
 export const metadata = {
   title: "NHAG",
@@ -32,7 +33,9 @@ export default function RootLayout({ children }) {
         <meta name="viewport" content={VIEWPORT_CONTENT} />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <UiProviders>{children}</UiProviders>
+      </body>
     </html>
   );
 }

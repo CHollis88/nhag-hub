@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { isActiveGroupMember } from "@/lib/groupAuth";
+import { isActiveGroupMember, assertInGroup } from "@/lib/groupAuth";
 import { notifyGroupMember } from "@/lib/push";
 import { withNoStore } from "@/lib/cacheHeaders";
 
@@ -12,6 +12,11 @@ export async function GET(req, { params }) {
   const { id: groupId, newsId } = await params;
   if (!(await isActiveGroupMember(user, groupId))) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
+  }
+
+  // The post must belong to THIS group (v71 #2).
+  if (!(await assertInGroup("group_news", newsId, groupId))) {
+    return NextResponse.json({ error: "Post not found." }, { status: 404 });
   }
 
   const supabase = supabaseServer();
@@ -43,6 +48,7 @@ export async function POST(req, { params }) {
     .from("group_news")
     .select("kind, title, created_by")
     .eq("id", newsId)
+    .eq("group_id", groupId)
     .maybeSingle();
 
   if (postError) return NextResponse.json({ error: postError.message }, { status: 500 });

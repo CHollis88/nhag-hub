@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { hashPin } from "@/lib/pin";
+import { invalidateUserSessions } from "@/lib/session";
 
 const PIN_RE = /^\d{4,8}$/;
 
@@ -29,5 +30,6 @@ export async function POST(req) {
     .eq("id", user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  invalidateUserSessions(user.id);
   return NextResponse.json({ ok: true });
 }

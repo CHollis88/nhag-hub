@@ -29,8 +29,10 @@ export async function PATCH(req, { params }) {
     .from("group_prayer")
     .select("created_by, body, is_anonymous")
     .eq("id", prayerId)
-    .single();
+    .eq("group_id", groupId) // v71 #2: must belong to THIS group
+    .maybeSingle();
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
+  if (!prayer) return NextResponse.json({ error: "Prayer request not found." }, { status: 404 });
 
   if (prayer.created_by !== user.id) {
     return NextResponse.json({ error: "Only the person who submitted this request can update its status." }, { status: 403 });

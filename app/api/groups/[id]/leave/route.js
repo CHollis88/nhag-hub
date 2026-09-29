@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
+import { invalidateUserSessions } from "@/lib/session";
 
 // Self-service leave: any active member (including a leader) can leave
 // a group on their own, no leader/admin approval needed. Deliberately
@@ -36,6 +37,7 @@ export async function DELETE(req, { params }) {
 
   const { error } = await supabase.from("group_members").delete().eq("id", membership.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  invalidateUserSessions(user.id);
 
   return NextResponse.json({ ok: true });
 }

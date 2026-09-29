@@ -143,7 +143,7 @@ There's no automatic "first user is admin" flow — this was an intentional deci
 At this point you can:
 - Create a ministry from the Hub tab with any name you want — "Choir," "Wednesday Night," "Security Team," "Young Adults," anything. There's no fixed list of ministry types anymore, just a free-text label and a set of optional modules you can turn on
 - Turn on **Song library + Setlists** for a Choir-style group, or **Reading Plan + Journal** for a Young Adults-style group — both, neither, or either, per group
-- Assign yourself or someone else as a leader by adding them to the group via the Roster tab (once you've launched into that group)
+- Assign yourself or someone else as a leader by adding them to the group via the Roster tab (once you've opened that group)
 - Post church-wide News and Events from those tabs (admin-only), and RSVP yes/no/maybe to any event — church-wide or inside a group
 - Post News/Events/Prayer inside a group, reply to News/Events discussions, submit anonymous prayer requests
 - Request to promote a group News post to the church-wide feed (as a leader), then approve/reject it (as admin, from the News tab)
@@ -184,6 +184,14 @@ You don't need to do any of this yet — running it locally with `npm run dev` i
 ---
 
 ## Releasing a new build
+
+**Run any new database migrations FIRST**, in order, in the Supabase SQL editor (each `supabase/migration_NNN_*.sql` newer than the last one you ran -- they are safe to re-run), and only then deploy. v71 adds three, to be run in this order:
+
+1. `migration_034_v71_atomic.sql` -- saves that either fully happen or don't happen at all (setlists, volunteering, prayer counts, starting a conversation).
+2. `migration_035_v71_admin.sql` -- Use Admin Privileges, PIN re-check limits, archived ministries, the readable activity log, and batched join-request notifications.
+3. `migration_036_v71_accounts.sql` -- deleting accounts safely, and the "Admin notifications" switch.
+
+If the code goes out before a migration, the app degrades instead of breaking: screens that need 034 say "needs a database update" instead of saving; with 035 missing, sign-in and every screen work exactly as in v70.2 (admin privileges simply stay on, and PIN-protected actions are refused until it is run); with 036 missing, the Admin notifications switch says it needs a database update, and **deleting an account is refused outright (nothing is deleted)**, because without 036 the database would also erase that person's group-chat messages. Running all three before you deploy avoids every one of these.
 
 Each release bumps two things together, so Settings' version footer and What's New always agree:
 - `package.json`'s `"version"` field

@@ -5,6 +5,8 @@ import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { logActivity } from "@/lib/activityLog";
 import { PLANS, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { clearSessionCache } from "@/lib/session";
+import { requireRecentPin } from "@/lib/adminAuth";
 
 const VALID_FEATURES = [
   "songs_setlists",
@@ -16,6 +18,18 @@ const VALID_FEATURES = [
   "curriculum",
 ];
 const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
+
+// Plain-language names for the activity log ("Sarah turned on Programs
+// for Choir").
+const FEATURE_LABELS = {
+  songs_setlists: "Songs + Setlists",
+  reading_plan_journal: "Bible Plan",
+  programs: "Programs",
+  direct_messages: "Messages",
+  chat_members: "Members Chat",
+  chat_leaders: "Leaders Chat",
+  curriculum: "Curriculum",
+};
 
 // Single-group detail fetch -- used by RosterTab's appearance panel to
 // show the group's current icon/color before changing them, without
@@ -48,15 +62,13 @@ export async function PATCH(req, { params }) {
   }
 
   const { id } = await params;
-  const { name, type, features, tile_color, description, reading_plan_locked, reading_plan_id, hidden, hide_restricts_access } =
+  const { name, type, features, tile_color, description, reading_plan_locked, reading_plan_id, hidden, hide_restricts_access, archived } =
     await req.json();
 
   const updates = { updated_at: new Date().toISOString() };
 
   // Renaming a ministry -- and its type/category label -- is delegated to
-  // its own leader too, per the project's decision. features stays
-  // admin-only below, since toggling a whole module on/off is a bigger
-  // deal than a display label.
+  // its own leader too, per the project's decision.
   if (name !== undefined) {
     if (!(await canManageGroup(user, id))) {
       return NextResponse.json(
@@ -87,27 +99,35 @@ export async function PATCH(req, { params }) {
     updates.description = description.trim() || null;
   }
 
-  // features stays admin-only -- enabling/disabling a whole module
-  // (Songs/Setlists, Reading Plan/Journal) affects what the ministry can
-  // do, not just its label, so it's kept a step above name/type/color.
+  // Bolt-on modules: a ministry's own leaders can turn them on/off for
+  // their ministry, and a Church Admin can for any ministry (v71 decision
+  // L -- reverses the earlier admin-only rule). Turning a module off only
+  // hides it; nothing is deleted. Every change is written to the
+  // activity log.
+  let featuresBefore = null;
+  let groupNameForLog = null;
   if (features !== undefined) {
-    if (!user.is_church_admin) {
-      return NextResponse.json({ error: "Church Admin access required for that change." }, { status: 403 });
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can turn modules on or off." },
+        { status: 403 }
+      );
     }
-    const cleanFeatures = Array.isArray(features) ? features.filter((f) => VALID_FEATURES.includes(f)) : [];
+    const cleanFeatures = Array.isArray(features) ? [...new Set(features.filter((f) => VALID_FEATURES.includes(f)))] : [];
+
+    const supabase = supabaseServer();
+    const { data: current } = await supabase.from("groups").select("name, type, features").eq("id", id).maybeSingle();
+    if (!current) return NextResponse.json({ error: "Group not found." }, { status: 404 });
+    featuresBefore = current.features || [];
+    groupNameForLog = current.name;
 
     // Curriculum is scoped to class-type ministries only (Cam's
     // decision -- it's meant for Sunday School-style classes, not a
     // general-purpose module every ministry sees in its bolt-on list).
     // Checks the incoming `type` if it's changing in this same request,
-    // otherwise looks up the group's current saved type.
+    // otherwise the group's current saved type.
     if (cleanFeatures.includes("curriculum")) {
-      let effectiveType = type !== undefined ? type.trim() : null;
-      if (effectiveType === null) {
-        const supabase = supabaseServer();
-        const { data: current } = await supabase.from("groups").select("type").eq("id", id).maybeSingle();
-        effectiveType = current?.type || "";
-      }
+      const effectiveType = type !== undefined ? type.trim() : current.type || "";
       if (!effectiveType.toLowerCase().includes("class")) {
         return NextResponse.json(
           { error: "Curriculum can only be enabled for a ministry whose type includes \"class\"." },
@@ -169,6 +189,16 @@ export async function PATCH(req, { params }) {
     if (hide_restricts_access !== undefined) updates.hide_restricts_access = Boolean(hide_restricts_access);
   }
 
+  // v71 #24: archive / restore. Archived = hidden from members and the
+  // directory with everything kept; an admin can restore it. Nothing is
+  // deleted, so no PIN -- permanent delete (below) is the guarded action.
+  if (archived !== undefined) {
+    if (!user.is_church_admin) {
+      return NextResponse.json({ error: "Church Admin access required for that change." }, { status: 403 });
+    }
+    updates.archived_at = archived ? new Date().toISOString() : null;
+  }
+
   const supabase = supabaseServer();
   const { data, error } = await supabase
     .from("groups")
@@ -179,6 +209,33 @@ export async function PATCH(req, { params }) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Group not found." }, { status: 404 });
+
+  if (archived !== undefined) {
+    clearSessionCache(); // every member's cached memberships now carry the new flag
+    logActivity(
+      user.id,
+      archived ? "ministry_archived" : "ministry_restored",
+      `${user.display_name} ${archived ? "archived" : "restored"} ${data.name}`,
+      { group_id: id }
+    );
+  }
+
+  if (featuresBefore) {
+    const after = data.features || [];
+    const turnedOn = after.filter((f) => !featuresBefore.includes(f));
+    const turnedOff = featuresBefore.filter((f) => !after.includes(f));
+    const ministry = data.name || groupNameForLog || "a ministry";
+    for (const f of turnedOn) {
+      logActivity(user.id, "features_changed", `${user.display_name} turned on ${FEATURE_LABELS[f] || f} for ${ministry}`);
+    }
+    for (const f of turnedOff) {
+      logActivity(user.id, "features_changed", `${user.display_name} turned off ${FEATURE_LABELS[f] || f} for ${ministry}`);
+    }
+  }
+
+  // Hiding a ministry changes every member's cached access at once.
+  if (hidden !== undefined || hide_restricts_access !== undefined) clearSessionCache();
+
   return NextResponse.json({ group: data });
 }
 
@@ -191,6 +248,11 @@ export async function DELETE(req, { params }) {
     return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
   }
 
+  // v71 #21: permanent deletion asks for the PIN again. (Archiving is the
+  // reversible way to take a ministry away; this is the one that isn't.)
+  const pinNeeded = requireRecentPin(user);
+  if (pinNeeded) return pinNeeded;
+
   const { id } = await params;
   const supabase = supabaseServer();
 
@@ -201,6 +263,12 @@ export async function DELETE(req, { params }) {
   const { error } = await supabase.from("groups").delete().eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  logActivity(user.id, "ministry_deleted", group?.name ? `Deleted "${group.name}"` : null);
+  clearSessionCache();
+  logActivity(
+    user.id,
+    "ministry_deleted",
+    `${user.display_name} permanently deleted ${group?.name ? `"${group.name}"` : "a ministry"}`,
+    { group_id: id }
+  );
   return NextResponse.json({ ok: true });
 }

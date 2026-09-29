@@ -4,28 +4,43 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, Pencil } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import PostReactions from "./PostReactions";
+import EmptyState from "./EmptyState";
+import { requestJson } from "@/lib/request";
+import { useFormDisclosure } from "./useFormDisclosure";
+import { useResource } from "@/lib/useResource";
+import { STALE, invalidate } from "@/lib/resourceCache";
+import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
+import { useAction } from "./useAction";
+import { useToast } from "./ToastProvider";
 
 function PromotionQueue() {
   const [requests, setRequests] = useState(null);
+  const [busyId, setBusyId] = useState(null);
+  const run = useAction();
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/promotion-requests");
-    const data = await res.json();
-    if (res.ok) setRequests(data.requests);
+    try {
+      const data = await requestJson("/api/admin/promotion-requests");
+      setRequests(data.requests);
+    } catch {
+      // Keeps whatever is showing; this queue simply stays hidden if empty.
+    }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const approve = async (id) => {
-    await fetch(`/api/admin/promotion-requests/${id}/approve`, { method: "POST" });
-    load();
+  // One at a time, and the list always refreshes so it shows what's true.
+  const decide = async (id, action, success) => {
+    if (busyId) return;
+    setBusyId(id);
+    await run(() => requestJson(`/api/admin/promotion-requests/${id}/${action}`, { method: "POST" }), { success });
+    await load();
+    setBusyId(null);
   };
-  const reject = async (id) => {
-    await fetch(`/api/admin/promotion-requests/${id}/reject`, { method: "POST" });
-    load();
-  };
+  const approve = (id) => decide(id, "approve", "Approved — pushed church-wide");
+  const reject = (id) => decide(id, "reject", "Request rejected");
 
   if (!requests?.length) return null;
 
@@ -41,10 +56,10 @@ function PromotionQueue() {
             <h4 className="font-medium text-ink mb-1">{r.news?.title}</h4>
             <p className="text-sm text-inksoft mb-2">{r.news?.body}</p>
             <div className="flex gap-2">
-              <button onClick={() => approve(r.id)} className="sp-btn-sage text-xs py-1.5 px-3">
+              <button onClick={() => approve(r.id)} disabled={busyId === r.id} className="sp-btn-sage text-xs py-1.5 px-3 disabled:opacity-60">
                 Approve — push to church-wide
               </button>
-              <button onClick={() => reject(r.id)} className="sp-btn-secondary text-xs py-1.5 px-3">
+              <button onClick={() => reject(r.id)} disabled={busyId === r.id} className="sp-btn-secondary text-xs py-1.5 px-3 disabled:opacity-60">
                 Reject
               </button>
             </div>
@@ -56,93 +71,116 @@ function PromotionQueue() {
 }
 
 export default function NewsTab({ isAdmin, isAnyLeader }) {
-  const [news, setNews] = useState(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [category, setCategory] = useState("announcement");
-  const [audience, setAudience] = useState(isAdmin ? "everyone" : "leaders");
+  // The audience the person PICKED. What actually applies is derived below
+  // from their permissions (v71 #5) -- never corrected by setting state
+  // during render.
+  const [audienceChoice, setAudience] = useState(isAdmin ? "everyone" : "leaders");
   const [error, setError] = useState("");
-  const [showForm, setShowForm] = useState(false);
+  // v71 #36: ONE form at a time (a new post OR editing one), "+ Add" becomes
+  // "Cancel", focus lands on the first field, and returns to what opened it.
   const [editingId, setEditingId] = useState(null);
+  const form = useFormDisclosure(editingId ?? "new");
+  const showForm = form.open && !editingId;
+  const closeForm = () => {
+    setEditingId(null);
+    form.hide();
+  };
+  const openNew = () => {
+    setEditingId(null);
+    form.show();
+  };
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
-  const [query, setQuery] = useState("");
-  const [viewMode, setViewMode] = useState("published"); // admin-only "Drafts" toggle
+  // v71 #43: search text and Drafts/published view are remembered when you leave and return.
+  const [query, setQuery] = useScreenState("news:church:query", "");
+  const [viewMode, setViewMode] = useScreenState("news:church:view", "published"); // admin-only "Drafts" toggle
   const [notify, setNotify] = useState(true);
 
   // Anyone who can post at all -- an admin (the 'everyone' audience) or
   // any ministry leader (the 'leaders' audience, migration_024).
   const canPostAnything = isAdmin || isAnyLeader;
 
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/global/news${viewMode === "drafts" ? "?drafts=1" : ""}`);
-    const data = await res.json();
-    if (res.ok) setNews(data.news);
-  }, [viewMode]);
+  // Non-admin leaders can only post to the leaders channel; an admin who
+  // isn't a leader has no choice to make and posts to everyone; someone
+  // who is both picks between the two.
+  const audience = !isAdmin ? "leaders" : !isAnyLeader ? "everyone" : audienceChoice;
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const newsUrl = "/api/global/news";
+  const run = useAction();
+  const toast = useToast();
 
+  // v71 #42-45: through the shared cache.
+  const { data: news, error: newsError } = useResource(
+    `news:church:${viewMode}`,
+    async () => (await requestJson(`${newsUrl}${viewMode === "drafts" ? "?drafts=1" : ""}`)).news,
+    { staleMs: STALE.list }
+  );
+  const loadFailed = Boolean(newsError);
+  const load = () => invalidate("news:church:*");
+  const scrollAnchor = useScrollMemory("news:church", news !== null);
+
+  // Only clears/closes the form on success; on failure everything typed
+  // stays and the reason is shown.
   const submit = async (e, asDraft = false) => {
     e.preventDefault();
     setError("");
-    const res = await fetch("/api/global/news", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body, category, audience, status: asDraft ? "draft" : "published", notify }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error);
+    try {
+      await requestJson(newsUrl, {
+        method: "POST",
+        body: { title, body, category, audience, status: asDraft ? "draft" : "published", notify },
+      });
+    } catch (err) {
+      setError(err.message);
+      toast.error(err.message);
       return;
     }
+    toast.success(asDraft ? "Draft saved" : "Posted");
     setTitle("");
     setBody("");
-    setCategory("announcement");
-    setAudience(isAdmin ? "everyone" : "leaders");
+      setCategory("announcement");
+      setAudience(isAdmin ? "everyone" : "leaders");
     setNotify(true);
-    setShowForm(false);
+    closeForm();
     load();
   };
 
   const publish = async (id) => {
-    await fetch(`/api/global/news/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "published" }),
+    const { ok } = await run(() => requestJson(`${newsUrl}/${id}`, { method: "PATCH", body: { status: "published" } }), {
+      success: "Published",
     });
-    load();
+    if (ok) load();
   };
 
   const remove = async (id) => {
-    await fetch(`/api/global/news/${id}`, { method: "DELETE" });
-    load();
+    const { ok } = await run(() => requestJson(`${newsUrl}/${id}`, { method: "DELETE" }), { success: "Post deleted" });
+    if (ok) load();
   };
 
   const togglePin = async (id, pinned) => {
-    await fetch(`/api/global/news/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pinned: !pinned }),
-    });
-    load();
+    const { ok } = await run(() => requestJson(`${newsUrl}/${id}`, { method: "PATCH", body: { pinned: !pinned } }));
+    if (ok) load();
   };
 
-  const startEdit = (n) => {
+  const startEdit = (n, fromElement) => {
     setEditingId(n.id);
+    form.show(fromElement);
     setEditTitle(n.title);
     setEditBody(n.body);
   };
 
+  // The edit stays open (with the changes still in it) if saving fails.
   const saveEdit = async (id) => {
-    await fetch(`/api/global/news/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: editTitle, body: editBody }),
-    });
-    setEditingId(null);
-    load();
+    const { ok } = await run(
+      () => requestJson(`${newsUrl}/${id}`, { method: "PATCH", body: { title: editTitle, body: editBody } }),
+      { success: "Saved" }
+    );
+    if (ok) {
+      closeForm();
+      load();
+    }
   };
 
   const filtered = useMemo(() => {
@@ -154,6 +192,7 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
 
   return (
     <div className="px-5 pt-4 pb-6">
+      <div ref={scrollAnchor} />
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-serif text-2xl text-ink">{viewMode === "drafts" ? "Drafts" : "Church News"}</h2>
         <div className="flex gap-2">
@@ -166,8 +205,8 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
             </button>
           )}
           {canPostAnything && (
-            <button onClick={() => setShowForm((s) => !s)} className="sp-btn-pill">
-              {showForm ? "Cancel" : "+ Add"}
+            <button ref={form.triggerRef} onClick={() => (form.open ? closeForm() : openNew())} className="sp-btn-pill">
+              {form.open ? "Cancel" : "+ Add"}
             </button>
           )}
         </div>
@@ -176,7 +215,8 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
       {isAdmin && <PromotionQueue />}
 
       {canPostAnything && showForm && (
-        <form onSubmit={submit} className="sp-card mb-4">
+        <form ref={form.formRef} onSubmit={submit} className="sp-card mb-4" aria-labelledby="new-church-news-heading">
+          <h3 id="new-church-news-heading" className="font-serif text-lg text-ink mt-0 mb-3">New post</h3>
           {/* Audience picker only shown when there's an actual choice --
               an admin can post either way; a leader who isn't an admin
               can ONLY post to the leaders channel, so there's no
@@ -199,7 +239,6 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
               </button>
             </div>
           )}
-          {isAdmin && !isAnyLeader && audience === "leaders" && setAudience("everyone")}
           {!isAdmin && (
             <p className="text-xs text-inkfaint mb-2">
               Posting to the church-wide leaders channel — visible to every ministry leader and admin.
@@ -256,7 +295,8 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
         </form>
       )}
 
-      {news === null && <SkeletonList count={3} />}
+      {news === null && loadFailed && <EmptyState kind="error" text="Couldn't load posts." onRetry={load} />}
+      {news === null && !loadFailed && <SkeletonList count={3} />}
       {news !== null && (
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
@@ -278,7 +318,7 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
           return (
           <div key={n.id} className={`sp-card ${n.pinned ? "border-accent/40" : ""}`}>
             {isEditing ? (
-              <>
+              <div ref={form.formRef} role="group" aria-label="Edit post">
                 <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="sp-input mb-2" />
                 <textarea
                   value={editBody}
@@ -288,9 +328,9 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
                 />
                 <div className="flex gap-3">
                   <button onClick={() => saveEdit(n.id)} className="sp-btn-primary py-1.5 px-3 text-sm">Save</button>
-                  <button onClick={() => setEditingId(null)} className="text-xs text-inkfaint underline">Cancel</button>
+                  <button onClick={closeForm} className="text-xs text-inkfaint underline">Cancel</button>
                 </div>
-              </>
+              </div>
             ) : (
               <>
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -318,7 +358,7 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
                 </p>
                 {isAdmin && (
                   <div className="flex gap-3 mt-2 flex-wrap">
-                    <button onClick={() => startEdit(n)} className="text-xs text-accent underline flex items-center gap-1">
+                    <button onClick={(e) => startEdit(n, e.currentTarget)} data-return-focus={`news-edit-${n.id}`} className="text-xs text-accent underline flex items-center gap-1">
                       <Pencil size={11} /> Edit
                     </button>
                     {n.status === "draft" ? (

@@ -1,5 +1,7 @@
 "use client";
 
+import Modal from "./Modal";
+
 const SOURCES = [
   {
     category: "Bible Text",
@@ -67,43 +69,33 @@ const SOURCES = [
 
 export default function AttributionView({ onClose }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-end z-[60]" onClick={onClose}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="bg-card rounded-t-2xl w-full max-h-[85vh] overflow-y-auto p-6"
-      >
-        <div className="flex justify-between items-center mb-3 gap-2">
-          <h2 className="font-serif text-xl text-ink m-0 min-w-0 truncate">Sources &amp; Attribution</h2>
-          <button onClick={onClose} className="text-2xl text-inkfaint leading-none flex-shrink-0">×</button>
-        </div>
+    <Modal title="Sources & Attribution" onClose={onClose} z={60} maxHeight="85vh">
+      <p className="text-sm text-inksoft leading-relaxed mb-5">
+        The Bible study tools in this app draw on the historic public-domain reference works
+        listed below, plus a small amount of original content written for this app. None of
+        this material is required to be credited, but we want to be transparent about where
+        everything comes from.
+      </p>
 
-        <p className="text-sm text-inksoft leading-relaxed mb-5">
-          The Bible study tools in this app draw on the historic public-domain reference works
-          listed below, plus a small amount of original content written for this app. None of
-          this material is required to be credited, but we want to be transparent about where
-          everything comes from.
-        </p>
-
-        <div className="space-y-5">
-          {SOURCES.map((s) => (
-            <div key={s.category}>
-              <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">{s.category}</p>
-              <div className="space-y-2">
-                {s.items.map((item) => (
-                  <div key={item.name} className="sp-card">
-                    <p className="text-sm font-semibold text-ink mb-1">{item.name}</p>
-                    <p className="text-xs text-inksoft leading-relaxed">{item.detail}</p>
-                  </div>
-                ))}
-              </div>
+      <div className="space-y-5">
+        {SOURCES.map((s) => (
+          <div key={s.category}>
+            <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">{s.category}</p>
+            <div className="space-y-2">
+              {s.items.map((item) => (
+                <div key={item.name} className="sp-card">
+                  <p className="text-sm font-semibold text-ink mb-1">{item.name}</p>
+                  <p className="text-xs text-inksoft leading-relaxed">{item.detail}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-
-        <p className="text-xs text-inkfaint leading-relaxed mt-5 pt-4 border-t border-linesoft">
-          If you notice an attribution that's missing or needs correcting, please let a leader know so it can be fixed.
-        </p>
+          </div>
+        ))}
       </div>
-    </div>
+
+      <p className="text-xs text-inkfaint leading-relaxed mt-5 pt-4 border-t border-linesoft">
+        If you notice an attribution that's missing or needs correcting, please let a leader know so it can be fixed.
+      </p>
+    </Modal>
   );
 }

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { logActivity } from "@/lib/activityLog";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { invalidateUserSessions } from "@/lib/session";
 
 // Admin-only. Lists every group blocked for this specific user
 // (migration_029) -- separate from the global `hidden` flag on groups
@@ -55,6 +56,7 @@ export async function POST(req, { params }) {
   // the whole point of this block is that the person isn't in the
   // ministry, not merely that they can't newly discover it.
   await supabase.from("group_members").delete().eq("user_id", userId).eq("group_id", group_id);
+  invalidateUserSessions(userId);
 
   const [{ data: targetUser }, { data: group }] = await Promise.all([
     supabase.from("users").select("display_name").eq("id", userId).maybeSingle(),

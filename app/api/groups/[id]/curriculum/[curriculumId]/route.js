@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup } from "@/lib/groupAuth";
+import { storagePathFrom, removeQuietly } from "@/lib/storage";
 
 const BUCKET = "curriculum-materials";
 
@@ -31,10 +32,7 @@ export async function DELETE(req, { params }) {
   // Best-effort storage cleanup -- same reasoning as program documents:
   // the row is the source of truth, so a failed storage delete doesn't
   // block removing it.
-  const storagePath = item.file_url.split(`${BUCKET}/`)[1];
-  if (storagePath) {
-    await supabase.storage.from(BUCKET).remove([storagePath]).catch(() => {});
-  }
+  await removeQuietly(supabase, BUCKET, storagePathFrom(BUCKET, item.file_url));
 
   const { error } = await supabase.from("curriculum_materials").delete().eq("id", curriculumId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

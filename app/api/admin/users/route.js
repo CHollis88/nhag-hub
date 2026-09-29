@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { withNoStore } from "@/lib/cacheHeaders";
 import { hashPin } from "@/lib/pin";
 import { logActivity } from "@/lib/activityLog";
+import { withColumnFallback } from "@/lib/compat";
 import crypto from "crypto";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
@@ -20,14 +21,13 @@ export async function GET(req) {
   }
 
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from("users")
-    .select("id, username, display_name, is_church_admin")
-    .not("username", "is", null)
-    .order("display_name");
+  const { data, error } = await withColumnFallback(
+    () => supabase.from("users").select("id, username, display_name, is_church_admin, admin_notifications_enabled").not("username", "is", null).order("display_name"),
+    () => supabase.from("users").select("id, username, display_name, is_church_admin").not("username", "is", null).order("display_name")
+  );
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withNoStore({ users: data });
+  return withNoStore({ users: data.map((u) => ({ ...u, admin_notifications_enabled: u.admin_notifications_enabled !== false })) });
 }
 
 // Admin-only. Creates a fully complete account directly, bypassing the

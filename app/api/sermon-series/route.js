@@ -17,7 +17,20 @@ export async function GET(req) {
     .order("created_at", { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withPrivateCache({ series: data }, { maxAge: 60, staleWhileRevalidate: 300 });
+
+  // v71 #28: how many sermons each series holds (the "Manage series" sheet
+  // shows it, and the delete warning uses it). Admins count drafts too;
+  // everyone else counts only what they can see -- published sermons.
+  let sermonQuery = supabase.from("sermons").select("series_id").not("series_id", "is", null);
+  if (!user.is_church_admin) sermonQuery = sermonQuery.eq("status", "published");
+  const { data: inSeries } = await sermonQuery;
+  const counts = {};
+  for (const row of inSeries || []) counts[row.series_id] = (counts[row.series_id] || 0) + 1;
+
+  return withPrivateCache(
+    { series: data.map((s) => ({ ...s, sermon_count: counts[s.id] || 0 })) },
+    { maxAge: 60, staleWhileRevalidate: 300 }
+  );
 }
 
 export async function POST(req) {

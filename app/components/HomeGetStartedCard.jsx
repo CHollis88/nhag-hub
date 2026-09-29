@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import {
   Home, BookOpen, Highlighter, Volume2, Search, Sparkles,
-  Megaphone, CalendarDays, Settings as SettingsIcon, X, ChevronRight,
+  Megaphone, CalendarDays, Settings as SettingsIcon, SlidersHorizontal, X, ChevronRight,
 } from "lucide-react";
 
 const STORAGE_KEY = "sp_home_get_started_dismissed";
@@ -27,8 +27,15 @@ const ITEMS = [
     id: "ministries",
     icon: Home,
     title: "Explore your ministries",
-    body: "Tiles below show every ministry you're in — tap one to launch into its own News, Events, Prayer, and Roster.",
+    body: "Tiles below show every ministry you're in — tap one to open its own News, Events, Prayer, and Roster.",
     tab: "hub",
+  },
+  {
+    id: "simple",
+    icon: SlidersHorizontal,
+    title: "Prefer fewer buttons?",
+    body: "Turn on Simple mode in Settings: a shorter menu, a word under every button, bigger labels, and messages that stay on screen longer.",
+    action: "settings",
   },
   {
     id: "wordstudy",
@@ -48,7 +55,7 @@ const ITEMS = [
     id: "listen",
     icon: Volume2,
     title: "Try listening to Scripture",
-    body: "Tap the speaker to hear a whole chapter read aloud, or the ear icon to hear just one word at a time.",
+    body: "Tap Listen to hear a whole chapter read aloud, or Word tap to hear one word at a time.",
     tab: "bible",
   },
   {
@@ -82,8 +89,8 @@ const ITEMS = [
   {
     id: "settings",
     icon: SettingsIcon,
-    title: "Set your PIN and notifications",
-    body: "Open Settings (gear icon, top right) to set a PIN for quick sign-in and choose what you get notified about.",
+    title: "Choose your notifications",
+    body: "Open Settings (the gear, top right) to turn on notifications and choose what you hear about. To set or change your PIN, tap your profile icon and choose Edit Profile.",
     action: "settings",
   },
 ];

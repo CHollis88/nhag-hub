@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup } from "@/lib/groupAuth";
+import { canManageGroup, assertInGroup } from "@/lib/groupAuth";
 
 // Edits the note and/or position of a song already in a setlist. Position
 // is a simple integer -- the client is responsible for sending the full
@@ -12,12 +12,20 @@ export async function PATCH(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId, setlistSongId } = await params;
+  const { id: groupId, setlistId, setlistSongId } = await params;
   if (!(await canManageGroup(user, groupId))) {
     return NextResponse.json(
       { error: "Only this group's leaders or a Church Admin can edit setlists." },
       { status: 403 }
     );
+  }
+
+  // v71 #2: setlist -> this group, and the entry -> that setlist.
+  if (
+    !(await assertInGroup("group_setlists", setlistId, groupId)) ||
+    !(await assertInGroup("group_setlist_songs", setlistSongId, setlistId, "setlist_id"))
+  ) {
+    return NextResponse.json({ error: "Setlist entry not found." }, { status: 404 });
   }
 
   const { note, position } = await req.json();
@@ -44,12 +52,20 @@ export async function DELETE(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId, setlistSongId } = await params;
+  const { id: groupId, setlistId, setlistSongId } = await params;
   if (!(await canManageGroup(user, groupId))) {
     return NextResponse.json(
       { error: "Only this group's leaders or a Church Admin can edit setlists." },
       { status: 403 }
     );
+  }
+
+  // v71 #2: setlist -> this group, and the entry -> that setlist.
+  if (
+    !(await assertInGroup("group_setlists", setlistId, groupId)) ||
+    !(await assertInGroup("group_setlist_songs", setlistSongId, setlistId, "setlist_id"))
+  ) {
+    return NextResponse.json({ error: "Setlist entry not found." }, { status: 404 });
   }
 
   const supabase = supabaseServer();

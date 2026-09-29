@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { notifyDmThread } from "@/lib/push";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { pageParams, trimPage } from "@/lib/pagination";
 
 async function isParticipant(supabase, threadId, userId) {
   const { data } = await supabase
@@ -25,13 +26,22 @@ export async function GET(req, { params }) {
     return NextResponse.json({ error: "You're not part of this conversation." }, { status: 403 });
   }
 
-  const { data: messages, error } = await supabase
+  // v71 #44: the NEWEST page (50 by default), or the page older than `before`.
+  const { limit, before, error: pageError } = pageParams(req.nextUrl.searchParams);
+  if (pageError) return NextResponse.json({ error: pageError }, { status: 400 });
+
+  let query = supabase
     .from("group_dm_messages")
     .select("id, sender_id, body, created_at, users(display_name)")
     .eq("thread_id", threadId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(limit + 1);
+  if (before) query = query.lt("created_at", before);
+  const { data: newestFirst, error } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const { rows, hasMore } = trimPage(newestFirst, limit);
+  const messages = rows.reverse(); // oldest -> newest, as the screen draws them
 
   const messageIds = (messages || []).map((m) => m.id);
   const { data: reactions } = messageIds.length
@@ -54,7 +64,7 @@ export async function GET(req, { params }) {
   // 4s while a thread is open (see DirectMessagesTab), so it needs to
   // actually hit the network every time, same reasoning as
   // /api/notifications' own no-store.
-  return withNoStore({ messages: withReactions });
+  return withNoStore({ messages: withReactions, has_more: hasMore });
 }
 
 export async function POST(req, { params }) {

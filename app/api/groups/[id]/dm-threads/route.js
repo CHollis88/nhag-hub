@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { isActiveGroupMember, canManageGroup } from "@/lib/groupAuth";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { rpcFailure } from "@/lib/rpc";
 
 // Direct Messages (migration_026, feature key "direct_messages"). A
 // regular member picks one or more of the group's own leaders and
@@ -129,44 +130,21 @@ export async function POST(req, { params }) {
     );
   }
 
-  const fullSet = new Set([user.id, ...chosenIds]);
-
-  // Look for an existing thread of mine in this group with the exact
-  // same participant set.
-  const { data: myThreadRows } = await supabase
-    .from("group_dm_participants")
-    .select("thread_id, group_dm_threads!inner(group_id)")
-    .eq("user_id", user.id)
-    .eq("group_dm_threads.group_id", groupId);
-
-  const candidateThreadIds = (myThreadRows || []).map((r) => r.thread_id);
-  if (candidateThreadIds.length) {
-    const { data: allParticipants } = await supabase
-      .from("group_dm_participants")
-      .select("thread_id, user_id")
-      .in("thread_id", candidateThreadIds);
-
-    for (const threadId of candidateThreadIds) {
-      const setForThread = new Set(
-        (allParticipants || []).filter((p) => p.thread_id === threadId).map((p) => p.user_id)
-      );
-      if (setForThread.size === fullSet.size && [...fullSet].every((id) => setForThread.has(id))) {
-        return NextResponse.json({ thread_id: threadId, existing: true });
-      }
-    }
+  // v71 #11: find-or-create in ONE database call (create_dm_thread,
+  // migration_034). A thread's identity is its canonical participant key
+  // (sorted user IDs) with a unique index behind it, so two requests
+  // racing to start the same conversation get the same thread, and the
+  // thread and its participant rows are created in one transaction (the
+  // old code could leave a thread with no participants if the second
+  // insert failed).
+  const { data: created, error: createError } = await supabase.rpc("create_dm_thread", {
+    p_group_id: groupId,
+    p_initiator_id: user.id,
+    p_participant_ids: chosenIds,
+  });
+  if (createError) {
+    return rpcFailure(createError, { NH001: { status: 400, message: "Pick at least one person to message." } });
   }
 
-  const { data: thread, error: threadError } = await supabase
-    .from("group_dm_threads")
-    .insert({ group_id: groupId, initiator_id: user.id })
-    .select()
-    .single();
-  if (threadError) return NextResponse.json({ error: threadError.message }, { status: 500 });
-
-  const { error: participantsError } = await supabase
-    .from("group_dm_participants")
-    .insert([...fullSet].map((userId) => ({ thread_id: thread.id, user_id: userId })));
-  if (participantsError) return NextResponse.json({ error: participantsError.message }, { status: 500 });
-
-  return NextResponse.json({ thread_id: thread.id, existing: false });
+  return NextResponse.json({ thread_id: created.thread_id, existing: created.existing });
 }

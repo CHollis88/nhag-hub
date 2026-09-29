@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup } from "@/lib/groupAuth";
+import { canManageGroup, assertInGroup } from "@/lib/groupAuth";
 
 const ALLOWED_FIELDS = [
   "title", "composer", "times_sung", "first_date", "most_recent_date",
@@ -19,6 +19,13 @@ export async function PATCH(req, { params }) {
       { error: "Only this group's leaders or a Church Admin can edit songs." },
       { status: 403 }
     );
+  }
+
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
   const body = await req.json();
@@ -51,6 +58,13 @@ export async function DELETE(req, { params }) {
       { error: "Only this group's leaders or a Church Admin can delete songs." },
       { status: 403 }
     );
+  }
+
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
   const supabase = supabaseServer();

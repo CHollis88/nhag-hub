@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { localDateOfTimestamp, shiftDate } from "@/lib/localDate";
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // Total day-counts per plan, matching each plan's actual data file
 // length -- used for the "% complete" figure. Kept here rather than
@@ -18,6 +21,15 @@ export async function GET(req) {
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
   const planId = req.nextUrl.searchParams.get("plan_id") || "foundations";
+
+  // The server runs in UTC, so "today" and each day's boundary come from
+  // the client (v71 #3): its local date plus its UTC offset. Without
+  // them (an old cached client) fall back to UTC like before.
+  const sp = req.nextUrl.searchParams;
+  const offsetParam = Number(sp.get("tz_offset"));
+  const offsetMinutes = Number.isFinite(offsetParam) && Math.abs(offsetParam) <= 14 * 60 ? offsetParam : 0;
+  const todayParam = sp.get("today");
+  const today = YMD_RE.test(todayParam || "") ? todayParam : localDateOfTimestamp(new Date().toISOString(), offsetMinutes);
 
   const supabase = supabaseServer();
   const { data, error } = await supabase
@@ -38,26 +50,19 @@ export async function GET(req) {
   // behind), so the streak is driven by updated_at, the actual date
   // something was marked done.
   const completedDates = new Set(
-    data.filter((r) => r.read || r.prayed || r.meditated).map((r) => new Date(r.updated_at).toISOString().slice(0, 10))
+    data.filter((r) => r.read || r.prayed || r.meditated).map((r) => localDateOfTimestamp(r.updated_at, offsetMinutes))
   );
 
   let streak = 0;
-  const cursor = new Date();
-  for (;;) {
-    const key = cursor.toISOString().slice(0, 10);
-    if (!completedDates.has(key)) break;
+  for (let key = today; completedDates.has(key); key = shiftDate(key, -1)) {
     streak += 1;
-    cursor.setDate(cursor.getDate() - 1);
   }
 
   // Last 30 calendar days, oldest first, for a simple history chart.
   const history = [];
-  const historyCursor = new Date();
-  historyCursor.setDate(historyCursor.getDate() - 29);
-  for (let i = 0; i < 30; i++) {
-    const key = historyCursor.toISOString().slice(0, 10);
+  for (let i = 29; i >= 0; i--) {
+    const key = shiftDate(today, -i);
     history.push({ date: key, completed: completedDates.has(key) });
-    historyCursor.setDate(historyCursor.getDate() + 1);
   }
 
   return withNoStore({

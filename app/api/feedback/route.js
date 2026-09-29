@@ -28,7 +28,9 @@ export async function POST(req) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  notifyAdmins({ title: "New Feedback", body: "Tap to view.", url: "/?admin=feedback" }).catch(() => {});
+  // The link opens the Toolbox's "Needs attention" list, where feedback lives
+  // (v71 #22). The sender is never notified about their own feedback.
+  notifyAdmins({ title: "New Feedback", body: "Tap to view.", url: "/?admin=toolbox" }, { actorId: user.id }).catch(() => {});
 
   return NextResponse.json({ feedback: data });
 }

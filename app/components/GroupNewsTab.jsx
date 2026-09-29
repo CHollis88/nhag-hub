@@ -1,18 +1,32 @@
 "use client";
 
+import { authorName } from "@/lib/authorName";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, Pencil } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import PostReactions from "./PostReactions";
+import EmptyState from "./EmptyState";
+import { requestJson } from "@/lib/request";
+import { useFormDisclosure } from "./useFormDisclosure";
+import { useResource } from "@/lib/useResource";
+import { STALE, invalidate } from "@/lib/resourceCache";
+import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
+import { useAction } from "./useAction";
+import { useToast } from "./ToastProvider";
 
 function ReplyThread({ groupId, newsId }) {
   const [replies, setReplies] = useState(null);
   const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const run = useAction();
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/news/${newsId}/replies`);
-    const data = await res.json();
-    if (res.ok) setReplies(data.replies);
+    try {
+      const data = await requestJson(`/api/groups/${groupId}/news/${newsId}/replies`);
+      setReplies(data.replies);
+    } catch {
+      setReplies((prev) => prev ?? []);
+    }
   }, [groupId, newsId]);
 
   useEffect(() => {
@@ -21,21 +35,24 @@ function ReplyThread({ groupId, newsId }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!text.trim()) return;
-    await fetch(`/api/groups/${groupId}/news/${newsId}/replies`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body: text }),
-    });
-    setText("");
-    load();
+    if (!text.trim() || sending) return;
+    setSending(true);
+    // The reply stays in the box unless it actually posted.
+    const { ok } = await run(() =>
+      requestJson(`/api/groups/${groupId}/news/${newsId}/replies`, { method: "POST", body: { body: text } })
+    );
+    setSending(false);
+    if (ok) {
+      setText("");
+      load();
+    }
   };
 
   return (
     <div className="mt-3 pt-3 border-t border-linesoft">
       {replies?.map((r) => (
         <div key={r.id} className="text-sm text-inksoft mb-1.5">
-          <strong className="text-ink">{r.users?.display_name}:</strong> {r.body}
+          <strong className="text-ink">{authorName(r.users)}:</strong> {r.body}
         </div>
       ))}
       <form onSubmit={submit} className="flex gap-1.5 mt-2">
@@ -45,7 +62,9 @@ function ReplyThread({ groupId, newsId }) {
           placeholder="Reply…"
           className="sp-input text-sm py-1.5"
         />
-        <button type="submit" className="sp-btn-secondary text-sm py-1.5 px-3">Send</button>
+        <button type="submit" disabled={sending || !text.trim()} aria-busy={sending || undefined} className="sp-btn-secondary text-sm py-1.5 px-3 disabled:opacity-60">
+          {sending ? "Sending…" : "Send"}
+        </button>
       </form>
     </div>
   );
@@ -59,96 +78,126 @@ const KIND_LABELS = {
 };
 
 const FORM_COPY = {
-  announcement: { title: "Title", body: "What's the news?" },
-  class: { title: "Class title (e.g. this week's topic)", body: "Drop your notes from class here" },
-  discuss: { title: "Discussion title (e.g. a passage)", body: "Questions for the group to discuss" },
-  leader: { title: "Title", body: "Only this group's leaders and admins will see this" },
+  announcement: { heading: "New post", title: "Title", body: "What's the news?" },
+  class: { heading: "New class notes", title: "Class title (e.g. this week's topic)", body: "Drop your notes from class here" },
+  discuss: { heading: "New discussion", title: "Discussion title (e.g. a passage)", body: "Questions for the group to discuss" },
+  leader: { heading: "New leaders-only post", title: "Title", body: "Only this group's leaders and admins will see this" },
 };
 
 export default function GroupNewsTab({ groupId, canManage, showClassOption = true }) {
-  const [news, setNews] = useState(null);
   const [formKind, setFormKind] = useState(null); // null | "announcement" | "class" | "discuss" | "leader"
+  // v71 #36: ONE form at a time -- a new post of some kind OR editing one. The
+  // first field is focused on open (and scrolled to), and focus returns to the
+  // button that opened it when it closes.
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [openThread, setOpenThread] = useState(null);
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
+  const form = useFormDisclosure(formKind ? `new:${formKind}` : editingId ? `edit:${editingId}` : "none");
+  const openKind = (kind, fromElement) => {
+    setEditingId(null);
+    setFormKind(kind);
+    form.show(fromElement);
+  };
+  const closeForms = () => {
+    setFormKind(null);
+    setEditingId(null);
+    form.hide();
+  };
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
-  const [query, setQuery] = useState("");
-  const [viewMode, setViewMode] = useState("published"); // "published" | "drafts" -- leader-only toggle
+  // v71 #43: the search text and Drafts/published view are remembered when you leave and return.
+  const [query, setQuery] = useScreenState(`news:${groupId}:query`, "");
+  const [viewMode, setViewMode] = useScreenState(`news:${groupId}:view`, "published"); // "published" | "drafts" -- leader-only toggle
   const [notify, setNotify] = useState(true);
 
-  const load = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/news${viewMode === "drafts" ? "?drafts=1" : ""}`);
-    const data = await res.json();
-    if (res.ok) setNews(data.news);
-  }, [groupId, viewMode]);
+  const newsUrl = `/api/groups/${groupId}/news`;
+  const run = useAction();
+  const toast = useToast();
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // v71 #42-45: through the shared cache (shown at once on return, refreshed
+  // quietly when stale). After any change: every cached view of this news
+  // goes stale and the one on screen refreshes.
+  const newsPrefix = `group:${groupId}:news:`;
+  const { data: news, error: newsError } = useResource(
+    `${newsPrefix}${viewMode}`,
+    async () => (await requestJson(`${newsUrl}${viewMode === "drafts" ? "?drafts=1" : ""}`)).news,
+    { staleMs: STALE.list }
+  );
+  const loadFailed = Boolean(newsError);
+  const load = () => invalidate(`${newsPrefix}*`);
+  const scrollAnchor = useScrollMemory(`news:${groupId}`, news !== null);
 
+  // Only clears/closes the form on success; on failure everything typed
+  // stays and the reason is shown.
   const submit = async (e, asDraft = false) => {
     e.preventDefault();
-    const res = await fetch(`/api/groups/${groupId}/news`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, body, kind: formKind, status: asDraft ? "draft" : "published", notify }),
-    });
-    if (res.ok) {
-      setTitle("");
-      setBody("");
-      setFormKind(null);
-      setNotify(true);
-      load();
+    try {
+      await requestJson(newsUrl, {
+        method: "POST",
+        body: { title, body, kind: formKind, status: asDraft ? "draft" : "published", notify },
+      });
+    } catch (err) {
+      toast.error(err.message);
+      return;
     }
+    toast.success(asDraft ? "Draft saved" : "Posted");
+    setTitle("");
+    setBody("");
+    closeForms();
+    setNotify(true);
+    load();
   };
 
   const publish = async (id) => {
-    await fetch(`/api/groups/${groupId}/news/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "published" }),
+    const { ok } = await run(() => requestJson(`${newsUrl}/${id}`, { method: "PATCH", body: { status: "published" } }), {
+      success: "Published",
     });
-    load();
+    if (ok) load();
   };
 
   const remove = async (id) => {
-    await fetch(`/api/groups/${groupId}/news/${id}`, { method: "DELETE" });
-    load();
+    const { ok } = await run(() => requestJson(`${newsUrl}/${id}`, { method: "DELETE" }), { success: "Post deleted" });
+    if (ok) load();
   };
 
   const togglePin = async (id, pinned) => {
-    await fetch(`/api/groups/${groupId}/news/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ pinned: !pinned }),
-    });
-    load();
+    const { ok } = await run(() => requestJson(`${newsUrl}/${id}`, { method: "PATCH", body: { pinned: !pinned } }));
+    if (ok) load();
   };
 
-  const startEdit = (n) => {
+  const startEdit = (n, fromElement) => {
+    setFormKind(null);
     setEditingId(n.id);
+    form.show(fromElement);
     setEditTitle(n.title);
     setEditBody(n.body);
   };
 
+  // The edit stays open (with the changes still in it) if saving fails.
   const saveEdit = async (id) => {
-    await fetch(`/api/groups/${groupId}/news/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: editTitle, body: editBody }),
-    });
-    setEditingId(null);
-    load();
+    const { ok } = await run(
+      () => requestJson(`${newsUrl}/${id}`, { method: "PATCH", body: { title: editTitle, body: editBody } }),
+      { success: "Saved" }
+    );
+    if (ok) {
+      closeForms();
+      load();
+    }
   };
 
+  // Asks a Church Admin to push this post to the church-wide feed. The
+  // outcome shows in the message line (and a toast), success or failure.
   const requestPromotion = async (id) => {
     setMessage("");
-    const res = await fetch(`/api/groups/${groupId}/news/${id}/promote`, { method: "POST" });
-    const data = await res.json();
-    setMessage(res.ok ? "Sent to Church Admin for approval." : data.error);
+    try {
+      await requestJson(`${newsUrl}/${id}/promote`, { method: "POST" });
+      setMessage("Sent to Church Admin for approval.");
+      toast.success("Sent to Church Admin for approval");
+    } catch (err) {
+      setMessage(err.message);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -162,6 +211,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
 
   return (
     <div className="px-5 pt-4 pb-6">
+      <div ref={scrollAnchor} />
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="font-serif text-2xl text-ink">{viewMode === "drafts" ? "Drafts" : "Group News"}</h2>
         {canManage && (
@@ -173,17 +223,17 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
               {viewMode === "drafts" ? "Back to News" : "Drafts"}
             </button>
             {showClassOption && (
-              <button onClick={() => setFormKind("class")} className="sp-btn-pill bg-sage">
+              <button onClick={(e) => openKind("class", e.currentTarget)} className="sp-btn-pill bg-sage">
                 Class
               </button>
             )}
-            <button onClick={() => setFormKind("discuss")} className="sp-btn-pill bg-navy">
+            <button onClick={(e) => openKind("discuss", e.currentTarget)} className="sp-btn-pill bg-navy">
               Discuss
             </button>
-            <button onClick={() => setFormKind("announcement")} className="sp-btn-pill">
+            <button onClick={(e) => openKind("announcement", e.currentTarget)} className="sp-btn-pill">
               Post
             </button>
-            <button onClick={() => setFormKind("leader")} className="sp-btn-pill bg-accent">
+            <button onClick={(e) => openKind("leader", e.currentTarget)} className="sp-btn-pill bg-accent">
               Leaders Only
             </button>
           </div>
@@ -191,7 +241,8 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
       </div>
 
       {formKind && (
-        <form onSubmit={submit} className="sp-card mb-4">
+        <form ref={form.formRef} onSubmit={submit} className="sp-card mb-4" aria-labelledby="new-news-heading">
+          <h3 id="new-news-heading" className="font-serif text-lg text-ink mt-0 mb-3">{copy.heading}</h3>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -212,14 +263,15 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
             Notify {formKind === "leader" ? "this group's leaders" : "the group"}
           </label>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setFormKind(null)} className="sp-btn-secondary flex-1">Cancel</button>
+            <button type="button" onClick={closeForms} className="sp-btn-secondary flex-1">Cancel</button>
             <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">Save as Draft</button>
             <button type="submit" className="sp-btn-primary flex-1">Post</button>
           </div>
         </form>
       )}
 
-      {news === null && <SkeletonList count={3} />}
+      {news === null && loadFailed && <EmptyState kind="error" text="Couldn't load posts." onRetry={load} />}
+      {news === null && !loadFailed && <SkeletonList count={3} />}
       {news !== null && (
         <div className="relative mb-3">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-inkfaint" />
@@ -242,7 +294,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
           return (
             <div key={n.id} className={`sp-card ${n.pinned ? "border-accent/40" : ""}`}>
               {isEditing ? (
-                <>
+                <div ref={form.formRef} role="group" aria-label="Edit post">
                   <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="sp-input mb-2" />
                   <textarea
                     value={editBody}
@@ -252,9 +304,9 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
                   />
                   <div className="flex gap-3">
                     <button onClick={() => saveEdit(n.id)} className="sp-btn-primary py-1.5 px-3 text-sm">Save</button>
-                    <button onClick={() => setEditingId(null)} className="text-xs text-inkfaint underline">Cancel</button>
+                    <button onClick={closeForms} className="text-xs text-inkfaint underline">Cancel</button>
                   </div>
-                </>
+                </div>
               ) : (
                 <>
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -284,7 +336,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
                     )}
                     {canManage && (
                       <>
-                        <button onClick={() => startEdit(n)} className="text-xs text-accent underline flex items-center gap-1">
+                        <button onClick={(e) => startEdit(n, e.currentTarget)} data-return-focus={`news-edit-${n.id}`} className="text-xs text-accent underline flex items-center gap-1">
                           <Pencil size={11} /> Edit
                         </button>
                         {n.status === "draft" ? (

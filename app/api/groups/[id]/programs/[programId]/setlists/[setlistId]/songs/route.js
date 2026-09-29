@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup } from "@/lib/groupAuth";
+import { canManageGroup, assertInGroup } from "@/lib/groupAuth";
 
 export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId, setlistId } = await params;
+  const { id: groupId, programId, setlistId } = await params;
   if (!(await canManageGroup(user, groupId))) {
     return NextResponse.json(
       { error: "Only this group's leaders or a Church Admin can edit setlists." },
@@ -15,9 +15,27 @@ export async function POST(req, { params }) {
     );
   }
 
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
+  }
+  // ...the setlist must belong to that program.
+  if (!(await assertInGroup("program_setlists", setlistId, programId, "program_id"))) {
+    return NextResponse.json({ error: "Setlist not found." }, { status: 404 });
+  }
+
   const { song_id, note } = await req.json();
   if (!song_id) {
     return NextResponse.json({ error: "song_id is required." }, { status: 400 });
+  }
+
+  // ...and so must the song being added -- otherwise the insert below
+  // would attach (and the response would return the lyrics/chart links
+  // of) another ministry's song.
+  if (!(await assertInGroup("program_songs", song_id, programId, "program_id"))) {
+    return NextResponse.json({ error: "Song not found." }, { status: 404 });
   }
 
   const supabase = supabaseServer();

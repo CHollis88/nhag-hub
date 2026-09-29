@@ -1,5 +1,8 @@
 "use client";
 
+import HeaderButton from "./components/HeaderButton";
+import { useSimpleMode } from "@/lib/useSimpleMode";
+import { setCacheUser, clearResourceCache, forget } from "@/lib/resourceCache";
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -31,11 +34,13 @@ const DirectoryView = dynamic(() => import("./components/DirectoryView"));
 const NotificationsView = dynamic(() => import("./components/NotificationsView"));
 const ProfileView = dynamic(() => import("./components/ProfileView"));
 import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle, RotateCw } from "lucide-react";
-import { isAdminModeOn, setAdminMode } from "@/lib/adminMode";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
 import { PATCH_NOTES } from "@/lib/patchNotes";
 import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
 import { useViewportHeight } from "@/lib/useViewportHeight";
+import { requestJson } from "@/lib/request";
+import { clearAllJournalDrafts } from "@/lib/journalDrafts";
+import { useToast } from "./components/ToastProvider";
 
 function AuthCard({ children }) {
   return (
@@ -62,13 +67,7 @@ function EmailLinkForm({ onSent }) {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/request-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await requestJson("/api/auth/request-link", { method: "POST", body: { email } });
       onSent(email);
     } catch (err) {
       setError(err.message);
@@ -114,13 +113,7 @@ function SignInScreen({ authError }) {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/pin-login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, pin }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      await requestJson("/api/auth/pin-login", { method: "POST", body: { username, pin } });
       window.location.href = "/";
     } catch (err) {
       setError(err.message);
@@ -207,7 +200,12 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [showNotifyBanner, setShowNotifyBanner] = useState(false);
   const [profileViewOpen, setProfileViewOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [adminModeOn, setAdminModeOnState] = useState(true);
+  // v71 #19: `is_church_admin` from the server is EFFECTIVE (the admin role
+  // AND this device's "Use Admin Privileges" switch). The old client-only
+  // preference is gone -- what you see now is what the server will allow.
+  const [adminAttention, setAdminAttention] = useState(0); // Toolbox "Needs attention" count
+  const simple = useSimpleMode(); // v71: Simple mode (a per-device setting)
+  const toast = useToast();
   const isAdmin = me.user.is_church_admin;
   // Hides the bottom tab bar while an on-screen keyboard is open, same
   // reasoning as GroupShell's own use of this hook -- keeps it from
@@ -259,10 +257,6 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     }
   }, []);
 
-  useEffect(() => {
-    if (isAdmin) setAdminModeOnState(isAdminModeOn());
-  }, [isAdmin]);
-
   // Notifications must stay accurate in real time -- not just on first
   // load. Three ways this now stays fresh:
   //  1. Poll every 45s while the tab is visible (paused in the
@@ -272,20 +266,21 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   //  3. Refetch immediately when the service worker tells us a push just
   //     arrived (see the postMessage in public/sw.js) -- so the badge
   //     updates the instant something happens, not up to 45s later.
-  const loadUnreadCount = useCallback(() => {
-    fetch("/api/notifications")
-      .then((r) => r.json())
-      .then((data) => setUnreadCount((data.notifications || []).filter((n) => !n.read).length))
-      .catch(() => {});
-  }, []);
-
+  // v71 #1: ONE call returns both the "new content" timestamps and the
+  // unread count (it used to be two calls -- /latest and the full 50-row
+  // notifications list -- every 45 seconds).
   const refreshNotifications = useCallback(() => {
     fetch("/api/notifications/latest")
       .then((r) => r.json())
-      .then(setLatestContent)
+      .then((data) => {
+        if (data.error) return;
+        setLatestContent(data);
+        if (typeof data.unread_count === "number") setUnreadCount(data.unread_count);
+        // Present only for an effective admin (v71 #22); absent otherwise.
+        setAdminAttention(typeof data.admin_attention_count === "number" ? data.admin_attention_count : 0);
+      })
       .catch(() => {});
-    loadUnreadCount();
-  }, [loadUnreadCount]);
+  }, []);
 
   useEffect(() => {
     refreshNotifications();
@@ -328,11 +323,6 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     setTab(nextTab);
   };
 
-  const toggleAdminMode = () => {
-    const next = !adminModeOn;
-    setAdminMode(next);
-    setAdminModeOnState(next);
-  };
   const [activeGroup, setActiveGroup] = useState(null); // { id, name, role, features } | null
   const [bibleOverlay, setBibleOverlay] = useState(null); // { book, chapter } | null
 
@@ -358,15 +348,29 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   // "/?tab=<globalTab>" or "/?admin=toolbox" -- see lib/push.js callers.
   // Runs once, the first time `me` is available, since this only makes
   // sense as a one-time "where did this link want me to go" resolution.
+  //
+  // v71 #4: the resolver is a plain function so an in-app tap (a row in
+  // the notifications list) can use exactly the same routing as a push
+  // click, without a full page reload -- see openNotificationUrl below.
   const deepLinkHandledRef = useRef(false);
   useEffect(() => {
     if (deepLinkHandledRef.current || !deepLink) return;
     deepLinkHandledRef.current = true;
+    routeDeepLink(deepLink);
+  }, [deepLink, me]);
 
+  const routeDeepLink = (dl) =>
     (async () => {
-      const { groupId, groupTab, thread, channel, tab: globalTab, admin, whatsnew } = deepLink;
+      const { groupId, groupTab, thread, channel, tab: globalTab, admin, whatsnew } = dl;
 
       if (admin === "toolbox") {
+        // v71 #19: with Admin Privileges off the Toolbox can't load anything
+        // (the server treats this device as a regular member), so don't open
+        // an empty shell -- say how to get to it instead.
+        if (!me.user.is_church_admin) {
+          if (me.user.has_admin_role) toast.info("Turn on Admin Privileges in Settings to review this.");
+          return;
+        }
         setAdminToolboxOpen(true);
         return;
       }
@@ -413,7 +417,28 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
 
       if (globalTab) switchTab(globalTab);
     })();
-  }, [deepLink, me]);
+
+  // Same URL scheme push notifications use ("/?group=<id>&tab=<tab>",
+  // "/?tab=<tab>", "/?admin=toolbox", ...), navigated in-app.
+  const openNotificationUrl = (url) => {
+    if (!url) return;
+    let params;
+    try {
+      params = new URL(url, window.location.origin).searchParams;
+    } catch {
+      return;
+    }
+    const group = params.get("group");
+    routeDeepLink({
+      groupId: group,
+      groupTab: group ? params.get("tab") : null,
+      thread: params.get("thread"),
+      channel: params.get("channel"),
+      tab: group ? null : params.get("tab"),
+      admin: params.get("admin"),
+      whatsnew: params.get("whatsnew"),
+    });
+  };
 
   // Lets Reading Plan (or anything else nested inside a group) jump into
   // the universal Bible tab at a specific passage without losing your
@@ -453,6 +478,9 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     return (
       <GroupShell
         group={{ ...activeGroup, isAdmin: me.user.is_church_admin }}
+        hasAdminRole={me.user.has_admin_role}
+        adminMode={me.user.admin_mode}
+        adminNotifications={me.user.admin_notifications_enabled}
         myRole={activeGroup.role}
         currentUserId={me.user.id}
         onBackToHub={backToHub}
@@ -468,7 +496,9 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   return (
     <div className="flex flex-col bg-paper overflow-hidden" style={{ height: viewportHeight }}>
       <header
-        className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-[#132560] text-white"
+        className={`sticky top-0 z-30 px-4 py-2.5 bg-[#132560] text-white ${
+          simple ? "flex flex-col gap-1" : "flex justify-between items-center"
+        }`}
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
       >
         <div className="flex items-center gap-2.5 min-w-0">
@@ -485,18 +515,33 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             <span className="sm:hidden">NHAG</span>
           </strong>
         </div>
-        <div className="flex items-center gap-1.5 relative flex-shrink-0">
-          {isAdmin && adminModeOn && (
-            <button
-              onClick={() => setAdminToolboxOpen(true)}
-              aria-label="Admin Toolbox"
+        <div className={simple ? "flex items-center justify-around relative w-full" : "flex items-center gap-1.5 relative flex-shrink-0"}>
+          {isAdmin && (
+            <HeaderButton
+              simple={simple}
+              label="Admin"
+              ariaLabel={adminAttention > 0 ? `Admin Toolbox, ${adminAttention} need attention` : "Admin Toolbox"}
               title="Admin Toolbox"
-              className="text-white/90 p-1"
-            >
-              <Wrench size={22} />
-            </button>
+              icon={Wrench}
+              onClick={() => setAdminToolboxOpen(true)}
+              badge={
+                adminAttention > 0 && (
+                  <span
+                    className="absolute -top-0.5 -right-0.5 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-white text-[0.625rem] font-bold leading-[1.125rem] text-center"
+                    style={{ color: "#132560" }}
+                    aria-hidden="true"
+                  >
+                    {adminAttention > 99 ? "99+" : adminAttention}
+                  </span>
+                )
+              }
+            />
           )}
-          <button
+          <HeaderButton
+            simple={simple}
+            label="Refresh"
+            icon={RotateCw}
+            iconSize={20}
             onClick={() => {
               // A "refresh" needs to hit three things, not just the
               // current tab's own content:
@@ -519,47 +564,34 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
               setRefreshNonce((n) => n + 1);
               refreshNotifications();
             }}
-            aria-label="Refresh"
-            title="Refresh"
-            className="text-white/90 p-1"
-          >
-            <RotateCw size={20} />
-          </button>
-          <button
-            onClick={() => setNotificationsOpen(true)}
-            aria-label="Notifications"
+          />
+          <HeaderButton
+            simple={simple}
+            label="Alerts"
+            ariaLabel="Notifications"
             title="Notifications"
-            className="relative text-white/90 p-1"
-          >
-            <Bell size={22} />
-            {unreadCount > 0 && (
-              <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-white" />
-            )}
-          </button>
-          <button
-            onClick={() => setHelpOpen(true)}
-            aria-label="Help & FAQ"
+            icon={Bell}
+            onClick={() => setNotificationsOpen(true)}
+            badge={unreadCount > 0 && <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-white" />}
+          />
+          <HeaderButton
+            simple={simple}
+            label="Help"
+            ariaLabel="Help & FAQ"
             title="Help & FAQ"
-            className="text-white/90 p-1"
-          >
-            <HelpCircle size={22} />
-          </button>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            aria-label="Settings"
-            title="Settings"
-            className="text-white/90 p-1"
-          >
-            <Settings size={22} />
-          </button>
-          <button
-            onClick={() => setProfileMenuOpen((o) => !o)}
-            aria-label="Profile"
+            icon={HelpCircle}
+            onClick={() => setHelpOpen(true)}
+          />
+          <HeaderButton simple={simple} label="Settings" icon={Settings} onClick={() => setSettingsOpen(true)} />
+          <HeaderButton
+            simple={simple}
+            label="Me"
+            ariaLabel="Profile"
             title={me.user.display_name}
-            className="text-white/90 p-1"
-          >
-            <UserCircle size={24} />
-          </button>
+            icon={UserCircle}
+            iconSize={24}
+            onClick={() => setProfileMenuOpen((o) => !o)}
+          />
 
           {profileMenuOpen && (
             <>
@@ -568,6 +600,11 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
                 <p className="px-3.5 py-1.5 text-sm text-ink font-medium truncate border-b border-linesoft mb-1">
                   {me.user.display_name}
                 </p>
+                {isAdmin && (
+                  <p className="px-3.5 pb-1.5 -mt-0.5 text-[0.6875rem] text-sage font-semibold border-b border-linesoft mb-1">
+                    Admin privileges on
+                  </p>
+                )}
                 <button
                   onClick={() => {
                     setProfileMenuOpen(false);
@@ -626,9 +663,9 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
         <SettingsView
           me={me}
           refreshMe={refreshMe}
-          isAdmin={me.user.is_church_admin}
-          adminModeOn={adminModeOn}
-          onToggleAdminMode={toggleAdminMode}
+          hasAdminRole={me.user.has_admin_role}
+          adminMode={me.user.admin_mode}
+          adminNotifications={me.user.admin_notifications_enabled}
           onClose={() => setSettingsOpen(false)}
           onOpenHelp={() => {
             setSettingsOpen(false);
@@ -654,15 +691,24 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
         />
       )}
       {attributionOpen && <AttributionView onClose={() => setAttributionOpen(false)} />}
-      {adminToolboxOpen && (
-        <AdminToolboxView onClose={() => setAdminToolboxOpen(false)} onOpenGroup={openGroup} />
+      {adminToolboxOpen && isAdmin && (
+        <AdminToolboxView
+          onClose={() => {
+            setAdminToolboxOpen(false);
+            refreshNotifications(); // the count may have changed while it was open
+          }}
+          onOpenGroup={openGroup}
+          onAttentionChanged={refreshNotifications}
+          currentUserId={me.user.id}
+        />
       )}
       {notificationsOpen && (
         <NotificationsView
           onClose={() => {
             setNotificationsOpen(false);
-            loadUnreadCount();
+            refreshNotifications();
           }}
+          onNavigate={openNotificationUrl}
         />
       )}
       {profileViewOpen && (
@@ -675,6 +721,9 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
 function HomeInner() {
   const searchParams = useSearchParams();
   const [me, setMe] = useState(undefined); // undefined = loading, null = signed out
+  const toast = useToast();
+  const lastPrivileges = useRef(null);
+  const lastGroupIds = useRef(new Set());
 
   const load = useCallback(async () => {
     // cache: "no-store" here specifically -- this is the manual/initial
@@ -683,7 +732,27 @@ function HomeInner() {
     // served from the browser's cache of a previous /api/me response.
     const res = await fetch("/api/me", { cache: "no-store" });
     const data = await res.json();
-    setMe(data.user ? data : null);
+    const next = data.user ? data : null;
+
+    // v71 #42: tell the request cache WHO is signed in before anything on screen
+    // fetches (child effects run before parent effects, so this can't wait for
+    // one). A different person, or nobody, empties it.
+    setCacheUser(next?.user?.id ?? null);
+    if (next) {
+      // Same account, but what it may see changed: drop admin-era data rather
+      // than keep showing it (e.g. after turning Admin Privileges off).
+      const privileges = `${next.user.is_church_admin}|${next.user.has_admin_role}|${next.user.admin_mode}`;
+      if (lastPrivileges.current !== null && lastPrivileges.current !== privileges) clearResourceCache({ refetchMounted: true });
+      lastPrivileges.current = privileges;
+      // Lost access to a ministry (removed, or it was archived): forget its data.
+      const groupIds = new Set((next.memberships || []).map((m) => m.group_id));
+      for (const gid of lastGroupIds.current) if (!groupIds.has(gid)) forget((k) => k.startsWith(`group:${gid}:`));
+      lastGroupIds.current = groupIds;
+    } else {
+      lastPrivileges.current = null;
+      lastGroupIds.current = new Set();
+    }
+    setMe(next);
   }, []);
 
   useEffect(() => {
@@ -697,7 +766,20 @@ function HomeInner() {
   }, [me]);
 
   const signOut = async () => {
-    await fetch("/api/auth/sign-out", { method: "POST" });
+    try {
+      await requestJson("/api/auth/sign-out", { method: "POST" });
+    } catch (err) {
+      // If the server couldn't end the session, do NOT pretend we're signed
+      // out -- the cookie is still valid on this device.
+      toast.error(`Couldn't sign out: ${err.message}`);
+      return;
+    }
+    // Nothing personal stays behind on a shared device (v71 #13): drafts, and
+    // now every cached page of data and remembered search/scroll (#42).
+    clearAllJournalDrafts();
+    setCacheUser(null);
+    lastPrivileges.current = null;
+    lastGroupIds.current = new Set();
     setMe(null);
   };
 

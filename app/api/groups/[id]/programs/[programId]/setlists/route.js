@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
+import { canManageGroup, isActiveGroupMember, assertInGroup } from "@/lib/groupAuth";
 import { notifyGroup } from "@/lib/push";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { rpcFailure } from "@/lib/rpc";
 
 const VALID_SERVICES = ["AM", "PM", "CP"];
+
+const SETLIST_ERRORS = {
+  NH002: { status: 400, message: "Check the date, the service, and the songs, then try again." },
+  NH003: { status: 400, message: "One of those songs isn't in this program's library." },
+};
 
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
@@ -14,6 +20,13 @@ export async function GET(req, { params }) {
   const { id: groupId, programId } = await params;
   if (!(await isActiveGroupMember(user, groupId))) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
+  }
+
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
   const supabase = supabaseServer();
@@ -51,7 +64,14 @@ export async function POST(req, { params }) {
     );
   }
 
-  const { service_date, service, notify } = await req.json();
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
+    return NextResponse.json({ error: "Program not found." }, { status: 404 });
+  }
+
+  const { service_date, service, notify, songs } = await req.json();
   if (!service_date || !VALID_SERVICES.includes(service)) {
     return NextResponse.json(
       { error: `service_date is required and service must be one of: ${VALID_SERVICES.join(", ")}` },
@@ -60,14 +80,17 @@ export async function POST(req, { params }) {
   }
   const shouldNotify = notify !== false;
 
+  // v71 #9: header + songs in ONE transaction (save_program_setlist).
   const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from("program_setlists")
-    .insert({ program_id: programId, service_date, service })
-    .select()
-    .single();
+  const { data: saved, error } = await supabase.rpc("save_program_setlist", {
+    p_program_id: programId,
+    p_setlist_id: null,
+    p_header: { service_date, service },
+    p_songs: Array.isArray(songs) ? songs.map((s) => ({ song_id: s.song_id, note: s.note || null })) : [],
+  });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return rpcFailure(error, SETLIST_ERRORS);
+  const data = { id: saved.setlist_id, service_date, service };
 
   // Include the program's own name in the notification -- a bare "New
   // Setlist" would be ambiguous between the ministry's main setlists and

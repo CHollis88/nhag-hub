@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { invalidateUserSessions } from "@/lib/session";
 
 // Any active member of the group can see the roster (per the project's
 // decision that members can see who else is in their group). Only a
@@ -85,5 +86,6 @@ export async function POST(req, { params }) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  invalidateUserSessions(user_id);
   return NextResponse.json({ member: data });
 }

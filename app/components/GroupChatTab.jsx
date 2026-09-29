@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import MessageThreadView from "./MessageThreadView";
+import { useAdaptivePolling, messagesSignature } from "@/lib/useAdaptivePolling";
+import { useConfirm } from "./ConfirmDialog";
+import { useAction } from "./useAction";
+import { requestJson } from "@/lib/request";
+import { mergeLatest, prependOlder } from "@/lib/messagePaging";
 
 // Group Chat (feature keys "chat_members" and "chat_leaders" -- each
 // independently toggleable per Cam's decision, e.g. a ministry can turn
@@ -28,65 +33,96 @@ export default function GroupChatTab({
     return defaultChannel;
   });
   const [messages, setMessages] = useState(null);
+  // v71 #44: only the newest page is fetched (and polled); older messages load
+  // on request and are kept when the newest page refreshes.
+  const [hasEarlier, setHasEarlier] = useState(false);
   const [muted, setMuted] = useState(false);
-  const pollRef = useRef(null);
 
+  const confirm = useConfirm();
+  const run = useAction();
+
+  // Polled every 10-30 s: a failed poll stays quiet (no toast every few
+  // seconds while offline) and simply tries again next time.
   const loadMessages = useCallback(async () => {
-    const res = await fetch(`/api/groups/${groupId}/chat/${channel}/messages`);
-    const data = await res.json();
-    if (res.ok) setMessages(data.messages);
+    try {
+      const data = await requestJson(`/api/groups/${groupId}/chat/${channel}/messages`);
+      // Merge onto what's already loaded so a poll never throws away older
+      // messages the person has scrolled back to read. Whether OLDER ones exist
+      // is only learned from the first page or a "load earlier" -- not from a poll.
+      setMessages((current) => {
+        if (current === null) setHasEarlier(Boolean(data.has_more));
+        return mergeLatest(current, data.messages);
+      });
+      return messagesSignature(data.messages);
+    } catch {
+      return undefined;
+    }
   }, [groupId, channel]);
 
   useEffect(() => {
     setMessages(null);
+    setHasEarlier(false);
     loadMessages();
-    fetch(`/api/groups/${groupId}/chat/${channel}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mark_read: true }),
-    });
+    // Marking read is housekeeping -- never worth interrupting anyone over.
+    requestJson(`/api/groups/${groupId}/chat/${channel}`, { method: "PATCH", body: { mark_read: true } }).catch(() => {});
   }, [groupId, channel, loadMessages]);
 
-  useEffect(() => {
-    pollRef.current = setInterval(loadMessages, 4000);
-    return () => clearInterval(pollRef.current);
-  }, [loadMessages]);
+  // 10 s while messages are flowing, 30 s after 2 quiet minutes, paused
+  // while the page is hidden (see lib/useAdaptivePolling).
+  const nudgePolling = useAdaptivePolling(loadMessages, { resetKey: `${groupId}:${channel}` });
 
+  // The "Load earlier messages" button: the page older than the oldest shown.
+  const loadEarlier = async () => {
+    const oldest = messages?.[0]?.created_at;
+    if (!oldest) return;
+    const { ok, data } = await run(() =>
+      requestJson(`/api/groups/${groupId}/chat/${channel}/messages?before=${encodeURIComponent(oldest)}`)
+    );
+    if (!ok) return; // useAction has shown the reason; the button stays for a retry
+    setMessages((current) => prependOlder(current, data.messages));
+    setHasEarlier(Boolean(data.has_more));
+  };
+
+  // Throws on failure -- MessageThreadView keeps the text in the box and
+  // shows the reason next to the composer (v71 #14).
   const send = async (body) => {
-    await fetch(`/api/groups/${groupId}/chat/${channel}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
-    });
-    loadMessages();
+    await requestJson(`/api/groups/${groupId}/chat/${channel}/messages`, { method: "POST", body: { body } });
+    nudgePolling(); // refresh now and go back to the fast rate
   };
 
   const react = async (messageId, emoji) => {
-    await fetch(`/api/messages/group_chat/${messageId}/reactions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ emoji }),
-    });
-    loadMessages();
+    const { ok } = await run(() =>
+      requestJson(`/api/messages/group_chat/${messageId}/reactions`, { method: "POST", body: { emoji } })
+    );
+    if (ok) loadMessages();
   };
 
+  // Optimistic; put back (and say so) if the server refuses.
   const toggleMute = async () => {
     const next = !muted;
     setMuted(next);
-    await fetch(`/api/groups/${groupId}/chat/${channel}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ muted: next }),
-    });
+    const { ok } = await run(() =>
+      requestJson(`/api/groups/${groupId}/chat/${channel}`, { method: "PATCH", body: { muted: next } })
+    );
+    if (!ok) setMuted(!next);
   };
 
   // Leader/admin-only, regardless of channel -- wipes this channel's
   // messages but leaves the channel itself (and the other one, if the
   // ministry has both) on and usable.
   const clearChat = async () => {
-    if (!confirm(`Clear all messages in ${channel === "leaders" ? "Leaders Only" : "Members"} chat? This can't be undone.`)) return;
-    await fetch(`/api/groups/${groupId}/chat/${channel}/messages`, { method: "DELETE" });
-    loadMessages();
+    const which = channel === "leaders" ? "Leaders Only" : "Members";
+    const yes = await confirm({
+      title: `Clear the ${which} chat?`,
+      message: "Every message in this channel is removed for everyone. The channel itself stays. This can't be undone.",
+      confirmLabel: "Clear messages",
+    });
+    if (!yes) return;
+    const { ok } = await run(
+      () => requestJson(`/api/groups/${groupId}/chat/${channel}/messages`, { method: "DELETE" }),
+      { success: "Messages cleared" }
+    );
+    if (ok) loadMessages();
   };
 
   return (
@@ -114,6 +150,8 @@ export default function GroupChatTab({
       )}
       <div className="flex-1 min-h-0">
         <MessageThreadView
+          hasEarlier={hasEarlier}
+          onLoadEarlier={loadEarlier}
           messages={messages}
           currentUserId={currentUserId}
           onSend={send}
