@@ -33,7 +33,7 @@ const AdminToolboxView = dynamic(() => import("./components/AdminToolboxView"));
 const DirectoryView = dynamic(() => import("./components/DirectoryView"));
 const NotificationsView = dynamic(() => import("./components/NotificationsView"));
 const ProfileView = dynamic(() => import("./components/ProfileView"));
-import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle, RotateCw } from "lucide-react";
+import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle, RotateCw, Menu } from "lucide-react";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
 import { PATCH_NOTES } from "@/lib/patchNotes";
 import { useKeyboardVisible } from "@/lib/useKeyboardVisible";
@@ -449,6 +449,24 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const openBiblePassage = (book, chapter) => setBibleOverlay({ book, chapter });
   const closeBibleOverlay = () => setBibleOverlay(null);
 
+  // What "Refresh" does. A refresh needs to hit three things, not just the
+  // current tab's own content:
+  //  1. refreshMe() -- re-fetches /api/me, which is the actual source of each
+  //     ministry card's Request/Pending state. Bumping refreshNonce alone
+  //     remounts HomeTab and makes IT refetch /api/groups fresh, but `me`
+  //     itself is a prop passed down from further up the tree -- without this
+  //     call it stays the same stale object, which is exactly why tapping
+  //     refresh after a join request or an approval didn't change the card
+  //     (a real bug: refreshMe was available here and simply never called).
+  //  2. refreshNonce -- remounts the current tab's content so its own data
+  //     (events, news, groups list, etc.) refetches too.
+  //  3. refreshNotifications() -- updates the bell badge.
+  const refreshEverything = () => {
+    refreshMe();
+    setRefreshNonce((n) => n + 1);
+    refreshNotifications();
+  };
+
   if (bibleOverlay) {
     return (
       <div className="flex flex-col bg-paper overflow-hidden" style={{ height: viewportHeight }}>
@@ -496,9 +514,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   return (
     <div className="flex flex-col bg-paper overflow-hidden" style={{ height: viewportHeight }}>
       <header
-        className={`sticky top-0 z-30 px-4 py-2.5 bg-[#132560] text-white ${
-          simple ? "flex flex-col gap-1" : "flex justify-between items-center"
-        }`}
+        className="sticky top-0 z-30 flex justify-between items-center px-4 py-2.5 bg-[#132560] text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.625rem)" }}
       >
         <div className="flex items-center gap-2.5 min-w-0">
@@ -515,8 +531,12 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             <span className="sm:hidden">NHAG</span>
           </strong>
         </div>
-        <div className={simple ? "flex items-center justify-around relative w-full" : "flex items-center gap-1.5 relative flex-shrink-0"}>
-          {isAdmin && (
+        <div className={`flex items-center relative flex-shrink-0 ${simple ? "gap-1" : "gap-1.5"}`}>
+          {/* Normal mode: the six icon buttons, exactly as before. Simple mode
+              keeps ONE row too, with just three buttons that each have a word:
+              Alerts, Help, and Menu. Settings, Refresh and the Admin Toolbox are
+              not gone -- they are in the Menu (below). */}
+          {isAdmin && !simple && (
             <HeaderButton
               simple={simple}
               label="Admin"
@@ -537,34 +557,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
               }
             />
           )}
-          <HeaderButton
-            simple={simple}
-            label="Refresh"
-            icon={RotateCw}
-            iconSize={20}
-            onClick={() => {
-              // A "refresh" needs to hit three things, not just the
-              // current tab's own content:
-              //  1. refreshMe() -- re-fetches /api/me, which is the
-              //     actual source of each ministry card's Request/
-              //     Pending/Launch button state. Bumping refreshNonce
-              //     alone remounts HomeTab and makes IT refetch
-              //     /api/groups fresh, but `me` itself is a prop passed
-              //     down from further up the tree -- without this call
-              //     it stays the same stale object, which is exactly
-              //     why tapping refresh after a join request or an
-              //     approval didn't change the card (this was a real
-              //     bug: refreshMe was already available here as a
-              //     prop and simply never got called).
-              //  2. refreshNonce -- remounts the current tab's content
-              //     so its own data (events, news, groups list, etc.)
-              //     refetches too.
-              //  3. refreshNotifications() -- updates the bell badge.
-              refreshMe();
-              setRefreshNonce((n) => n + 1);
-              refreshNotifications();
-            }}
-          />
+          {!simple && <HeaderButton simple={simple} label="Refresh" icon={RotateCw} iconSize={20} onClick={refreshEverything} />}
           <HeaderButton
             simple={simple}
             label="Alerts"
@@ -582,21 +575,36 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             icon={HelpCircle}
             onClick={() => setHelpOpen(true)}
           />
-          <HeaderButton simple={simple} label="Settings" icon={Settings} onClick={() => setSettingsOpen(true)} />
+          {!simple && <HeaderButton simple={simple} label="Settings" icon={Settings} onClick={() => setSettingsOpen(true)} />}
           <HeaderButton
             simple={simple}
-            label="Me"
-            ariaLabel="Profile"
-            title={me.user.display_name}
-            icon={UserCircle}
+            label={simple ? "Menu" : "Me"}
+            ariaLabel={simple ? (isAdmin && adminAttention > 0 ? `Menu, ${adminAttention} need attention` : "Menu") : "Profile"}
+            title={simple ? "Menu" : me.user.display_name}
+            icon={simple ? Menu : UserCircle}
             iconSize={24}
             onClick={() => setProfileMenuOpen((o) => !o)}
+            badge={
+              simple && isAdmin && adminAttention > 0 && (
+                <span
+                  className="absolute -top-1 -right-2 min-w-[1.125rem] h-[1.125rem] px-1 rounded-full bg-white text-[0.625rem] font-bold leading-[1.125rem] text-center"
+                  style={{ color: "#132560" }}
+                  aria-hidden="true"
+                >
+                  {adminAttention > 99 ? "99+" : adminAttention}
+                </span>
+              )
+            }
           />
 
           {profileMenuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setProfileMenuOpen(false)} />
-              <div className="absolute right-0 top-full mt-2 bg-card text-ink rounded-xl shadow-xl border border-line py-1.5 w-44 z-50">
+              <div
+                className={`absolute right-0 top-full mt-2 bg-card text-ink rounded-xl shadow-xl border border-line py-1.5 z-50 ${
+                  simple ? "w-60" : "w-44"
+                }`}
+              >
                 <p className="px-3.5 py-1.5 text-sm text-ink font-medium truncate border-b border-linesoft mb-1">
                   {me.user.display_name}
                 </p>
@@ -605,20 +613,59 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
                     Admin privileges on
                   </p>
                 )}
+                {simple && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        setSettingsOpen(true);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 min-h-[48px] text-base text-inksoft"
+                    >
+                      <Settings size={18} /> Settings
+                    </button>
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false);
+                        refreshEverything();
+                      }}
+                      className="w-full flex items-center gap-3 px-4 min-h-[48px] text-base text-inksoft"
+                    >
+                      <RotateCw size={18} /> Refresh
+                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false);
+                          setAdminToolboxOpen(true);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 min-h-[48px] text-base text-inksoft"
+                      >
+                        <Wrench size={18} /> Admin Toolbox
+                        {adminAttention > 0 && (
+                          <span className="ml-auto text-xs bg-accent text-white rounded-full px-2 py-0.5" aria-label={`${adminAttention} need attention`}>
+                            {adminAttention}
+                          </span>
+                        )}
+                      </button>
+                    )}
+                    <div className="border-t border-linesoft my-1" />
+                  </>
+                )}
                 <button
                   onClick={() => {
                     setProfileMenuOpen(false);
                     setProfileViewOpen(true);
                   }}
-                  className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-inksoft"
+                  className={`w-full flex items-center gap-2 px-3.5 text-inksoft ${simple ? "min-h-[48px] text-base px-4 gap-3" : "py-2 text-sm"}`}
                 >
-                  <KeyRound size={14} /> Edit Profile
+                  <KeyRound size={simple ? 18 : 14} /> Edit Profile
                 </button>
                 <button
                   onClick={onSignOut}
-                  className="w-full flex items-center gap-2 px-3.5 py-2 text-sm text-inksoft"
+                  className={`w-full flex items-center gap-2 px-3.5 text-inksoft ${simple ? "min-h-[48px] text-base px-4 gap-3" : "py-2 text-sm"}`}
                 >
-                  <LogOut size={14} /> Sign out
+                  <LogOut size={simple ? 18 : 14} /> Sign out
                 </button>
               </div>
             </>

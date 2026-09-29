@@ -190,11 +190,11 @@ const CATEGORIES = [
       },
       {
         q: "What is Simple mode?",
-        a: "Simple mode is a switch at the top of Settings for anyone who would like the app to be easier to use. It shows a shorter bottom bar (Home, Bible, News, Events, and Sermons), puts a word under every button at the top of the screen (Help, Alerts, Settings, Me), makes the labels bigger, keeps messages on the screen longer, and starts the Bible in the plainer Simple view. Nothing is taken away — Calendar and Directory are still reachable from Home — and you can switch it off any time. It's saved on the device you turn it on, so a family member can set it up for you.",
+        a: "Simple mode is a switch at the top of Settings for anyone who would like the app to be easier to use. The bottom bar shows just Home, Bible, News, Events, and Sermons, with bigger labels. At the top of the screen there are only three buttons, each with a word on it: Alerts, Help, and Menu. Settings, Refresh, and (for admins) the Admin Toolbox move into the Menu. Messages also stay on the screen longer, and the Bible starts in the plainer Simple view. Nothing is taken away — Calendar and Directory are still reachable from Home — and you can switch it off any time. It's saved on the device you turn it on, so a family member can set it up for you.",
       },
       {
         q: "Can I edit my name, username, or PIN?",
-        a: "Yes — tap the profile icon in the header (or \"Me\" in Simple mode) and choose \"Edit Profile\" to change your display name, username, or short bio. To change your PIN, scroll to \"Security\" at the bottom of your profile and tap \"Change PIN\". Usernames still need to be unique, same as when you first signed up.",
+        a: "Yes — tap the profile icon in the header (or \"Menu\" in Simple mode) and choose \"Edit Profile\" to change your display name, username, or short bio. To change your PIN, scroll to \"Security\" at the bottom of your profile and tap \"Change PIN\". Usernames still need to be unique, same as when you first signed up.",
       },
     ],
   },

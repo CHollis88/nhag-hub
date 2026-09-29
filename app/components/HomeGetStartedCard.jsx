@@ -34,7 +34,7 @@ const ITEMS = [
     id: "simple",
     icon: SlidersHorizontal,
     title: "Prefer fewer buttons?",
-    body: "Turn on Simple mode in Settings: a shorter menu, a word under every button, bigger labels, and messages that stay on screen longer.",
+    body: "Turn on Simple mode in Settings: a shorter menu, just three labeled buttons at the top, bigger labels, and messages that stay on screen longer.",
     action: "settings",
   },
   {

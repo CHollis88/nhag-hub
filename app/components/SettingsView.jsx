@@ -200,7 +200,7 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, o
         checked={simple}
         onChange={toggleSimple}
         label="Simple mode"
-        description="Fewer buttons, a word under every button, bigger labels, and messages that stay up longer. Nothing is taken away — you can turn it off any time."
+        description="A shorter menu, just three labeled buttons at the top, bigger labels, and messages that stay up longer. Nothing is taken away — Settings and Refresh move into the Menu button, and you can turn Simple mode off any time."
         className="mb-3"
       />
       <p className="text-xs text-inkfaint mt-0 mb-1.5">Theme</p>

@@ -15,13 +15,13 @@ export default function HeaderButton({ simple, label, ariaLabel, title, icon: Ic
         onClick={onClick}
         aria-label={ariaLabel || label}
         title={title || label}
-        className="relative flex flex-col items-center justify-center gap-0.5 min-w-[60px] min-h-[52px] px-1 text-white"
+        className="relative flex flex-col items-center justify-center gap-0.5 min-w-[52px] min-h-[44px] px-1 text-white"
       >
         <span className="relative">
-          <Icon size={24} aria-hidden="true" />
+          <Icon size={22} aria-hidden="true" />
           {badge}
         </span>
-        <span className="text-xs font-medium leading-tight">{label}</span>
+        <span className="text-[0.6875rem] font-medium leading-none">{label}</span>
       </button>
     );
   }
