@@ -10,7 +10,7 @@ import { useToast } from "./ToastProvider";
 // drop this in without wiring its own fetch/toggle logic.
 const ALLOWED_EMOJI = ["👍", "❤️", "🙏", "😂", "😢"];
 
-export default function PostReactions({ postType, postId }) {
+export default function PostReactions({ postType, postId, children }) {
   const [reactions, setReactions] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const busyRef = useRef(false);
@@ -91,6 +91,7 @@ export default function PostReactions({ postType, postId }) {
           </div>
         )}
       </div>
+      {children}
     </div>
   );
 }

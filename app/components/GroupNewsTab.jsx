@@ -4,6 +4,7 @@ import { authorName } from "@/lib/authorName";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Search } from "lucide-react";
 import RowMenu from "./RowMenu";
+import ReplyButtons from "./ReplyButtons";
 import { useConfirm } from "./ConfirmDialog";
 import { fmtPostDate } from "@/lib/format";
 import { SkeletonList } from "./Skeleton";
@@ -63,6 +64,8 @@ function ReplyThread({ groupId, newsId }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Reply…"
+          id={`reply-input-${newsId}`}
+          autoFocus
           className="sp-input text-sm py-1.5"
         />
         <button type="submit" disabled={sending || !text.trim()} aria-busy={sending || undefined} className="sp-btn-secondary text-sm py-1.5 px-3 disabled:opacity-60">
@@ -368,22 +371,26 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
                     {authorName(n.users)} · {fmtPostDate(n.created_at)}
                   </p>
 
-                  {(n.kind === "discuss" || (canManage && n.status === "draft")) && (
+                  {canManage && n.status === "draft" && (
                     <div className="flex gap-3 mt-2 flex-wrap">
-                      {n.kind === "discuss" && (
-                        <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} className="text-xs text-accent underline py-1">
-                          {openThread === n.id ? "Hide replies" : "Replies"}
-                        </button>
-                      )}
-                      {canManage && n.status === "draft" && (
-                        <button onClick={() => publish(n.id)} className="text-xs text-sage underline font-semibold py-1">
-                          Publish
-                        </button>
-                      )}
+                      <button onClick={() => publish(n.id)} className="text-xs text-sage underline font-semibold py-1">
+                        Publish
+                      </button>
                     </div>
                   )}
 
-                  {n.status !== "draft" && <PostReactions postType="group_news" postId={n.id} />}
+                  {n.status !== "draft" && (
+                    <PostReactions postType="group_news" postId={n.id}>
+                      {n.kind === "discuss" && (
+                        <ReplyButtons
+                          open={openThread === n.id}
+                          onOpen={() => setOpenThread(n.id)}
+                          onHide={() => setOpenThread(null)}
+                          inputId={`reply-input-${n.id}`}
+                        />
+                      )}
+                    </PostReactions>
+                  )}
 
                   {n.kind === "discuss" && openThread === n.id && <ReplyThread groupId={groupId} newsId={n.id} />}
                 </>

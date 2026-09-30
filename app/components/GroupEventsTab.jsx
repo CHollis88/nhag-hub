@@ -4,6 +4,7 @@ import { authorName } from "@/lib/authorName";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Search, List, CalendarDays, Pencil } from "lucide-react";
 import EventCalendar from "./EventCalendar";
+import ReplyButtons from "./ReplyButtons";
 import { SkeletonList } from "./Skeleton";
 import { formatTime12h } from "@/lib/formatTime";
 import { todayLocal } from "@/lib/localDate";
@@ -62,6 +63,8 @@ function ReplyThread({ groupId, eventId }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Reply…"
+          id={`reply-input-${eventId}`}
+          autoFocus
           className="sp-input text-sm py-1.5"
         />
         <button type="submit" disabled={sending || !text.trim()} aria-busy={sending || undefined} className="sp-btn-secondary text-sm py-1.5 px-3 disabled:opacity-60">
@@ -649,12 +652,18 @@ export default function GroupEventsTab({ groupId, canManage }) {
               volunteerList={volunteerLists[ev.id]}
             />
 
+            {ev.allow_replies && (
+              <div className="flex items-center gap-1 flex-wrap mt-2">
+                <ReplyButtons
+                  open={openThread === ev.id}
+                  onOpen={() => setOpenThread(ev.id)}
+                  onHide={() => setOpenThread(null)}
+                  inputId={`reply-input-${ev.id}`}
+                />
+              </div>
+            )}
+
             <div className="flex gap-3 mt-2 items-center flex-wrap">
-              {ev.allow_replies && (
-                <button onClick={() => setOpenThread(openThread === ev.id ? null : ev.id)} className="text-xs text-accent underline">
-                  {openThread === ev.id ? "Hide replies" : "Replies"}
-                </button>
-              )}
               {canManage && <EditEventControl event={ev} onSave={saveEdit} editing={editingEventId === ev.id} onEdit={openEdit} onClose={closeForm} formRef={form.formRef} />}
               {canManage && <DeleteControl event={ev} onDelete={remove} />}
             </div>
