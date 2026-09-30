@@ -117,7 +117,7 @@ const CATEGORIES = [
       },
       {
         q: "What are the buttons above the Bible text?",
-        a: "Along the top: the arrows go to the previous or next chapter (and carry on into the next book, so you can read straight through), and the middle button picks a book and chapter. Below that, four labeled tools — Listen reads the chapter aloud, Word tap lets you tap a word to hear it, Find jumps to a reference or searches the chapter, and Font changes how the text looks. A tool that is switched on shows a check mark. Underneath, you can change translation or layout, switch between Study and Simple, and a line always tells you what's showing, like \"NLT · Study\".",
+        a: "Along the top: the arrows go to the previous or next chapter (and carry on into the next book, so you can read straight through), and the middle button picks a book and chapter. Below that, four labeled buttons stay in view while you read — Listen reads the chapter aloud, Word tap lets you tap a word to hear it, Find jumps to a reference or searches the chapter, and the translation button (it shows which Bible you're in, like NLT) changes the translation. Just underneath, and scrolling away with the text, are Font, Layout, KJV (to show the King James alongside), and Study/Simple. A button that is switched on shows a check mark. On a wide screen, all of it fits on one row.",
       },
       {
         q: "What translations are available, and how are they different?",
