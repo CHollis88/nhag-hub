@@ -191,11 +191,11 @@ export default function ProgramSettingsPanel({ groupId, program, onSaved, onDele
         {dirty ? "You have unsaved changes." : ""}
       </p>
 
-      <div className="flex gap-2">
-        <button type="button" onClick={cancel} className="sp-btn-secondary flex-1 min-h-[44px]">
+      <div className="flex gap-2 justify-end">
+        <button type="button" onClick={cancel} className="sp-btn-secondary sp-btn-compact">
           Cancel
         </button>
-        <button type="submit" disabled={!canSave} aria-busy={saving || undefined} className="sp-btn-primary flex-1 min-h-[44px] disabled:opacity-60">
+        <button type="submit" disabled={!canSave} aria-busy={saving || undefined} className="sp-btn-primary sp-btn-compact disabled:opacity-60">
           {saving ? "Saving…" : "Save changes"}
         </button>
       </div>

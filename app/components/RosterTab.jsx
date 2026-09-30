@@ -342,15 +342,15 @@ export default function RosterTab({ groupId, myRole, onRenamed, onLeave }) {
               Leave this ministry? You'll lose access to its News, Events, and Prayer, and would need to
               request to join again later.
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 justify-end">
               <button
                 onClick={leaveGroup}
                 disabled={leaving}
-                className="sp-btn-secondary text-red-600 dark:text-red-400 flex-1"
+                className="sp-btn-secondary sp-btn-compact text-red-600 dark:text-red-400"
               >
                 {leaving ? "Leaving…" : "Yes, leave"}
               </button>
-              <button onClick={() => setConfirmingLeave(false)} className="sp-btn-secondary flex-1">
+              <button onClick={() => setConfirmingLeave(false)} className="sp-btn-secondary sp-btn-compact">
                 Cancel
               </button>
             </div>

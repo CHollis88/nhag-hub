@@ -2380,13 +2380,13 @@ function NoteEditorPopup({ verseStart, verseEnd, bookName, chapter, initialText,
         className="sp-input text-sm resize-none mb-3"
         autoFocus
       />
-      <div className="flex gap-2">
+      <div className="flex gap-2 justify-end">
         {hasExisting && (
-          <button onClick={onDelete} className="sp-btn-secondary flex-shrink-0 px-3">
+          <button onClick={onDelete} aria-label="Delete note" className="sp-btn-secondary sp-btn-compact flex-shrink-0 px-3">
             <Trash2 size={16} />
           </button>
         )}
-        <button onClick={handleSave} disabled={saving || !text.trim()} className="sp-btn-primary flex-1">
+        <button onClick={handleSave} disabled={saving || !text.trim()} className="sp-btn-primary sp-btn-compact">
           {saving ? "Saving..." : "Save Note"}
         </button>
       </div>

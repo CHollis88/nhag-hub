@@ -218,7 +218,7 @@ export default function SermonsTab({ isAdmin }) {
 
       {showForm && (
         <form ref={form.formRef} onSubmit={submit} className="sp-card mb-4" aria-labelledby="sermon-form-heading">
-          <h3 id="sermon-form-heading" className="font-serif text-lg text-ink mt-0 mb-3">
+          <h3 id="sermon-form-heading" className="font-serif text-base text-ink mt-0 mb-3">
             {editingId ? "Edit sermon" : "New sermon"}
           </h3>
           <input
@@ -285,13 +285,13 @@ export default function SermonsTab({ isAdmin }) {
               Notify everyone
             </label>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-2 justify-end">
             {!editingId && (
-              <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">
+              <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary sp-btn-compact">
                 Save as Draft
               </button>
             )}
-            <button type="submit" className="sp-btn-primary flex-1">{editingId ? "Save Changes" : "Post"}</button>
+            <button type="submit" className="sp-btn-primary sp-btn-compact">{editingId ? "Save Changes" : "Post"}</button>
           </div>
           {error && <p className="text-sm mt-2 text-red-600 dark:text-red-400">{error}</p>}
         </form>

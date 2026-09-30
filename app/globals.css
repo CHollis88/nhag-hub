@@ -83,16 +83,16 @@
 /* iOS Safari auto-zooms the page when a focused input's font-size is
    under 16px -- jarring mid-typing, and it was happening on every text
    field in the app (sp-input renders at text-sm, 14px at the default
-   text-size setting). max(1rem, 16px) fixes the zoom by never going
-   below 16px, while still letting the Text Size preference (which
-   scales the html root's font-size, see the text-scale-* rules below)
-   grow inputs larger than 16px for anyone who's set a bigger size --
-   the accessibility preference still wins whenever it asks for more
-   than the zoom-safe minimum. */
+   text-size setting). max(0.875rem, 16px) fixes the zoom by never going
+   below 16px. Above that floor the field is 0.875rem -- the same size as
+   the text-sm copy around it -- so it TRAVELS with the Text Size preference
+   (which scales the html root's font-size, see the text-scale-* rules
+   below) instead of staying fixed. At the Small/Extra-small sizes the 16px
+   floor still applies: going lower would bring the iOS zoom back. */
 input,
 textarea,
 select {
-  font-size: max(1rem, 16px);
+  font-size: max(0.875rem, 16px);
 }
 
 /* Text size preference (Settings > Text Size). Since Tailwind's text-sm,
@@ -158,7 +158,7 @@ body {
        otherwise beat the plain `input` rule near the top of this file,
        leaving every field styled with this class still zoom-prone. See
        that rule's comment for the full explanation. */
-    font-size: max(1rem, 16px);
+    font-size: max(0.875rem, 16px);
   }
   .sp-input:focus {
     @apply outline-none ring-2;
@@ -176,6 +176,12 @@ body {
   }
   .sp-btn-secondary {
     @apply border border-line text-inksoft rounded-lg px-4 py-2.5 text-sm bg-transparent;
+  }
+  /* Composer/form action rows: natural width, right-aligned, shorter than the
+     full-width default. Still ~40px tall for a comfortable tap. Must come after
+     the .sp-btn-* rules it overrides. */
+  .sp-btn-compact {
+    @apply px-4 py-2 min-h-[40px];
   }
   .sp-btn-pill {
     @apply inline-flex items-center justify-center gap-1.5 bg-accent text-white rounded-full px-3.5 py-1.5 text-sm;

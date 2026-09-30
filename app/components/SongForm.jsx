@@ -175,8 +175,8 @@ export default function SongForm({ initial, onCancel, onSave, formRef }) {
         </p>
       )}
 
-      <div className="flex gap-2 pt-1">
-        <button type="button" onClick={onCancel} className="sp-btn-secondary flex-1">
+      <div className="flex gap-2 pt-1 justify-end">
+        <button type="button" onClick={onCancel} className="sp-btn-secondary sp-btn-compact">
           Cancel
         </button>
         <button
@@ -184,7 +184,7 @@ export default function SongForm({ initial, onCancel, onSave, formRef }) {
           onClick={submit}
           disabled={saving || !fields.title.trim()}
           aria-busy={saving || undefined}
-          className="sp-btn-primary flex-1 disabled:opacity-60"
+          className="sp-btn-primary sp-btn-compact disabled:opacity-60"
         >
           {saving ? "Saving…" : initial ? "Save Changes" : "Add Song"}
         </button>

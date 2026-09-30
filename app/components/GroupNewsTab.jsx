@@ -267,7 +267,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
 
       {formKind && (
         <form ref={form.formRef} onSubmit={submit} className="sp-card mb-4" aria-labelledby="new-news-heading">
-          <h3 id="new-news-heading" className="font-serif text-lg text-ink mt-0 mb-3">{copy.heading}</h3>
+          <h3 id="new-news-heading" className="font-serif text-base text-ink mt-0 mb-3">{copy.heading}</h3>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -287,10 +287,10 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
             <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
             Notify {formKind === "leader" ? "this group's leaders" : "the group"}
           </label>
-          <div className="flex gap-2">
-            <button type="button" onClick={closeForms} className="sp-btn-secondary flex-1">Cancel</button>
-            <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">Save as Draft</button>
-            <button type="submit" className="sp-btn-primary flex-1">Post</button>
+          <div className="flex gap-2 justify-end">
+            <button type="button" onClick={closeForms} className="sp-btn-secondary sp-btn-compact">Cancel</button>
+            <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary sp-btn-compact">Save as Draft</button>
+            <button type="submit" className="sp-btn-primary sp-btn-compact">Post</button>
           </div>
         </form>
       )}

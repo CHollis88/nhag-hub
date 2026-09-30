@@ -228,7 +228,7 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
 
       {canPostAnything && showForm && (
         <form ref={form.formRef} onSubmit={submit} className="sp-card mb-4" aria-labelledby="new-church-news-heading">
-          <h3 id="new-church-news-heading" className="font-serif text-lg text-ink mt-0 mb-3">New post</h3>
+          <h3 id="new-church-news-heading" className="font-serif text-base text-ink mt-0 mb-3">New post</h3>
           {/* Audience picker only shown when there's an actual choice --
               an admin can post either way; a leader who isn't an admin
               can ONLY post to the leaders channel, so there's no
@@ -293,13 +293,13 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
             <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
             Notify {audience === "leaders" ? "leaders" : "everyone"}
           </label>
-          <div className="flex gap-2">
+          <div className="flex gap-2 justify-end">
             {isAdmin && (
-              <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary flex-1">
+              <button type="button" onClick={(e) => submit(e, true)} className="sp-btn-secondary sp-btn-compact">
                 Save as Draft
               </button>
             )}
-            <button type="submit" className="sp-btn-primary flex-1">
+            <button type="submit" className="sp-btn-primary sp-btn-compact">
               {audience === "leaders" ? "Post to leaders" : "Post to everyone"}
             </button>
           </div>
