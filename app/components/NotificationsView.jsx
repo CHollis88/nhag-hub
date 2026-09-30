@@ -115,6 +115,11 @@ export default function NotificationsView({ onClose, onNavigate }) {
                 {n.body && <p className="text-xs text-inkfaint mt-0.5">{n.body}</p>}
                 <p className="text-[0.625rem] text-inkfaint mt-1">{timeAgo(n.created_at)}</p>
               </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
       {hasMore && (
         <div className="text-center mt-3">
           <button
@@ -128,10 +133,6 @@ export default function NotificationsView({ onClose, onNavigate }) {
           </button>
         </div>
       )}
-            </div>
-          </button>
-        ))}
-      </div>
     </Modal>
   );
 }

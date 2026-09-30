@@ -18,13 +18,10 @@ import { useElementWidth } from "@/lib/useElementWidth";
 //   ROOMY (at least WIDE_MIN_PX wide) -- everything on ONE thin sticky row:
 //     chapter nav | Listen  Word tap  Find  Translation | Font  Layout  KJV  Study
 //
-//   NARROW (a phone) -- two layers:
-//     STICKY (stays put while you read): a thin chapter nav row, then four tools
-//       -- Listen, Word tap, Find and the current TRANSLATION (it shows which
-//       Bible you're in, like "NLT", so it's always visible) -- each an icon with
-//       a short word under it, in a 4-column grid that can never wrap.
-//     NOT STICKY (scrolls away with the text): Font, Layout, KJV compare and
-//       Study/Simple -- things you set and leave.
+//   NARROW (a phone) -- a thin chapter nav row, then EVERY tool on ONE sticky row:
+//     Listen, Word tap, Find, translation (e.g. "NLT"), Font, Layout, KJV compare
+//     and Study/Simple -- each an icon with a short word under it, in an equal-width
+//     grid that can never wrap.
 //
 // A tool that is switched on shows a check mark, not just a colour. A line for
 // screen readers always says what's showing ("NLT · Study"). Presentational only:
@@ -41,11 +38,11 @@ function Tool({ icon: Icon, label, onClick, active, ariaLabel, title }) {
       aria-pressed={active === undefined ? undefined : active}
       aria-label={ariaLabel}
       title={title}
-      className={`relative min-h-[42px] min-w-0 rounded-lg px-1 py-1 flex flex-col items-center justify-center gap-0.5 text-center border
+      className={`relative min-h-[42px] min-w-0 rounded-lg px-0.5 py-1 flex flex-col items-center justify-center gap-0.5 text-center border
         ${on ? "border-accent bg-accent/10 text-accent" : "border-line bg-paper text-inkfaint"}`}
     >
       <Icon size={18} aria-hidden="true" />
-      <span className="text-[0.6875rem] leading-none font-medium break-words max-w-full">{label}</span>
+      <span className="text-[0.625rem] leading-none font-medium truncate max-w-full">{label}</span>
       {on && <Check size={10} strokeWidth={3} className="absolute top-0.5 right-0.5" aria-hidden="true" />}
     </button>
   );
@@ -184,25 +181,21 @@ export default function BibleToolbar({
             </div>
           </div>
         ) : (
-          // NARROW: thin nav, then the four tools that stay in view.
+          // NARROW: thin nav, then EVERY tool on one row (never wraps).
           <>
             {nav}
-            <div className="grid grid-cols-4 gap-1" role="toolbar" aria-label="Reader tools">
+            <div className="grid grid-flow-col auto-cols-fr gap-1" role="toolbar" aria-label="Reader tools">
               <Tool {...controls.listen} />
               <Tool {...controls.wordTap} />
               <Tool {...controls.find} />
               <Tool {...controls.translation} label={translationLabel} />
+              {extras.map((c) => (
+                <Tool key={c.ariaLabel} {...c} label={c === controls.layout ? "Layout" : c.label} />
+              ))}
             </div>
           </>
         )}
       </div>
-
-      {/* NARROW only: the set-and-forget controls scroll away with the text. */}
-      {!wide && (
-        <div className="flex items-center gap-1.5 mt-1 mb-1 flex-wrap" data-testid="bible-toolbar-modes">
-          {extras.map((c) => chip(c, c.ariaLabel))}
-        </div>
-      )}
 
       {/* For screen readers: what's showing, announced when it changes. */}
       <p role="status" className="sr-only" data-testid="bible-mode-indicator">
