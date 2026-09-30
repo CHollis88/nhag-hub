@@ -66,7 +66,7 @@ function ReplyThread({ groupId, newsId }) {
           placeholder="Reply…"
           id={`reply-input-${newsId}`}
           autoFocus
-          className="sp-input text-sm py-1.5"
+          className="sp-input py-1.5"
         />
         <button type="submit" disabled={sending || !text.trim()} aria-busy={sending || undefined} className="sp-btn-secondary text-sm py-1.5 px-3 disabled:opacity-60">
           {sending ? "Sending…" : "Send"}

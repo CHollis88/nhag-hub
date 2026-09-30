@@ -149,6 +149,14 @@ body {
   font-family: "EB Garamond", Georgia, "Times New Roman", serif;
 }
 
+/* Zoom guard. Tailwind's utilities load AFTER the component rules, so a stray
+   text-sm / text-xs on a field used to override the 16px floor and bring the
+   iOS focus-zoom back. This sits last and wins, so it can't happen again. */
+.sp-input,
+.sp-textarea {
+  font-size: max(0.875rem, 16px) !important;
+}
+
 @layer components {
   .sp-card {    @apply bg-card border border-line rounded-2xl p-4;
   }

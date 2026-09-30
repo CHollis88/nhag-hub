@@ -160,7 +160,7 @@ function BrowseTab({ initialSource = "easton", scope = "all" }) {
         {(source === "tyndale" || source === "tyndale-themes") && " — © Tyndale House Publishers, CC BY-SA 4.0"}
       </p>
 
-      <select value={letter} onChange={(e) => chooseLetter(e.target.value)} className="sp-input text-sm mb-4">
+      <select value={letter} onChange={(e) => chooseLetter(e.target.value)} className="sp-input mb-4">
         {ALPHABET.map((l) => (
           <option key={l} value={l}>
             {l}

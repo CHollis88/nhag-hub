@@ -121,7 +121,7 @@ export default function SetlistForm({ initial, allSongs, onCancel, onSave, formR
                   onChange={(e) => updateNote(idx, e.target.value)}
                   placeholder="Key / person"
                   aria-label={`Note for ${entry.title}`}
-                  className="sp-input flex-1 min-w-0 text-sm py-2"
+                  className="sp-input flex-1 min-w-0 py-2"
                 />
                 <button
                   type="button"
@@ -152,7 +152,7 @@ export default function SetlistForm({ initial, allSongs, onCancel, onSave, formR
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search songs to add..."
-            className="sp-input pl-8 text-sm"
+            className="sp-input pl-8"
           />
         </div>
         {results.length > 0 && (

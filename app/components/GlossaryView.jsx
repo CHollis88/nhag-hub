@@ -122,7 +122,7 @@ export default function GlossaryView() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search terms…"
-                className="sp-input text-sm pl-9 pr-9"
+                className="sp-input pl-9 pr-9"
               />
               {query && (
                 <button

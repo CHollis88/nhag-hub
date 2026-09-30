@@ -1721,7 +1721,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             onChange={(e) => setTagInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addTag()}
             placeholder="e.g. prayer, encouragement"
-            className="sp-input text-sm flex-1"
+            className="sp-input flex-1"
           />
           <button onClick={addTag} className="sp-btn-primary text-sm px-4">
             Add
@@ -1815,7 +1815,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             setBook(e.target.value);
             setChapter(1);
           }}
-          className="sp-input text-sm w-full"
+          className="sp-input w-full"
         >
           {BOOKS.map(([abbr, name]) => (
             <option key={abbr} value={abbr}>
@@ -1826,7 +1826,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
         <select
           value={chapter}
           onChange={(e) => setChapter(parseInt(e.target.value, 10))}
-          className="sp-input text-sm w-full"
+          className="sp-input w-full"
         >
           {Array.from({ length: chapterCounts[book] || chapter }, (_, i) => i + 1).map((c) => (
             <option key={c} value={c}>
@@ -1909,7 +1909,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             <select
               value={selectedVoiceURI || ""}
               onChange={(e) => chooseVoice(e.target.value)}
-              className="sp-input text-sm"
+              className="sp-input"
             >
               {voices.map((v) => (
                 <option key={v.voiceURI} value={v.voiceURI}>
@@ -1964,7 +1964,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             }}
             onKeyDown={(e) => e.key === "Enter" && jumpToReference()}
             placeholder="e.g. John 3:16, or Gen 1"
-            className="sp-input text-sm mb-2"
+            className="sp-input mb-2"
           />
           {jumpError && <p className="text-xs text-accent mb-2">{jumpError}</p>}
           <button onClick={jumpToReference} className="sp-btn-primary w-full text-sm">
@@ -1983,7 +1983,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             }}
             onKeyDown={(e) => e.key === "Enter" && goToFindMatch(findIndex)}
             placeholder="Find a word or phrase…"
-            className="sp-input text-sm mb-2"
+            className="sp-input mb-2"
           />
           {findQuery.trim() && (
             <div className="flex items-center justify-between">
@@ -2377,7 +2377,7 @@ function NoteEditorPopup({ verseStart, verseEnd, bookName, chapter, initialText,
         onChange={(e) => setText(e.target.value)}
         placeholder="Write your note here..."
         rows={5}
-        className="sp-input text-sm resize-none mb-3"
+        className="sp-input resize-none mb-3"
         autoFocus
       />
       <div className="flex gap-2 justify-end">

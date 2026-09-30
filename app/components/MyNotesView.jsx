@@ -149,7 +149,7 @@ export default function MyNotesView({ deviceId, onOpenPassage }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search your notes…"
-              className="sp-input text-sm pl-9 pr-9"
+              className="sp-input pl-9 pr-9"
             />
             {query && (
               <button

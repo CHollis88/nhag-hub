@@ -91,7 +91,7 @@ function FilterInput({ value, onChange, placeholder }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="sp-input text-sm w-full pl-8"
+        className="sp-input w-full pl-8"
       />
     </div>
   );

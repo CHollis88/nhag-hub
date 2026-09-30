@@ -74,7 +74,7 @@ export default function PostReactions({ postType, postId, children }) {
           {r.emoji} {r.count}
         </button>
       ))}
-      <div className="relative">
+      <div className="relative flex">
         <button
           onClick={() => setPickerOpen((v) => !v)}
           className="text-[0.6875rem] leading-none rounded-full px-1.5 py-1 border border-line text-inkfaint bg-card"
