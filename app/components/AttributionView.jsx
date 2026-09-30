@@ -1,16 +1,22 @@
 "use client";
 
 import Modal from "./Modal";
+import { TRANSLATIONS } from "@/lib/bibleTranslations";
 
 const SOURCES = [
+  // Built from the translation registry (lib/bibleTranslations.js) so this list
+  // can never drift from the translations the reader actually offers. Licensed
+  // translations carry their publisher's required notice.
   {
     category: "Bible Text",
-    items: [
-      {
-        name: "King James Version (KJV)",
-        detail: "First published 1611; the text used here follows the 1769 Oxford standardization. Public domain.",
-      },
-    ],
+    items: TRANSLATIONS.map((t) => ({
+      name: `${t.fullName} (${t.label})`,
+      detail:
+        t.id === "kjv"
+          ? "First published 1611; the text used here follows the 1769 Oxford standardization. Public domain."
+          : t.attribution,
+      url: t.attributionUrl,
+    })),
   },
   {
     category: "Original Language Study",
@@ -54,9 +60,19 @@ const SOURCES = [
     ],
   },
   {
+    category: "Doctrine",
+    items: [
+      {
+        name: "Assemblies of God Statement of Fundamental Truths",
+        detail: "The 16 Fundamental Truths, shown in the Beliefs section of the Library. Published by the General Council of the Assemblies of God.",
+      },
+    ],
+  },
+  {
     category: "Structure & Reference Data",
     items: [
-      { name: "Section headings (pericopes)", detail: "Passage groupings used to display section headings inline while reading." },
+      { name: "Section headings (pericopes)", detail: "Passage groupings used to display section headings inline while reading the KJV." },
+      { name: "Cross-references", detail: "Verse-to-verse links shown in the study panel and the verse options menu. Public domain." },
     ],
   },
   {
@@ -71,10 +87,10 @@ export default function AttributionView({ onClose }) {
   return (
     <Modal title="Sources & Attribution" onClose={onClose} z={60} maxHeight="85vh">
       <p className="text-sm text-inksoft leading-relaxed mb-5">
-        The Bible study tools in this app draw on the historic public-domain reference works
-        listed below, plus a small amount of original content written for this app. None of
-        this material is required to be credited, but we want to be transparent about where
-        everything comes from.
+        The Bible text and study tools in this app draw on public-domain works, openly licensed
+        material, and licensed Bible translations, plus a small amount of original content
+        written for this app. Where a publisher or license requires credit, it is given below;
+        we also want to be transparent about where everything else comes from.
       </p>
 
       <div className="space-y-5">
@@ -86,6 +102,16 @@ export default function AttributionView({ onClose }) {
                 <div key={item.name} className="sp-card">
                   <p className="text-sm font-semibold text-ink mb-1">{item.name}</p>
                   <p className="text-xs text-inksoft leading-relaxed">{item.detail}</p>
+                  {item.url && (
+                    <a
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-accent underline inline-block mt-1.5"
+                    >
+                      {item.url.replace(/^https?:\/\/(www\.)?/, "")}
+                    </a>
+                  )}
                 </div>
               ))}
             </div>

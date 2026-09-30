@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings, LayoutGrid, MessageCircle, MessagesSquare, RotateCw, FileText } from "lucide-react";
+import { Music, ListMusic, Home, BookOpen, NotebookPen, Settings, LayoutGrid, MessageCircle, MessagesSquare, RotateCw, FileText, HelpCircle } from "lucide-react";
 import GroupBottomNav from "./GroupBottomNav";
 import GroupSidebar from "./GroupSidebar";
 import GroupNewsTab from "./GroupNewsTab";
@@ -303,6 +303,14 @@ export default function GroupShell({
             <RotateCw size={20} />
           </button>
           <button
+            onClick={() => setHelpOpen(true)}
+            aria-label="Help & FAQ"
+            title="Help & FAQ"
+            className="text-white/90 p-1"
+          >
+            <HelpCircle size={22} />
+          </button>
+          <button
             onClick={() => setSettingsOpen(true)}
             aria-label="Settings"
             className="text-white/90 p-1"
@@ -424,10 +432,6 @@ export default function GroupShell({
           adminNotifications={adminNotifications}
           refreshMe={refreshMe}
           onClose={() => setSettingsOpen(false)}
-          onOpenHelp={() => {
-            setSettingsOpen(false);
-            setHelpOpen(true);
-          }}
           onOpenAttribution={() => {
             setSettingsOpen(false);
             setAttributionOpen(true);

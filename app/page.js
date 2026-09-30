@@ -471,11 +471,19 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     return (
       <div className="flex flex-col bg-paper overflow-hidden" style={{ height: viewportHeight }}>
         <header
-          className="sticky top-0 z-30 flex items-center gap-3 px-4 py-3 bg-[#132560] text-white"
+          className="sticky top-0 z-30 flex items-center justify-between gap-3 px-4 py-3 bg-[#132560] text-white"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
         >
           <button onClick={closeBibleOverlay} className="text-sm">
             {activeGroup ? `← Back to ${activeGroup.name}` : "← Back"}
+          </button>
+          <button
+            onClick={() => setHelpOpen(true)}
+            aria-label="Help & FAQ"
+            title="Help & FAQ"
+            className="text-white/90 p-1"
+          >
+            <HelpCircle size={22} />
           </button>
         </header>
         {/* Must scroll: the wrapper above is a fixed-height,
@@ -488,6 +496,12 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             target={{ bookAbbr: bibleOverlay.book, startChapter: bibleOverlay.chapter }}
           />
         </main>
+        {helpOpen && (
+          <HelpView
+            onClose={() => setHelpOpen(false)}
+            isLeader={isAdmin || me.memberships.some((m) => m.status === "active" && m.role === "leader")}
+          />
+        )}
       </div>
     );
   }
@@ -714,10 +728,6 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
           adminMode={me.user.admin_mode}
           adminNotifications={me.user.admin_notifications_enabled}
           onClose={() => setSettingsOpen(false)}
-          onOpenHelp={() => {
-            setSettingsOpen(false);
-            setHelpOpen(true);
-          }}
           onOpenAttribution={() => {
             setSettingsOpen(false);
             setAttributionOpen(true);

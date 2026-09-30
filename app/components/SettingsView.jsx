@@ -31,7 +31,7 @@ const TEXT_SIZES = [
   { id: "xxxl", label: "Maximum" },
 ];
 
-export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, onOpenPatchNotes, hasNewPatchNotes, hasAdminRole, adminMode, adminNotifications, refreshMe }) {
+export default function SettingsView({ onClose, onOpenAttribution, onOpenPatchNotes, hasNewPatchNotes, hasAdminRole, adminMode, adminNotifications, refreshMe }) {
   const run = useAction();
   const toast = useToast();
   const askPin = usePinPrompt();
@@ -320,9 +320,6 @@ export default function SettingsView({ onClose, onOpenHelp, onOpenAttribution, o
       {/* ---------------------------------------------------------------- */}
       <SectionHeading id="settings-about">About</SectionHeading>
       <div className="flex flex-wrap gap-2">
-        <button onClick={onOpenHelp} className="sp-btn-secondary">
-          Help / FAQ
-        </button>
         <button onClick={onOpenPatchNotes} className="sp-btn-secondary relative">
           What's New
           {hasNewPatchNotes && (
