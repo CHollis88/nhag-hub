@@ -212,7 +212,7 @@ export default function ProgramsTab({ groupId, canManage }) {
               "Cancel"
             ) : (
               <>
-                <Plus size={14} aria-hidden="true" /> New Program
+                <Plus size={14} aria-hidden="true" /> Add
               </>
             )}
           </button>

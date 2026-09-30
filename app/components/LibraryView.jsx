@@ -8,6 +8,7 @@ import ConcordanceSearch from "./ConcordanceSearch";
 import GlossaryView from "./GlossaryView";
 import RichContent, { TyndaleAttribution } from "./RichContent";
 import TabTransition from "./TabTransition";
+import { ReaderSkeleton, SkeletonRowList } from "./Skeleton";
 
 // The Bible tab's reference shelf. Replaces the old flat pill row
 // (Concordance, Glossary, ...) that kept growing every time a source was
@@ -118,7 +119,7 @@ function ItemDetail({ collection, id, onBack, backLabel, onOpenRef }) {
     <div>
       <BackBar label={backLabel} onBack={onBack} />
       {error && <p className="text-sm text-accent">Couldn&apos;t load this. Check your connection and try again.</p>}
-      {!item && !error && <p className="text-sm text-inkfaint">Loading...</p>}
+      {!item && !error && <ReaderSkeleton />}
       {item && (
         <article>
           <h3 className="font-serif text-2xl text-ink mb-3 leading-tight">{item.title}</h3>
@@ -212,7 +213,7 @@ function TitledList({ collection, onPick, placeholder, showRefs = false }) {
   }, [items, filter, showRefs]);
 
   if (error) return <p className="text-sm text-accent">Couldn&apos;t load this list. Try again in a moment.</p>;
-  if (!items) return <p className="text-sm text-inkfaint">Loading...</p>;
+  if (!items) return <SkeletonRowList count={6} />;
 
   return (
     <div>

@@ -15,10 +15,25 @@ import { MoreHorizontal } from "lucide-react";
 // opens a menu; the menu takes focus on its first item; Up/Down/Home/End move
 // between items; Escape or clicking elsewhere closes it; choosing an item (or
 // Escape) puts focus back on the ⋯ button.
-export default function RowMenu({ label, items, busy = false, disabled = false }) {
+// v71 polish: also serves as the "+ Add" picker. Pass triggerText to show a
+// text button (styled with triggerClassName) instead of the ⋯ icon; give an
+// item a `description` for a second, quieter line. Falsy items are skipped,
+// so callers can write `cond && { ... }`.
+export default function RowMenu({ label, items: rawItems, busy = false, disabled = false, triggerText, triggerClassName, onOpenChange, triggerRef: externalTriggerRef, triggerAttrs }) {
+  const items = rawItems.filter(Boolean);
   const [open, setOpen] = useState(false);
   const buttonRef = useRef(null);
   const menuRef = useRef(null);
+
+  const setButtonRef = (el) => {
+    buttonRef.current = el;
+    if (externalTriggerRef) externalTriggerRef.current = el;
+  };
+
+  useEffect(() => {
+    onOpenChange?.(open);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const close = (returnFocus = true) => {
     setOpen(false);
@@ -61,7 +76,8 @@ export default function RowMenu({ label, items, busy = false, disabled = false }
   return (
     <div className="relative flex-shrink-0">
       <button
-        ref={buttonRef}
+        {...triggerAttrs}
+        ref={setButtonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         disabled={disabled || busy}
@@ -69,9 +85,9 @@ export default function RowMenu({ label, items, busy = false, disabled = false }
         aria-expanded={open}
         aria-label={label}
         aria-busy={busy || undefined}
-        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-inkfaint disabled:opacity-50"
+        className={triggerText ? triggerClassName : "min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full text-inkfaint disabled:opacity-50"}
       >
-        {busy ? <span aria-hidden="true">…</span> : <MoreHorizontal size={20} aria-hidden="true" />}
+        {busy ? <span aria-hidden="true">…</span> : triggerText ?? <MoreHorizontal size={20} aria-hidden="true" />}
       </button>
       {open && (
         <div
@@ -79,7 +95,7 @@ export default function RowMenu({ label, items, busy = false, disabled = false }
           role="menu"
           aria-label={label}
           onKeyDown={onMenuKeyDown}
-          className="absolute right-0 top-full mt-1 z-30 min-w-[10rem] rounded-xl border border-line bg-card shadow-lg py-1"
+          className="absolute right-0 top-full mt-1 z-30 min-w-[10rem] max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-card shadow-lg py-1"
         >
           {items.map((item) => (
             <button
@@ -90,9 +106,10 @@ export default function RowMenu({ label, items, busy = false, disabled = false }
                 close();
                 item.onSelect();
               }}
-              className={`w-full text-left px-4 min-h-[44px] text-sm ${item.destructive ? "text-red-600 dark:text-red-400" : "text-ink"}`}
+              className={`w-full text-left px-4 min-h-[44px] text-sm ${item.description ? "py-2" : ""} ${item.destructive ? "text-red-600 dark:text-red-400" : "text-ink"}`}
             >
               {item.label}
+              {item.description && <span className="block text-xs text-inkfaint font-normal">{item.description}</span>}
             </button>
           ))}
         </div>

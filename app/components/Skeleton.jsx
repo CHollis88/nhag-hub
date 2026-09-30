@@ -62,3 +62,28 @@ export function SkeletonRowList({ count = 5 }) {
     </div>
   );
 }
+
+// Bible reader: a heading and a few lines of verse-width text, in place of
+// the old plain "Loading..." while a chapter loads.
+export function ReaderSkeleton({ lines = 8 }) {
+  return (
+    <div role="status" aria-label="Loading">
+      <SkeletonBlock className="h-5 w-2/3 mb-4" />
+      {Array.from({ length: lines }).map((_, i) => (
+        <SkeletonBlock key={i} className={`h-3.5 mb-2.5 ${i % 3 === 2 ? "w-4/5" : "w-full"}`} />
+      ))}
+    </div>
+  );
+}
+
+// A word-study / verse popup or a short study panel entry while it loads.
+export function PopupSkeleton() {
+  return (
+    <div role="status" aria-label="Loading">
+      <SkeletonBlock className="h-4 w-1/2 mb-3" />
+      <SkeletonBlock className="h-3 w-full mb-1.5" />
+      <SkeletonBlock className="h-3 w-full mb-1.5" />
+      <SkeletonBlock className="h-3 w-3/5" />
+    </div>
+  );
+}

@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search, Pencil } from "lucide-react";
+import { Search } from "lucide-react";
+import RowMenu from "./RowMenu";
+import { useConfirm } from "./ConfirmDialog";
+import { fmtPostDate } from "@/lib/format";
+import { authorName } from "@/lib/authorName";
 import { SkeletonList } from "./Skeleton";
 import PostReactions from "./PostReactions";
 import EmptyState from "./EmptyState";
@@ -111,6 +115,7 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
   const newsUrl = "/api/global/news";
   const run = useAction();
   const toast = useToast();
+  const confirm = useConfirm();
 
   // v71 #42-45: through the shared cache.
   const { data: news, error: newsError } = useResource(
@@ -154,7 +159,14 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
     if (ok) load();
   };
 
-  const remove = async (id) => {
+  const remove = async (n) => {
+    const ok0 = await confirm({
+      title: `Delete "${n.title}"?`,
+      message: "This removes the post for everyone. It can't be undone.",
+      confirmLabel: "Delete",
+    });
+    if (!ok0) return;
+    const id = n.id;
     const { ok } = await run(() => requestJson(`${newsUrl}/${id}`, { method: "DELETE" }), { success: "Post deleted" });
     if (ok) load();
   };
@@ -333,7 +345,8 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
               </div>
             ) : (
               <>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <div className="flex items-start gap-2 mb-1">
+                  <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
                   {n.pinned && (
                     <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
                       📌 Pinned
@@ -349,29 +362,30 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
                       Leaders Only
                     </span>
                   )}
-                  <h3 className="font-medium text-ink">{n.title}</h3>
+                    <h3 className="font-medium text-ink">{n.title}</h3>
+                  </div>
+                  {isAdmin && (
+                    <div className="-mt-2 -mr-2">
+                      <RowMenu
+                        label={`Actions for ${n.title}`}
+                        triggerAttrs={{ "data-return-focus": `news-menu-${n.id}` }}
+                        items={[
+                          { label: "Edit post", onSelect: () => startEdit(n, document.querySelector(`[data-return-focus="news-menu-${n.id}"]`)) },
+                          n.status !== "draft" && { label: n.pinned ? "Unpin" : "Pin to top", onSelect: () => togglePin(n.id, n.pinned) },
+                          { label: "Delete post", onSelect: () => remove(n), destructive: true },
+                        ]}
+                      />
+                    </div>
+                  )}
                 </div>
                 <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
-                <p className="text-xs text-inkfaint">
-                  {new Date(n.created_at).toLocaleDateString()}
-                  {n.users?.display_name && ` · ${n.users.display_name}`}
+                <p className="text-xs text-inksoft">
+                  {authorName(n.users)} · {fmtPostDate(n.created_at)}
                 </p>
-                {isAdmin && (
-                  <div className="flex gap-3 mt-2 flex-wrap">
-                    <button onClick={(e) => startEdit(n, e.currentTarget)} data-return-focus={`news-edit-${n.id}`} className="text-xs text-accent underline flex items-center gap-1">
-                      <Pencil size={11} /> Edit
-                    </button>
-                    {n.status === "draft" ? (
-                      <button onClick={() => publish(n.id)} className="text-xs text-sage underline font-semibold">
-                        Publish
-                      </button>
-                    ) : (
-                      <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
-                        {n.pinned ? "Unpin" : "Pin to top"}
-                      </button>
-                    )}
-                    <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
-                      Delete
+                {isAdmin && n.status === "draft" && (
+                  <div className="flex gap-3 mt-2">
+                    <button onClick={() => publish(n.id)} className="text-xs text-sage underline font-semibold py-1">
+                      Publish
                     </button>
                   </div>
                 )}

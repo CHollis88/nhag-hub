@@ -210,7 +210,7 @@ export default function SermonsTab({ isAdmin }) {
               Manage series
             </button>
             <button ref={form.triggerRef} onClick={() => (showForm ? cancelForm() : form.show())} className="sp-btn-pill">
-              {showForm ? "Cancel" : "+ Post"}
+              {showForm ? "Cancel" : "+ Add"}
             </button>
           </div>
         )}

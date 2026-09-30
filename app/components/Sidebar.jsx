@@ -57,7 +57,10 @@ export default function Sidebar({ tab, setTab, badges = {} }) {
 
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="mt-auto flex items-center gap-3 px-5 py-3 text-xs text-inkfaint"
+        aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+        aria-expanded={!collapsed}
+        title={collapsed ? "Expand navigation" : undefined}
+        className="mt-auto flex items-center gap-3 px-5 min-h-[44px] text-xs text-inkfaint hover:text-ink hover:bg-line/30 active:bg-line/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:-outline-offset-2"
       >
         {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         {!collapsed && <span>Collapse</span>}

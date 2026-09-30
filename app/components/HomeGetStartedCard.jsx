@@ -95,9 +95,12 @@ const ITEMS = [
   },
 ];
 
+const SHOWN = 3;
+
 export default function HomeGetStartedCard({ onGoToTab, onOpenSettings }) {
   const [dismissed, setDismissed] = useState(null); // null = not yet checked
   const [done, setDone] = useState([]);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     setDismissed(localStorage.getItem(STORAGE_KEY) === "1");
@@ -134,12 +137,14 @@ export default function HomeGetStartedCard({ onGoToTab, onOpenSettings }) {
           <X size={18} />
         </button>
       </div>
-      <div className="space-y-2">
-        {remaining.map((item) => (
+      {/* The next three tips, as simple divided rows, so live content on Home
+          isn't pushed far down. "Show all tips" reveals the rest. */}
+      <div className="divide-y divide-line -mx-1">
+        {(showAll ? remaining : remaining.slice(0, SHOWN)).map((item) => (
           <button
             key={item.id}
             onClick={() => activate(item)}
-            className="w-full flex items-center gap-3 text-left bg-paper rounded-xl px-3.5 py-3"
+            className="w-full flex items-center gap-3 text-left px-1 py-3"
           >
             <div className="w-9 h-9 rounded-full bg-accent/10 text-accent flex items-center justify-center flex-shrink-0">
               <item.icon size={16} />
@@ -152,6 +157,16 @@ export default function HomeGetStartedCard({ onGoToTab, onOpenSettings }) {
           </button>
         ))}
       </div>
+      {remaining.length > SHOWN && (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          aria-expanded={showAll}
+          className="mt-1 text-xs text-accent underline py-2"
+        >
+          {showAll ? "Show fewer tips" : `Show all tips (${remaining.length})`}
+        </button>
+      )}
     </div>
   );
 }

@@ -35,6 +35,7 @@ import InfoTooltip from "./InfoTooltip";
 import { cleanOccurrences } from "@/lib/lexiconFormat";
 import { tagColorClass } from "@/lib/tagColor";
 import { useAction } from "./useAction";
+import { ReaderSkeleton, PopupSkeleton } from "./Skeleton";
 
 const FONT_OPTIONS = [
   { id: "sans", label: "Sans-serif", className: "font-bible-sans" },
@@ -1389,7 +1390,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
 
   const readingContent = (
     <>
-      {loading && <p className="text-sm text-inkfaint">Loading...</p>}
+      {loading && <ReaderSkeleton />}
       {error && <p className="text-sm text-accent">{error}</p>}
 
       {selection && (
@@ -2188,7 +2189,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           }
           onClose={() => setPopup(null)}
         >
-          {popup.type === "loading" && <p className="text-sm text-inkfaint">Loading...</p>}
+          {popup.type === "loading" && <PopupSkeleton />}
           {popup.type === "error" && <p className="text-sm text-accent">{popup.message}</p>}
           {popup.type === "word" && popup.entry && (
             <WordStudyContent entry={popup.entry} id={popup.id} dictMatches={popup.dictMatches} />
@@ -2276,7 +2277,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
                 {libraryPopupContent}
               </>
             )}
-            {popup?.type === "loading" && <p className="text-sm text-inkfaint">Loading...</p>}
+            {popup?.type === "loading" && <PopupSkeleton />}
             {popup?.type === "error" && <p className="text-sm text-accent">{popup.message}</p>}
             {popup?.type === "word" && popup.entry && (
                 <WordStudyContent entry={popup.entry} id={popup.id} dictMatches={popup.dictMatches} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { ChevronRight } from "lucide-react";
 import HomeGetStartedCard from "./HomeGetStartedCard";
 import MinistryPreview from "./MinistryPreview";
 import { readableTextColor } from "@/lib/colorContrast";
@@ -20,9 +21,15 @@ const CHURCH_WIDE_COLOR = "#16296B"; // same brand navy used for "Church-wide" e
 // inside it.) The pill at the bottom is just a visible label for the action,
 // not a second control. Only ministries you belong to use this card -- others
 // are the rows below -- so there is no Join / Pending state here.
-function MinistryTile({ group, leaders, myRole, onOpen }) {
+function MinistryTile({ group, myRole, onOpen }) {
   const bg = group.tile_color || DEFAULT_TILE_COLOR;
+  const role = myRole === "leader" ? "Leader" : "Member";
+  const meta = [group.type, role].filter(Boolean).join(" · ");
 
+  // The whole card opens the ministry; "Open ›" is a quiet cue that it can be
+  // tapped, not a second button. Compact at every size -- it no longer grows
+  // into a poster on desktop. Leader names live in the Directory and the
+  // ministry preview, not here.
   return (
     <button
       type="button"
@@ -30,38 +37,27 @@ function MinistryTile({ group, leaders, myRole, onOpen }) {
       aria-label={`Open ${group.name}`}
       className="sp-card p-0 overflow-hidden flex flex-col h-full w-full text-left"
     >
-      <div className="h-2 flex-shrink-0 w-full" style={{ background: bg }} />
-      <div className="p-3 md:p-5 lg:p-6 flex flex-col items-center text-center flex-1 w-full">
+      <div className="h-1 flex-shrink-0 w-full" style={{ background: bg }} />
+      <div className="p-3 md:p-4 flex flex-col items-center text-center flex-1 w-full">
         {group.image_url ? (
           <img
             src={group.image_url}
             alt=""
-            className="w-14 h-14 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-xl object-cover flex-shrink-0 mb-2 md:mb-3"
+            className="w-14 h-14 rounded-xl object-cover flex-shrink-0 mb-2"
           />
         ) : (
           <div
-            className="w-14 h-14 md:w-20 md:h-20 lg:w-24 lg:h-24 rounded-xl flex-shrink-0 flex items-center justify-center font-serif text-xl md:text-3xl lg:text-4xl mb-2 md:mb-3"
+            className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center font-serif text-xl mb-2"
             style={{ background: bg, color: readableTextColor(bg) }}
             aria-hidden="true"
           >
             {group.name?.[0]?.toUpperCase() || "?"}
           </div>
         )}
-        <span className="font-serif text-base md:text-xl lg:text-2xl text-ink leading-snug break-words">{group.name}</span>
-        {/* Below: hidden on a phone (the compact, icon-and-name-first view),
-            shown from md: up. */}
-        {group.type && <span className="hidden md:block text-xs md:text-sm text-inkfaint break-words mt-0.5">{group.type}</span>}
-        {leaders?.length > 0 && (
-          <span className="hidden md:block text-xs md:text-sm text-inkfaint break-words mt-0.5">
-            {leaders.length === 1 ? "Leader: " : "Leaders: "}
-            {leaders.join(", ")}
-          </span>
-        )}
-        <span className="hidden md:block text-xs md:text-sm text-inkfaint mt-0.5">
-          {myRole === "leader" ? "Ministry Leader" : "Member"}
-        </span>
-        <span aria-hidden="true" className="sp-btn-pill w-full md:text-base md:py-2 mt-auto block text-center">
-          Open
+        <span className="font-serif text-base md:text-lg text-ink leading-snug break-words">{group.name}</span>
+        <span className="hidden md:block text-xs text-inkfaint break-words mt-0.5">{meta}</span>
+        <span aria-hidden="true" className="mt-auto pt-2 text-xs font-medium text-accent">
+          Open ›
         </span>
       </div>
     </button>
@@ -102,7 +98,7 @@ function BrowseMinistryRow({ group, leaders, isPending, onRequestJoin, onPreview
         </span>
       </button>
       {isPending ? (
-        <span className="text-xs text-inkfaint flex-shrink-0 px-2">Request pending</span>
+        <span className="text-[0.6875rem] font-medium text-inksoft bg-line/40 rounded-full px-2.5 py-1 flex-shrink-0" aria-label="Request pending">Pending</span>
       ) : (
         <button
           type="button"
@@ -110,7 +106,8 @@ function BrowseMinistryRow({ group, leaders, isPending, onRequestJoin, onPreview
           aria-label={`Request to join ${group.name}`}
           className="sp-btn-secondary text-xs px-3 min-h-[44px] flex-shrink-0"
         >
-          Request to Join
+          <span className="sm:hidden">Request</span>
+          <span className="hidden sm:inline">Request to Join</span>
         </button>
       )}
     </div>
@@ -160,13 +157,15 @@ function UpcomingEventsPreview({ me, onSeeAll }) {
     <div className="mb-6">
       <div className="flex justify-between items-center mb-2">
         <p className="text-xs uppercase tracking-wide text-inkfaint">Your Next Event</p>
-        <button onClick={onSeeAll} className="text-xs text-accent underline">See all</button>
+        <button onClick={onSeeAll} className="text-xs text-accent underline py-2 -my-2 px-2 -mx-2">See all</button>
       </div>
       <div className="space-y-2">
         {events.map((ev) => (
-          <div
+          <button
+            type="button"
+            onClick={onSeeAll}
             key={`${ev.sourceName}-${ev.id}`}
-            className="flex items-center gap-3 bg-card border border-line rounded-lg pl-0 pr-3 py-2.5 overflow-hidden"
+            className="w-full text-left flex items-center gap-3 bg-card border border-line rounded-lg pl-0 pr-3 py-2.5 overflow-hidden"
           >
             <span className="w-1.5 self-stretch flex-shrink-0" style={{ background: ev.color }} />
             <div className="flex-1 min-w-0">
@@ -179,7 +178,8 @@ function UpcomingEventsPreview({ me, onSeeAll }) {
                 {ev.event_time && ` · ${formatTime12h(ev.event_time)}`}
               </p>
             </div>
-          </div>
+            <ChevronRight size={16} className="text-inkfaint flex-shrink-0" aria-hidden="true" />
+          </button>
         ))}
       </div>
     </div>
@@ -201,14 +201,17 @@ function AnnouncementsPreview({ onSeeAll }) {
     <div className="mb-6">
       <div className="flex justify-between items-center mb-2">
         <p className="text-xs uppercase tracking-wide text-inkfaint">Latest Announcement</p>
-        <button onClick={onSeeAll} className="text-xs text-accent underline">See all</button>
+        <button onClick={onSeeAll} className="text-xs text-accent underline py-2 -my-2 px-2 -mx-2">See all</button>
       </div>
       <div className="space-y-2">
         {news.map((n) => (
-          <div key={n.id} className="sp-card">
-            <p className="font-medium text-ink text-sm">{n.title}</p>
-            <p className="text-xs text-inksoft line-clamp-2">{n.body}</p>
-          </div>
+          <button type="button" onClick={onSeeAll} key={n.id} className="sp-card w-full text-left flex items-center gap-3">
+            <span className="flex-1 min-w-0">
+              <span className="block font-medium text-ink text-sm">{n.title}</span>
+              <span className="block text-xs text-inksoft line-clamp-2">{n.body}</span>
+            </span>
+            <ChevronRight size={16} className="text-inkfaint flex-shrink-0" aria-hidden="true" />
+          </button>
         ))}
       </div>
     </div>
@@ -283,17 +286,16 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
 
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs uppercase tracking-wide text-inkfaint">Your ministries</p>
-        <button onClick={onOpenDirectory} className="text-xs text-accent underline">Directory</button>
+        <button onClick={onOpenDirectory} className="text-xs text-accent underline py-2 -my-2 px-2 -mx-2">Directory</button>
       </div>
       {myGroups.length === 0 && (
         <p className="text-sm text-inkfaint mb-2">You're not in any ministries yet — request to join one below.</p>
       )}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(13rem,1fr))] gap-3 mb-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(10rem,12rem))] gap-3 mb-2">
         {myGroups.map((g) => (
           <MinistryTile
             key={g.id}
             group={g}
-            leaders={g.leaders}
             myRole={membershipByGroupId[g.id]?.role}
             onOpen={() => onOpenGroup(g.id, g.name, membershipByGroupId[g.id]?.role, g.features)}
           />

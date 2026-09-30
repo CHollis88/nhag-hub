@@ -1,8 +1,11 @@
 "use client";
 
 import { authorName } from "@/lib/authorName";
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search, Pencil } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { Search } from "lucide-react";
+import RowMenu from "./RowMenu";
+import { useConfirm } from "./ConfirmDialog";
+import { fmtPostDate } from "@/lib/format";
 import { SkeletonList } from "./Skeleton";
 import PostReactions from "./PostReactions";
 import EmptyState from "./EmptyState";
@@ -84,6 +87,16 @@ const FORM_COPY = {
   leader: { heading: "New leaders-only post", title: "Title", body: "Only this group's leaders and admins will see this" },
 };
 
+// What "+ Add" offers. Each type is its own kind of post, not just a label:
+// Class gets a taller box, Discuss is the only type members can reply to,
+// Leaders only is hidden from members (server-side) and notifies leaders only.
+const ADD_OPTIONS = [
+  { kind: "announcement", label: "Post", description: "A general update for the group" },
+  { kind: "class", label: "Class notes", description: "Notes from this week's class" },
+  { kind: "discuss", label: "Discussion", description: "Members can reply" },
+  { kind: "leader", label: "Leaders only", description: "Only leaders and admins see it" },
+];
+
 export default function GroupNewsTab({ groupId, canManage, showClassOption = true }) {
   const [formKind, setFormKind] = useState(null); // null | "announcement" | "class" | "discuss" | "leader"
   // v71 #36: ONE form at a time -- a new post of some kind OR editing one. The
@@ -115,6 +128,8 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
   const newsUrl = `/api/groups/${groupId}/news`;
   const run = useAction();
   const toast = useToast();
+  const confirm = useConfirm();
+  const addRef = useRef(null);
 
   // v71 #42-45: through the shared cache (shown at once on return, refreshed
   // quietly when stale). After any change: every cached view of this news
@@ -157,7 +172,14 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
     if (ok) load();
   };
 
-  const remove = async (id) => {
+  const remove = async (n) => {
+    const ok0 = await confirm({
+      title: `Delete "${n.title}"?`,
+      message: "This removes the post for everyone. It can't be undone.",
+      confirmLabel: "Delete",
+    });
+    if (!ok0) return;
+    const id = n.id;
     const { ok } = await run(() => requestJson(`${newsUrl}/${id}`, { method: "DELETE" }), { success: "Post deleted" });
     if (ok) load();
   };
@@ -212,30 +234,33 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
   return (
     <div className="px-5 pt-4 pb-6">
       <div ref={scrollAnchor} />
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <h2 className="font-serif text-2xl text-ink">{viewMode === "drafts" ? "Drafts" : "Group News"}</h2>
         {canManage && (
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex items-center gap-3">
             <button
+              type="button"
               onClick={() => setViewMode(viewMode === "drafts" ? "published" : "drafts")}
-              className="sp-btn-secondary text-sm py-1.5 px-3"
+              className="text-sm text-inksoft underline py-2"
             >
               {viewMode === "drafts" ? "Back to News" : "Drafts"}
             </button>
-            {showClassOption && (
-              <button onClick={(e) => openKind("class", e.currentTarget)} className="sp-btn-pill bg-sage">
-                Class
-              </button>
+            {formKind ? (
+              <button type="button" onClick={closeForms} className="sp-btn-pill">Cancel</button>
+            ) : (
+              <RowMenu
+                label="Add to Group News"
+                triggerText="+ Add"
+                triggerClassName="sp-btn-pill"
+                triggerRef={addRef}
+                triggerAttrs={{ "data-return-focus": `news-add-${groupId}` }}
+                items={ADD_OPTIONS.filter((o) => o.kind !== "class" || showClassOption).map((o) => ({
+                  label: o.label,
+                  description: o.description,
+                  onSelect: () => openKind(o.kind, addRef.current),
+                }))}
+              />
             )}
-            <button onClick={(e) => openKind("discuss", e.currentTarget)} className="sp-btn-pill bg-navy">
-              Discuss
-            </button>
-            <button onClick={(e) => openKind("announcement", e.currentTarget)} className="sp-btn-pill">
-              Post
-            </button>
-            <button onClick={(e) => openKind("leader", e.currentTarget)} className="sp-btn-pill bg-accent">
-              Leaders Only
-            </button>
           </div>
         )}
       </div>
@@ -309,56 +334,54 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    {n.pinned && (
-                      <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
-                        📌 Pinned
-                      </span>
+                  <div className="flex items-start gap-2 mb-1">
+                    <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+                      {n.pinned && (
+                        <span className="text-[0.625rem] uppercase tracking-wide bg-accent text-white rounded-full px-2 py-0.5 font-semibold">
+                          📌 Pinned
+                        </span>
+                      )}
+                      {badge && (
+                        <span className={`text-[0.625rem] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${badge.className}`}>
+                          {badge.text}
+                        </span>
+                      )}
+                      <h3 className="font-medium text-ink">{n.title}</h3>
+                    </div>
+                    {canManage && (
+                      <div className="-mt-2 -mr-2">
+                        <RowMenu
+                          label={`Actions for ${n.title}`}
+                          triggerAttrs={{ "data-return-focus": `news-menu-${n.id}` }}
+                          items={[
+                            { label: "Edit post", onSelect: () => startEdit(n, document.querySelector(`[data-return-focus="news-menu-${n.id}"]`)) },
+                            n.status !== "draft" && { label: n.pinned ? "Unpin" : "Pin to top", onSelect: () => togglePin(n.id, n.pinned) },
+                            n.kind !== "class" && n.status !== "draft" && { label: "Request church-wide promotion", onSelect: () => requestPromotion(n.id) },
+                            { label: "Delete post", onSelect: () => remove(n), destructive: true },
+                          ]}
+                        />
+                      </div>
                     )}
-                    {badge && (
-                      <span className={`text-[0.625rem] uppercase tracking-wide rounded-full px-2 py-0.5 font-semibold ${badge.className}`}>
-                        {badge.text}
-                      </span>
-                    )}
-                    <h3 className="font-medium text-ink">{n.title}</h3>
                   </div>
                   <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
-                  <p className="text-xs text-inkfaint">
-                    {new Date(n.created_at).toLocaleDateString()}
-                    {n.users?.display_name && ` · ${n.users.display_name}`}
+                  <p className="text-xs text-inksoft">
+                    {authorName(n.users)} · {fmtPostDate(n.created_at)}
                   </p>
 
-                  <div className="flex gap-3 mt-2 flex-wrap">
-                    {n.kind === "discuss" && (
-                      <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} className="text-xs text-accent underline">
-                        {openThread === n.id ? "Hide replies" : "Replies"}
-                      </button>
-                    )}
-                    {canManage && (
-                      <>
-                        <button onClick={(e) => startEdit(n, e.currentTarget)} data-return-focus={`news-edit-${n.id}`} className="text-xs text-accent underline flex items-center gap-1">
-                          <Pencil size={11} /> Edit
+                  {(n.kind === "discuss" || (canManage && n.status === "draft")) && (
+                    <div className="flex gap-3 mt-2 flex-wrap">
+                      {n.kind === "discuss" && (
+                        <button onClick={() => setOpenThread(openThread === n.id ? null : n.id)} className="text-xs text-accent underline py-1">
+                          {openThread === n.id ? "Hide replies" : "Replies"}
                         </button>
-                        {n.status === "draft" ? (
-                          <button onClick={() => publish(n.id)} className="text-xs text-sage underline font-semibold">
-                            Publish
-                          </button>
-                        ) : (
-                          <button onClick={() => togglePin(n.id, n.pinned)} className="text-xs text-accent underline">
-                            {n.pinned ? "Unpin" : "Pin to top"}
-                          </button>
-                        )}
-                        {n.kind !== "class" && n.status !== "draft" && (
-                          <button onClick={() => requestPromotion(n.id)} className="text-xs text-accent underline">
-                            Request promote to church-wide
-                          </button>
-                        )}
-                        <button onClick={() => remove(n.id)} className="text-xs text-inkfaint underline">
-                          Delete
+                      )}
+                      {canManage && n.status === "draft" && (
+                        <button onClick={() => publish(n.id)} className="text-xs text-sage underline font-semibold py-1">
+                          Publish
                         </button>
-                      </>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
 
                   {n.status !== "draft" && <PostReactions postType="group_news" postId={n.id} />}
 
