@@ -545,6 +545,18 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const [bibleFont, setBibleFontState] = useState("sans");
   const [fontPickerOpen, setFontPickerOpen] = useState(false);
   const [desktopMode, setDesktopModeState] = useState(false);
+  // True at the `md` breakpoint and wider. The dialogs render in a portal on
+  // <body>, so a CSS `md:hidden` / `hidden md:block` wrapper can no longer hide
+  // them -- on desktop they opened TWICE (once from each layout branch below).
+  // So each branch mounts its dialogs only while it is the one on screen.
+  const [mdUp, setMdUp] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setMdUp(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
   const [verses, setVerses] = useState(null);
   const [headings, setHeadings] = useState({});
   const [footnotes, setFootnotes] = useState({});
@@ -2314,14 +2326,18 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           </div>
           {verseActionBarShowing && <div className="h-32" aria-hidden="true" />}
           {verseActionBar}
-          {colorPickerPopup}
-          {noteEditorPopup}
-          {tagEditorPopup}
-          {ttsPopup}
-          {fontPickerPopup}
-          {bookChapterPickerPopup}
-          {layoutPickerPopup}
-          {translationPickerPopup}
+          {mdUp && (
+            <>
+              {colorPickerPopup}
+              {noteEditorPopup}
+              {tagEditorPopup}
+              {ttsPopup}
+              {fontPickerPopup}
+              {bookChapterPickerPopup}
+              {layoutPickerPopup}
+              {translationPickerPopup}
+            </>
+          )}
             </div>
       )}
 
@@ -2340,7 +2356,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             {jumpBar}
             {mainReading(readingContent)}
           </div>
-          {studyPopupBlock}
+          {mdUp && studyPopupBlock}
         </div>
       )}
 
@@ -2348,7 +2364,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
         {controls}
             {jumpBar}
         {mainReading(readingContent)}
-        {studyPopupBlock}
+        {!(desktopMode && mdUp) && studyPopupBlock}
       </div>
     </>
   );
