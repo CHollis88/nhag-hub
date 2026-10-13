@@ -27,7 +27,7 @@ const ITEMS = [
     id: "ministries",
     icon: Home,
     title: "Explore your ministries",
-    body: "Tiles below show every ministry you're in — tap one to open its own News, Events, Prayer, and Roster.",
+    body: "Tiles below show every ministry you're in — tap one to open its own News, Events, and Roster, plus any extras that ministry has turned on.",
     tab: "hub",
   },
   {

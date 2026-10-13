@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, SkipBack, SkipForward } from "lucide-react";
-import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
+import { songMediaFields } from "@/lib/songMedia";
 import NativeAudioPlayer from "./NativeAudioPlayer";
 import NativeDocViewer from "./NativeDocViewer";
 import MediaErrorBoundary from "./MediaErrorBoundary";
@@ -22,11 +22,12 @@ import MediaErrorBoundary from "./MediaErrorBoundary";
 // `url` prop doesn't change just from picking a pdf, playback isn't
 // interrupted by switching to Lyrics.
 export default function MediaViewerModal({ song, initialField, onClose }) {
-  const initialType = SONG_MEDIA_FIELDS.find(([key]) => key === initialField)?.[3];
+  const allFields = songMediaFields(song);
+  const initialType = allFields.find(([key]) => key === initialField)?.[3];
   const [viewingField, setViewingField] = useState(initialType === "pdf" ? initialField : null);
   const [playingField, setPlayingField] = useState(initialType === "audio" ? initialField : null);
 
-  const available = SONG_MEDIA_FIELDS.filter(([key]) => song[key]);
+  const available = allFields.filter(([key]) => song[key]);
   // Just the audio ones, in the same fixed order as SONG_MEDIA_FIELDS
   // (Soprano, Alto, Tenor, Bass, Split Track, Demo) -- what the
   // forward/back buttons cycle through. Pdf fields aren't part of this
@@ -60,7 +61,7 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
 
   const viewingUrl = viewingField ? song[viewingField] : null;
   const playingUrl = playingField ? song[playingField] : null;
-  const playingLabel = SONG_MEDIA_FIELDS.find(([key]) => key === playingField)?.[1];
+  const playingLabel = allFields.find(([key]) => key === playingField)?.[1];
 
   return (
     <div className="fixed inset-0 bg-card z-[80] flex flex-col">

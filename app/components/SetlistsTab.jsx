@@ -13,7 +13,7 @@ import { STALE, invalidate } from "@/lib/resourceCache";
 import { useScrollMemory } from "@/lib/useScreenState";
 import SetlistForm from "./SetlistForm";
 import MediaViewerModal from "./MediaViewerModal";
-import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
+import { songMediaFields } from "@/lib/songMedia";
 
 function fmtDate(d) {
   return new Date(d + "T00:00:00").toLocaleDateString(undefined, {
@@ -175,7 +175,7 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
                 {s.songs.map((song, i) => {
                   const linkedSong = song.group_songs || song.program_songs;
                   const available = linkedSong
-                    ? SONG_MEDIA_FIELDS.filter(([key]) => linkedSong[key])
+                    ? songMediaFields(linkedSong).filter(([key]) => linkedSong[key])
                     : [];
                   return (
                     <li key={song.id} className="text-sm">

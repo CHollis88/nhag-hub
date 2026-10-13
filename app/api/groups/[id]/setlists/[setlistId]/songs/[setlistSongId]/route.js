@@ -38,7 +38,7 @@ export async function PATCH(req, { params }) {
     .from("group_setlist_songs")
     .update(updates)
     .eq("id", setlistSongId)
-    .select("id, note, position, group_songs(id, title, composer, lyrics_url, chords_url, sheet_music_url, soprano_url, alto_url, tenor_url, bass_url, split_track_url, demo_url)")
+    .select("id, note, position, group_songs(id, title, composer, lyrics_url, chords_url, sheet_music_url, soprano_url, alto_url, tenor_url, bass_url, split_track_url, demo_url, extra1_label, extra1_url, extra2_label, extra2_url, extra3_label, extra3_url)")
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

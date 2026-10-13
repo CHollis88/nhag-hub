@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { requestJson } from "@/lib/request";
 import { useToast } from "./ToastProvider";
+import ReactorsModal from "./ReactorsModal";
 
 // Fixed 5-emoji set (mirrors MessageReactions' 4-emoji pattern, plus 😢
 // for prayer/grief content). Self-contained: fetches and toggles its
@@ -13,6 +14,7 @@ const ALLOWED_EMOJI = ["👍", "❤️", "🙏", "😂", "😢"];
 export default function PostReactions({ postType, postId, children }) {
   const [reactions, setReactions] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [whoOpen, setWhoOpen] = useState(false);
   const busyRef = useRef(false);
   const toast = useToast();
 
@@ -42,9 +44,10 @@ export default function PostReactions({ postType, postId, children }) {
       if (existing) {
         const nextCount = existing.mine ? existing.count - 1 : existing.count + 1;
         if (nextCount <= 0 && existing.mine) return list.filter((r) => r.emoji !== emoji);
-        return list.map((r) => (r.emoji === emoji ? { ...r, count: nextCount, mine: !r.mine } : r));
+        const names = (r) => (r.mine ? (r.names || []).filter((n) => n !== "You") : [...(r.names || []), "You"]);
+        return list.map((r) => (r.emoji === emoji ? { ...r, count: nextCount, mine: !r.mine, names: names(r) } : r));
       }
-      return [...list, { emoji, count: 1, mine: true }];
+      return [...list, { emoji, count: 1, mine: true, names: ["You"] }];
     });
     setPickerOpen(false);
     try {
@@ -91,7 +94,22 @@ export default function PostReactions({ postType, postId, children }) {
           </div>
         )}
       </div>
+      {reactions?.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setWhoOpen(true)}
+          className="text-[0.6875rem] leading-none text-inkfaint underline px-1 py-1.5"
+        >
+          Who reacted
+        </button>
+      )}
       {children}
+      {whoOpen && (
+        <ReactorsModal
+          groups={(reactions || []).map((r) => ({ emoji: r.emoji, names: r.names?.length ? r.names : [] }))}
+          onClose={() => setWhoOpen(false)}
+        />
+      )}
     </div>
   );
 }

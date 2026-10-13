@@ -172,6 +172,7 @@ export default function MinistrySettingsSheet({ groupId, onRenamed, onClose }) {
           <h3 className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-1 pb-1 border-b border-linesoft">Bolt-on modules</h3>
           <p className="text-xs text-inkfaint mt-1 mb-1">Turning a module off hides it. Nothing in it is deleted.</p>
           {[
+            ["prayer", "Prayer requests"],
             ["songs_setlists", "Song library + Setlists (Choir-style)"],
             ["programs", "Programs (Songs / Setlist / Documents per program)"],
             ["reading_plan_journal", "Bible Plan (Today / Plan / Journal)"],

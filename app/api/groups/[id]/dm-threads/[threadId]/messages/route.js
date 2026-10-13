@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { reactorNames, nameFor } from "@/lib/reactors";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { notifyDmThread } from "@/lib/push";
@@ -52,10 +53,11 @@ export async function GET(req, { params }) {
         .in("message_id", messageIds)
     : { data: [] };
 
+  const names = await reactorNames(supabase, reactions);
   const reactionsByMessage = {};
   for (const r of reactions || []) {
     if (!reactionsByMessage[r.message_id]) reactionsByMessage[r.message_id] = [];
-    reactionsByMessage[r.message_id].push({ emoji: r.emoji, user_id: r.user_id });
+    reactionsByMessage[r.message_id].push({ emoji: r.emoji, user_id: r.user_id, name: nameFor(names, r.user_id) });
   }
 
   const withReactions = (messages || []).map((m) => ({ ...m, reactions: reactionsByMessage[m.id] || [] }));

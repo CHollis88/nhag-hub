@@ -53,7 +53,7 @@ export async function POST(req, { params }) {
   const { data, error } = await supabase
     .from("program_setlist_songs")
     .insert({ setlist_id: setlistId, song_id, note: note || null, position: nextPosition })
-    .select("id, note, position, program_songs(id, title, composer, lyrics_url, chords_url, sheet_music_url, soprano_url, alto_url, tenor_url, bass_url, split_track_url, demo_url)")
+    .select("id, note, position, program_songs(id, title, composer, lyrics_url, chords_url, sheet_music_url, soprano_url, alto_url, tenor_url, bass_url, split_track_url, demo_url, extra1_label, extra1_url, extra2_label, extra2_url, extra3_label, extra3_url)")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -59,8 +59,8 @@ const PREPEND_FEATURE_TABS = {
 // universal News/Events/Hub/Bible nav is completely replaced by this
 // group's own contextual nav — per the project's decision that being
 // inside a sub-app shows only that sub-app's content. "Back to Hub" is
-// the only way out, by design. Every group gets News/Events/Prayer/Roster
-// for free; optional modules (Songs/Setlists, Today/Plan/Journal) are
+// the only way out, by design. Every group gets News/Events/Roster for
+// free; optional modules (Prayer, Songs/Setlists, Today/Plan/Journal) are
 // bolted on per-group via `features`, not tied to a fixed "type".
 export default function GroupShell({
   group,
@@ -78,7 +78,17 @@ export default function GroupShell({
 }) {
   const features = group.features || [];
   const hasReadingPlan = features.includes("reading_plan_journal");
-  const [tab, setTab] = useState(initialTab || (hasReadingPlan ? "today" : "news"));
+  const hasPrayer = features.includes("prayer");
+  // A link or push for the Prayer tab of a ministry that has Prayer turned off
+  // lands on News instead of an empty screen.
+  const [tab, setTab] = useState(() => {
+    const wanted = initialTab || (hasReadingPlan ? "today" : "news");
+    return wanted === "prayer" && !hasPrayer ? "news" : wanted;
+  });
+  // If Prayer gets turned off while its tab is showing, step back to News.
+  useEffect(() => {
+    if (!hasPrayer && tab === "prayer") setTab("news");
+  }, [hasPrayer, tab]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
@@ -321,7 +331,7 @@ export default function GroupShell({
       </header>
 
       <div className="flex flex-1 min-h-0">
-        <GroupSidebar tab={tab} setTab={switchTab} prependTabs={prependTabs} appendTabs={appendTabs} badges={badges} />
+        <GroupSidebar tab={tab} setTab={switchTab} prependTabs={prependTabs} appendTabs={appendTabs} badges={badges} hasPrayer={hasPrayer} />
         <main className="flex-1 overflow-y-auto">
           <TabTransition tabKey={`${tab}-${refreshNonce}`}>
             {hasReadingPlan && !readingPlanLoaded && ["today", "plan", "journal"].includes(tab) ? (
@@ -373,7 +383,7 @@ export default function GroupShell({
               <GroupNewsTab groupId={group.id} canManage={canManage} showClassOption={!features.includes("songs_setlists")} />
             )}
             {tab === "events" && <GroupEventsTab groupId={group.id} canManage={canManage} />}
-            {tab === "prayer" && (
+            {hasPrayer && tab === "prayer" && (
               <GroupPrayerTab groupId={group.id} canManage={canManage} currentUserId={currentUserId} />
             )}
             {tab === "roster" && (
@@ -422,7 +432,7 @@ export default function GroupShell({
       </div>
 
       {!keyboardVisible && (
-        <GroupBottomNav tab={tab} setTab={switchTab} prependTabs={prependTabs} appendTabs={appendTabs} badges={badges} />
+        <GroupBottomNav tab={tab} setTab={switchTab} prependTabs={prependTabs} appendTabs={appendTabs} badges={badges} hasPrayer={hasPrayer} />
       )}
 
       {settingsOpen && (

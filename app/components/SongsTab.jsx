@@ -13,7 +13,7 @@ import { requestJson } from "@/lib/request";
 import { useResource } from "@/lib/useResource";
 import { STALE, invalidate } from "@/lib/resourceCache";
 import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
-import { SONG_MEDIA_FIELDS } from "@/lib/songMedia";
+import { songMediaFields } from "@/lib/songMedia";
 
 function SongRow({ baseUrl, song, canManage, onUpdated, editing, onEdit, onCloseEdit, formRef }) {
   const [open, setOpen] = useState(false);
@@ -21,7 +21,7 @@ function SongRow({ baseUrl, song, canManage, onUpdated, editing, onEdit, onClose
   const confirm = useConfirm();
   const run = useAction();
 
-  const availableLinks = SONG_MEDIA_FIELDS.filter(([key]) => song[key]);
+  const availableLinks = songMediaFields(song).filter(([key]) => song[key]);
 
   // The form stays open, with everything typed, unless this really saved.
   const saveEdit = async (fields) => {

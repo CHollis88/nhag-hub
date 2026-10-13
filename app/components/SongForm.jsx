@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 //   Documents       Lyrics, Chords, Sheet music
 //   Practice tracks Soprano, Alto, Tenor, Bass
 //   Other audio     Split track, Demo
+//   Custom tracks   three slots with a name you type (e.g. "Soprano - Lowered")
 // Each header shows how many links are filled in ("· 2 added"), so a song that
 // already has links tells you so without opening anything. Every box has a real
 // label (not just a placeholder that vanishes as you type) and is a URL field:
@@ -18,7 +19,8 @@ const GROUPS = [
   { id: "practice", title: "Practice tracks", fields: [["soprano_url", "Soprano"], ["alto_url", "Alto"], ["tenor_url", "Tenor"], ["bass_url", "Bass"]] },
   { id: "other", title: "Other audio", fields: [["split_track_url", "Split track"], ["demo_url", "Demo"]] },
 ];
-const LINK_KEYS = GROUPS.flatMap((g) => g.fields.map(([key]) => key));
+const LINK_KEYS = [...GROUPS.flatMap((g) => g.fields.map(([key]) => key)), ...[1, 2, 3].map((n) => `extra${n}_url`)];
+const EXTRA_LABEL_KEYS = [1, 2, 3].map((n) => `extra${n}_label`);
 
 export function isValidLink(value) {
   const v = (value || "").trim();
@@ -37,6 +39,7 @@ export default function SongForm({ initial, onCancel, onSave, formRef }) {
     composer: initial?.composer || "",
     notes: initial?.notes || "",
     ...Object.fromEntries(LINK_KEYS.map((k) => [k, initial?.[k] || ""])),
+    ...Object.fromEntries(EXTRA_LABEL_KEYS.map((k) => [k, initial?.[k] || ""])),
   }));
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -48,6 +51,7 @@ export default function SongForm({ initial, onCancel, onSave, formRef }) {
   const set = (key) => (e) => setFields((f) => ({ ...f, [key]: e.target.value }));
   const showError = (key) => (touched[key] || submitAttempted) && !isValidLink(fields[key]);
   const addedCount = (group) => group.fields.filter(([key]) => fields[key].trim()).length;
+  const customCount = [1, 2, 3].filter((n) => fields[`extra${n}_url`].trim()).length;
 
   // After an invalid save attempt the offending group has been opened; once
   // its input exists, move focus to the first bad one.
@@ -65,6 +69,7 @@ export default function SongForm({ initial, onCancel, onSave, formRef }) {
       setOpenGroups((o) => {
         const next = { ...o };
         for (const g of GROUPS) if (g.fields.some(([k]) => invalid.includes(k))) next[g.id] = true;
+        if (invalid.some((k) => k.startsWith("extra"))) next.custom = true;
         return next;
       });
       setFocusKey(invalid[0]);
@@ -75,7 +80,7 @@ export default function SongForm({ initial, onCancel, onSave, formRef }) {
     try {
       // Whitespace around a pasted link is trimmed. onSave reports { ok } (and
       // toasts the reason); on failure this form stays exactly as it is.
-      const trimmed = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, LINK_KEYS.includes(k) || k === "title" ? v.trim() : v]));
+      const trimmed = Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, LINK_KEYS.includes(k) || EXTRA_LABEL_KEYS.includes(k) || k === "title" ? v.trim() : v]));
       const result = await onSave(trimmed);
       if (result && result.ok === false) setFailed(true);
     } finally {
@@ -159,6 +164,70 @@ export default function SongForm({ initial, onCancel, onSave, formRef }) {
               </div>
             );
           })}
+
+          {/* Three tracks with a name you type -- e.g. "Soprano - Lowered". */}
+          <div className="border border-line rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setOpenGroups((o) => ({ ...o, custom: !o.custom }))}
+              aria-expanded={Boolean(openGroups.custom)}
+              aria-controls="song-group-custom"
+              className="w-full flex items-center justify-between gap-2 px-3 min-h-[44px] text-left bg-paper/50"
+            >
+              <span className="text-sm text-ink">
+                Custom tracks
+                {customCount > 0 && <span className="text-inkfaint"> · {customCount} added</span>}
+              </span>
+              {openGroups.custom ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
+            </button>
+            {openGroups.custom && (
+              <div id="song-group-custom" className="px-3 pb-3 pt-1 space-y-3">
+                <p className="text-xs text-inkfaint mt-0 mb-0">Type a name for the track, then paste its link. Leave a slot empty if you don&apos;t need it.</p>
+                {[1, 2, 3].map((n) => {
+                  const urlKey = `extra${n}_url`;
+                  const labelKey = `extra${n}_label`;
+                  return (
+                    <div key={n} className="space-y-1.5">
+                      <label htmlFor={`song-${labelKey}`} className="block text-xs text-inksoft">
+                        Custom track {n} name
+                      </label>
+                      <input
+                        id={`song-${labelKey}`}
+                        value={fields[labelKey]}
+                        onChange={set(labelKey)}
+                        maxLength={40}
+                        placeholder="e.g. Soprano - Lowered"
+                        className="sp-input"
+                      />
+                      <label htmlFor={`song-${urlKey}`} className="block text-xs text-inksoft">
+                        Custom track {n} link
+                      </label>
+                      <input
+                        id={`song-${urlKey}`}
+                        type="url"
+                        inputMode="url"
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        value={fields[urlKey]}
+                        onChange={set(urlKey)}
+                        onBlur={() => setTouched((t) => ({ ...t, [urlKey]: true }))}
+                        placeholder="https://"
+                        aria-invalid={showError(urlKey) ? true : undefined}
+                        aria-describedby={showError(urlKey) ? `song-${urlKey}-error` : undefined}
+                        className="sp-input"
+                      />
+                      {showError(urlKey) && (
+                        <p id={`song-${urlKey}-error`} role="alert" className="text-xs text-red-600 dark:text-red-400 mt-1 mb-0">
+                          That isn&apos;t a full link. Paste the whole address, starting with https://
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

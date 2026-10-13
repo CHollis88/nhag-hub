@@ -101,7 +101,8 @@ export async function GET(req, { params }) {
   return withNoStore({
     news: newsRes.data?.created_at || null,
     events: eventsRes.data?.created_at || null,
-    prayer: prayerRes.data?.created_at || null,
+    // Prayer is a bolt-on; a ministry without it shows no Prayer dot.
+    prayer: features.includes("prayer") ? prayerRes.data?.created_at || null : null,
     dm_unread_count: dmUnreadCount,
     chat_unread: chatMembersUnread || chatLeadersUnread,
   });

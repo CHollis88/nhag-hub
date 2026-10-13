@@ -9,6 +9,7 @@ import { clearSessionCache } from "@/lib/session";
 import { requireRecentPin } from "@/lib/adminAuth";
 
 const VALID_FEATURES = [
+  "prayer",
   "songs_setlists",
   "reading_plan_journal",
   "programs",
@@ -22,6 +23,7 @@ const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 // Plain-language names for the activity log ("Sarah turned on Programs
 // for Choir").
 const FEATURE_LABELS = {
+  prayer: "Prayer",
   songs_setlists: "Songs + Setlists",
   reading_plan_journal: "Bible Plan",
   programs: "Programs",

@@ -339,7 +339,7 @@ export default function RosterTab({ groupId, myRole, onRenamed, onLeave }) {
         ) : (
           <div className="sp-card">
             <p className="text-sm text-ink mb-3">
-              Leave this ministry? You'll lose access to its News, Events, and Prayer, and would need to
+              Leave this ministry? You'll lose access to everything in it, and would need to
               request to join again later.
             </p>
             <div className="flex gap-2 justify-end">

@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Send, Bell, BellOff, MoreVertical } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import MessageReactions from "./MessageReactions";
+import ReactorsModal, { groupReactors } from "./ReactorsModal";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
 
 const EMOJI_SET = ["👍", "❤️", "🙏", "😂"];
@@ -51,6 +52,7 @@ export default function MessageThreadView({
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState("");
   const [pickerForId, setPickerForId] = useState(null);
+  const [whoForId, setWhoForId] = useState(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [composeFocused, setComposeFocused] = useState(false);
   const bottomRef = useRef(null);
@@ -247,6 +249,15 @@ export default function MessageThreadView({
                     alignRight={isMine}
                     onToggle={(emoji) => onReact(m.id, emoji)}
                   />
+                  {m.reactions?.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setWhoForId(m.id)}
+                      className={`block mt-3 -mb-1 text-[0.625rem] text-inkfaint underline py-1 ${isMine ? "ml-auto" : ""}`}
+                    >
+                      Who reacted
+                    </button>
+                  )}
                   {pickerForId === m.id && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setPickerForId(null)} />
@@ -322,6 +333,12 @@ export default function MessageThreadView({
         <p role="alert" className="px-5 pb-2 -mt-1 text-xs text-red-600 dark:text-red-400 bg-paper">
           {sendError}
         </p>
+      )}
+      {whoForId && (
+        <ReactorsModal
+          groups={groupReactors(messages?.find((m) => m.id === whoForId)?.reactions)}
+          onClose={() => setWhoForId(null)}
+        />
       )}
     </div>
   );

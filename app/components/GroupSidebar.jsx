@@ -6,8 +6,11 @@ import { Megaphone, CalendarDays, Heart, Users, ChevronLeft, ChevronRight } from
 export const BASE_TABS = [
   { key: "news", label: "News", icon: Megaphone },
   { key: "events", label: "Events", icon: CalendarDays },
-  { key: "prayer", label: "Prayer", icon: Heart },
 ];
+
+// Prayer is a bolt-on module (the "prayer" feature), not part of every
+// ministry. It sits right after Events when a ministry has turned it on.
+export const PRAYER_TAB = { key: "prayer", label: "Prayer", icon: Heart };
 
 export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 
@@ -17,9 +20,9 @@ export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 // nav (e.g. Today/Plan/Journal); appendTabs follow the shared set but
 // come before Roster (e.g. Songs/Setlists for Choir). Roster is always
 // last.
-export default function GroupSidebar({ tab, setTab, prependTabs = [], appendTabs = [], badges = {} }) {
+export default function GroupSidebar({ tab, setTab, prependTabs = [], appendTabs = [], badges = {}, hasPrayer = false }) {
   const [collapsed, setCollapsed] = useState(false);
-  const tabs = [...prependTabs, ...BASE_TABS, ...appendTabs, ROSTER_TAB];
+  const tabs = [...prependTabs, ...BASE_TABS, ...(hasPrayer ? [PRAYER_TAB] : []), ...appendTabs, ROSTER_TAB];
 
   return (
     <nav

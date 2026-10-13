@@ -60,6 +60,12 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }
 
+  const supabaseCheck = supabaseServer();
+  const { data: groupRow } = await supabaseCheck.from("groups").select("features").eq("id", groupId).maybeSingle();
+  if (!(groupRow?.features || []).includes("prayer")) {
+    return NextResponse.json({ error: "Prayer requests aren't turned on for this ministry." }, { status: 403 });
+  }
+
   const { body, is_anonymous, notify } = await req.json();
   if (!body?.trim()) {
     return NextResponse.json({ error: "Prayer request can't be empty." }, { status: 400 });

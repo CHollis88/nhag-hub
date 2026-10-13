@@ -58,11 +58,11 @@ const CATEGORIES = [
     items: [
       {
         q: "What happens when I tap a ministry to open it?",
-        a: "Tap a ministry's card on Home and you enter that ministry's own space, with its own News, Events, Prayer, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: a Song library and Setlists, a Programs tab for organizing things like a seasonal cantata or special production, Messages for private conversation with that ministry's leaders, Chat for a shared conversation with the whole ministry, or a Bible Plan bolt-on with Today, Plan, and Journal. Tap \"← Home\" at the top to leave and go back.",
+        a: "Tap a ministry's card on Home and you enter that ministry's own space, with its own News, Events, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: Prayer requests, a Song library and Setlists, a Programs tab for organizing things like a seasonal cantata or special production, Messages for private conversation with that ministry's leaders, Chat for a shared conversation with the whole ministry, or a Bible Plan bolt-on with Today, Plan, and Journal. Tap \"← Home\" at the top to leave and go back.",
       },
       {
         q: "Can I leave a ministry?",
-        a: "Yes — any member, leader included, can leave a ministry on their own from that ministry's Roster tab, no approval needed. You'll lose access to its News, Events, and Prayer right away, and would need to request to join again later if you change your mind.",
+        a: "Yes — any member, leader included, can leave a ministry on their own from that ministry's Roster tab, no approval needed. You'll lose access to everything in it right away, and would need to request to join again later if you change your mind.",
       },
       {
         q: "What's the Directory?",
@@ -87,7 +87,7 @@ const CATEGORIES = [
       },
       {
         q: "Can I submit a prayer request?",
-        a: "Yes — any member of a ministry can submit a prayer request to that ministry, and you can choose to submit it anonymously. Prayer requests don't have replies, but you can tap \"I'm praying\" to let the group know without posting a reply.",
+        a: "Yes, in a ministry that has Prayer turned on (a leader can switch it on in Ministry settings). Any member can then submit a prayer request, and you can choose to submit it anonymously. Prayer requests don't have replies, but you can tap \"I'm praying\" to let the group know without posting a reply.",
       },
       {
         q: "Do events always have RSVP or replies?",

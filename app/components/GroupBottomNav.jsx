@@ -7,8 +7,11 @@ import { useSimpleMode } from "@/lib/useSimpleMode";
 export const BASE_TABS = [
   { key: "news", label: "News", icon: Megaphone },
   { key: "events", label: "Events", icon: CalendarDays },
-  { key: "prayer", label: "Prayer", icon: Heart },
 ];
+
+// Prayer is a bolt-on module (the "prayer" feature), not part of every
+// ministry. It sits right after Events when a ministry has turned it on.
+export const PRAYER_TAB = { key: "prayer", label: "Prayer", icon: Heart };
 
 export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 
@@ -20,8 +23,8 @@ export const ROSTER_TAB = { key: "roster", label: "Roster", icon: Users };
 // prependTabs lead the nav (e.g. Today/Plan/Journal for a reading-plan
 // group); appendTabs follow the shared set but come before Roster (e.g.
 // Songs/Setlists for Choir). Roster is always last.
-export default function GroupBottomNav({ tab, setTab, prependTabs = [], appendTabs = [], badges = {} }) {
-  const tabs = [...prependTabs, ...BASE_TABS, ...appendTabs, ROSTER_TAB];
+export default function GroupBottomNav({ tab, setTab, prependTabs = [], appendTabs = [], badges = {}, hasPrayer = false }) {
+  const tabs = [...prependTabs, ...BASE_TABS, ...(hasPrayer ? [PRAYER_TAB] : []), ...appendTabs, ROSTER_TAB];
   // Simple mode (v71): bigger icons and words. Nothing is hidden inside a
   // ministry -- a choir member still needs Songs and Setlists.
   const simple = useSimpleMode();

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember, isAnyGroupLeader } from "@/lib/groupAuth";
 import { withPrivateCache } from "@/lib/cacheHeaders";
+import { reactorNames, nameFor } from "@/lib/reactors";
 
 const VALID_TYPES = ["group_news", "global_news", "group_prayer"];
 // Same fixed set as message_reactions (migration_028) plus a 5th for
@@ -71,10 +72,14 @@ export async function GET(req, { params }) {
 
   // Grouped counts per emoji plus whether the current user reacted with
   // each, so the client never has to do this aggregation itself.
+  // Also who they are, so the app can show "who reacted" (names only; a
+  // person with a deleted account shows as "Former member").
+  const names = await reactorNames(supabase, data);
   const counts = {};
   for (const r of data) {
-    if (!counts[r.emoji]) counts[r.emoji] = { emoji: r.emoji, count: 0, mine: false };
+    if (!counts[r.emoji]) counts[r.emoji] = { emoji: r.emoji, count: 0, mine: false, names: [] };
     counts[r.emoji].count += 1;
+    counts[r.emoji].names.push(r.user_id === user.id ? "You" : nameFor(names, r.user_id));
     if (r.user_id === user.id) counts[r.emoji].mine = true;
   }
 

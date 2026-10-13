@@ -10,6 +10,7 @@ import { withColumnFallback } from "@/lib/compat";
 // since each one corresponds to real UI/tabs the app knows how to render.
 // Adding a new feature later means adding a key here, not a schema change.
 const VALID_FEATURES = [
+  "prayer",
   "songs_setlists",
   "reading_plan_journal",
   "programs",
