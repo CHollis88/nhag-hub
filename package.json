@@ -1,6 +1,6 @@
 {
   "name": "nhag-hub",
-  "version": "71.18.0",
+  "version": "71.18.1",
   "private": true,
   "scripts": {
     "dev": "next dev",

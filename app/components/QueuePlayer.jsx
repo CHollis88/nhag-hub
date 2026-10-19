@@ -235,7 +235,12 @@ export default function QueuePlayer({ items, skipped = [], skippedPrefix = "Skip
       <div className={`px-6 py-4 flex flex-col items-center gap-3 border-y border-linesoft flex-shrink-0 bg-paper ${embedded ? "rounded-xl border" : ""}`}>
         <p className="text-xs text-inkfaint m-0">{items.length ? current?.counter || "" : "Nothing to play"}</p>
         <p className="font-serif text-xl text-ink text-center m-0 min-h-[1.75rem]">{current?.title || ""}</p>
-        <p className="text-xs text-inksoft m-0 min-h-[1rem]" aria-live="polite">{current?.note || ""}</p>
+        <p
+          className={showLabels ? "text-sm font-semibold text-accent m-0 min-h-[1.25rem]" : "text-xs text-inksoft m-0 min-h-[1rem]"}
+          aria-live="polite"
+        >
+          {showLabels && current?.label ? `Track: ${current.label}` : current?.note || ""}
+        </p>
 
         <div className="flex items-center gap-6">
           <button onClick={() => step(-1)} disabled={index <= 0} className="text-inkfaint p-2 disabled:opacity-30" aria-label="Previous">
@@ -266,21 +271,35 @@ export default function QueuePlayer({ items, skipped = [], skippedPrefix = "Skip
 
       <div className={embedded ? "pt-3" : "flex-1 min-h-0 overflow-y-auto px-4 py-3"}>
         <ol className="list-none p-0 m-0 space-y-1">
-          {items.map((it, i) => (
-            <li key={`${it.pos}-${it.url}-${i}`}>
-              <button
-                onClick={() => playIndex(i)}
-                aria-current={i === index ? "true" : undefined}
-                className={`w-full text-left rounded-lg px-3 py-2 text-sm flex items-baseline gap-2 ${
-                  i === index ? "bg-accent/10 text-accent font-medium" : "text-ink"
-                }`}
-              >
-                <span className="text-inkfaint w-6 flex-shrink-0 tabular-nums">{i + 1}.</span>
-                <span className="flex-1 min-w-0 truncate">{it.title}</span>
-                {(showLabels || it.fellBack) && <span className="text-[0.6875rem] text-inkfaint flex-shrink-0">{it.label}</span>}
-              </button>
-            </li>
-          ))}
+          {items.map((it, i) => {
+            const newSong = showLabels && (i === 0 || items[i - 1].pos !== it.pos);
+            return (
+              <li key={`${it.pos}-${it.url}-${i}`} className={newSong && i > 0 ? "pt-2" : ""}>
+                {newSong && (
+                  <p className="m-0 px-3 pt-1 pb-0.5 text-sm font-semibold text-ink truncate">
+                    Song {it.pos + 1}: {it.title}
+                  </p>
+                )}
+                <button
+                  onClick={() => playIndex(i)}
+                  aria-current={i === index ? "true" : undefined}
+                  className={`w-full text-left rounded-lg py-2 text-sm flex items-baseline gap-2 ${
+                    showLabels ? "pl-6 pr-3" : "px-3"
+                  } ${i === index ? "bg-accent/10 text-accent font-medium" : "text-ink"}`}
+                >
+                  <span className="text-inkfaint w-6 flex-shrink-0 tabular-nums">{i + 1}.</span>
+                  {showLabels ? (
+                    <span className="flex-1 min-w-0 truncate">{it.label}</span>
+                  ) : (
+                    <>
+                      <span className="flex-1 min-w-0 truncate">{it.title}</span>
+                      {it.fellBack && <span className="text-[0.6875rem] text-inkfaint flex-shrink-0">{it.label}</span>}
+                    </>
+                  )}
+                </button>
+              </li>
+            );
+          })}
         </ol>
         {skipped.length > 0 && (
           <p className="text-xs text-inkfaint mt-3 mb-0">

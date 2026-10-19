@@ -172,7 +172,8 @@ function SongMode({ songs, title }) {
       title={title}
       controls={
         <div>
-          <p className="text-xs text-inkfaint mt-0 mb-1.5">Tracks to include</p>
+          <p className="text-xs text-inksoft font-semibold mt-0 mb-0.5">Tracks to play for each song</p>
+          <p className="text-xs text-inkfaint mt-0 mb-1.5">Tap a track to turn it off or back on. Each song plays its tracks in this order, then moves to the next song.</p>
           <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Tracks to include">
             {toggles.map((t) => {
               const on = enabled.has(t.id);
@@ -186,7 +187,8 @@ function SongMode({ songs, title }) {
                   }`}
                 >
                   {on && <Check size={12} strokeWidth={3} aria-hidden="true" />}
-                  {t.label} <span className="font-normal opacity-80">· {t.count}</span>
+                  <span className={on ? "" : "line-through"}>{t.label}</span>{" "}
+                  <span className="font-normal opacity-80">· {t.count === 1 ? "1 song" : `${t.count} songs`}</span>
                 </button>
               );
             })}

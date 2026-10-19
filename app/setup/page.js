@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function SetupPage() {
   const [username, setUsername] = useState("");
@@ -9,6 +9,17 @@ export default function SetupPage() {
   const [confirmPin, setConfirmPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [debug, setDebug] = useState("");
+  useEffect(() => {
+    (async () => {
+      let stored = "";
+      try { stored = sessionStorage.getItem("nhag_setup_debug") || "(none: not redirected from home)"; } catch {}
+      let live = "";
+      try { const r = await fetch("/api/me", { cache: "no-store" }); live = `${r.status} ${(await r.text()).slice(0, 300)}`; } catch (e) { live = "fetch failed: " + e.message; }
+      setDebug(`referrer: ${document.referrer || "(none)"}\nhost: ${location.host}\nredirect record: ${stored.slice(0, 400)}\nlive /api/me: ${live}`);
+    })();
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -42,6 +53,7 @@ export default function SetupPage() {
         <p className="text-sm text-inkfaint mb-5">
           Your PIN is how you'll sign in from now on — pick one you'll remember.
         </p>
+        {debug && <pre className="text-[10px] whitespace-pre-wrap break-all text-inkfaint mb-4 p-2 border border-dashed">{debug}</pre>}
         <form onSubmit={submit}>
           <label className="block text-sm text-inksoft mb-1">Username</label>
           <input

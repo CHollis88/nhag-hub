@@ -13,9 +13,8 @@ import { listenParts, buildQueue } from "@/lib/listenQueue";
 export function PartChips({ parts, partId, onPick }) {
   return (
     <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Choose a part">
-      {parts.map((p) => {
+      {parts.filter((p) => !p.custom).map((p) => {
         const active = p.id === partId;
-        const detail = !p.custom && p.fallback > 0 ? `${p.own} of ${p.total}, +${p.fallback} use Split Track/Demo` : `${p.own} of ${p.total}`;
         return (
           <button
             key={p.id}
@@ -25,7 +24,7 @@ export function PartChips({ parts, partId, onPick }) {
               active ? "bg-accent text-white" : "bg-paper text-inkfaint border border-line"
             }`}
           >
-            {p.label} <span className="font-normal opacity-80">· {detail}</span>
+            {p.label}
           </button>
         );
       })}

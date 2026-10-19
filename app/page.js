@@ -818,6 +818,7 @@ function HomeInner() {
 
   useEffect(() => {
     if (me && !me.user.username && typeof window !== "undefined") {
+      try { sessionStorage.setItem("nhag_setup_debug", JSON.stringify({ at: new Date().toISOString(), page: location.href, me })); } catch {}
       window.location.href = "/setup";
     }
   }, [me]);
