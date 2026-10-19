@@ -28,6 +28,15 @@ function fmtDate(d) {
 
 export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
   const [editing, setEditing] = useState(null);
+  // Which songs' long key/notes are tapped open to show every line.
+  const [openNotes, setOpenNotes] = useState(() => new Set());
+  const toggleNote = (id) =>
+    setOpenNotes((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   // v71 #36: ONE form at a time (new OR editing one setlist), "Add" turns into
   // "Cancel" while it's open, focus lands on the first field, and comes back to
   // what opened it when it closes.
@@ -185,12 +194,23 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
                       <div className="flex items-baseline gap-2">
                         <span className="text-inkfaint w-4 flex-shrink-0">{i + 1}.</span>
                         <span className="text-ink flex-1 min-w-0 font-medium">{linkedSong?.title}</span>
+                        {/* The key / note, out to the right where it was, but big
+                            and bold enough to read across a room. Capped at
+                            about half the row so a long note can't squeeze the
+                            title, and cut to two lines -- tap it to see all. */}
+                        {song.note && (
+                          <button
+                            type="button"
+                            onClick={() => toggleNote(song.id)}
+                            aria-expanded={openNotes.has(song.id)}
+                            className={`max-w-[48%] flex-shrink-0 text-right text-sm font-bold text-accent bg-accent/10 rounded-md px-2 py-0.5 break-words ${
+                              openNotes.has(song.id) ? "" : "line-clamp-2"
+                            }`}
+                          >
+                            {song.note}
+                          </button>
+                        )}
                       </div>
-                      {/* The key / note is what the choir reads in rehearsal, so it
-                          gets its own readable line, not tiny grey text. */}
-                      {song.note && (
-                        <p className="ml-6 mt-0.5 mb-0 text-sm font-semibold text-accent break-words">{song.note}</p>
-                      )}
                       {/* One button, not a pill per link -- tapping it opens the
                           same full-screen viewer Songs uses, which already
                           shows every link this song has as its own pill up

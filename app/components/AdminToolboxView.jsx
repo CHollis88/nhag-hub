@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Wrench, Search } from "lucide-react";
+import { Wrench, Search, ChevronDown } from "lucide-react";
 import { SkeletonRowList } from "./Skeleton";
 import { PATCH_NOTES } from "@/lib/patchNotes";
 import AdminNeedsAttention from "./AdminNeedsAttention";
@@ -36,6 +36,11 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
   const [logLoadingMore, setLogLoadingMore] = useState(false);
   const [logExpandedId, setLogExpandedId] = useState(null);
   const [logOpen, setLogOpen] = useState(false);
+  // Long lists start folded away so the Toolbox isn't a mile of scrolling.
+  const [usersOpen, setUsersOpen] = useState(false);
+  const [groupsOpen, setGroupsOpen] = useState(false);
+  const [expandedUserId, setExpandedUserId] = useState(null);
+  const [expandedGroupId, setExpandedGroupId] = useState(null);
 
   const confirm = useConfirm();
   const run = useAction();
@@ -481,12 +486,40 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
           {announceMessage && <p className="text-sm text-inksoft mt-2">{announceMessage}</p>}
         </div>
 
-        <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Manage ministries</p>
-        <div className="space-y-2">
-          {groups.filter((g) => !g.archived_at).map((g) => (
-            <div key={g.id} className="sp-card">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-ink">
+        {(() => {
+          const live = groups.filter((g) => !g.archived_at);
+          const pendingTotal = live.reduce((n, g) => n + (pendingCounts[g.id] || 0), 0);
+          return (
+            <button
+              onClick={() => setGroupsOpen((o) => !o)}
+              aria-expanded={groupsOpen}
+              className="flex items-center justify-between w-full mb-2 text-left"
+            >
+              <span className="text-xs uppercase tracking-wide text-inkfaint">
+                Manage ministries ({live.length})
+                {pendingTotal > 0 && (
+                  <span className="ml-2 normal-case tracking-normal bg-accent text-white rounded-full px-2 py-0.5">
+                    {pendingTotal} pending
+                  </span>
+                )}
+              </span>
+              <span className="text-xs text-inkfaint">{groupsOpen ? "Hide" : "Show"}</span>
+            </button>
+          );
+        })()}
+        {groupsOpen && (
+        <>
+        <div className="space-y-1.5">
+          {groups.filter((g) => !g.archived_at).map((g) => {
+            const expanded = expandedGroupId === g.id;
+            return (
+            <div key={g.id} className="sp-card py-2.5">
+              <button
+                onClick={() => setExpandedGroupId(expanded ? null : g.id)}
+                aria-expanded={expanded}
+                className="flex justify-between items-center gap-2 w-full text-left"
+              >
+                <span className="text-sm text-ink min-w-0 truncate">
                   {g.name} {g.type && <span className="text-inkfaint">({g.type})</span>}
                   {pendingCounts[g.id] > 0 && (
                     <span className="ml-2 text-xs bg-accent text-white rounded-full px-2 py-0.5">
@@ -494,32 +527,36 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
                     </span>
                   )}
                   {g.hidden && (
-                    <span className="ml-2 text-xs bg-inkfaint/20 text-inkfaint rounded-full px-2 py-0.5">
-                      Hidden{g.hide_restricts_access ? " · access restricted" : ""}
-                    </span>
+                    <span className="ml-2 text-xs bg-inkfaint/20 text-inkfaint rounded-full px-2 py-0.5">Hidden</span>
                   )}
                 </span>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => manage(g)} className="sp-btn-secondary text-xs py-1.5 px-3">
-                    Manage
-                  </button>
-                  <button onClick={() => archiveGroup(g)} className="text-xs text-inksoft underline" aria-label={`Archive ${g.name}`}>
-                    Archive
-                  </button>
+                <ChevronDown size={16} className={`flex-shrink-0 text-inkfaint transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+              {expanded && (
+                <div className="mt-2.5 pt-2.5 border-t border-linesoft">
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <button onClick={() => manage(g)} className="sp-btn-secondary text-xs py-1.5 px-3">
+                      Manage
+                    </button>
+                    <button onClick={() => archiveGroup(g)} className="text-xs text-inksoft underline" aria-label={`Archive ${g.name}`}>
+                      Archive
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <Switch checked={Boolean(g.hidden)} onChange={() => toggleHidden(g)} label="Hide from Directory" />
+                    {g.hidden && (
+                      <Switch
+                        checked={Boolean(g.hide_restricts_access)}
+                        onChange={() => toggleRestrictsAccess(g)}
+                        label="Also restrict current members' access"
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-4 mt-2.5 pt-2.5 border-t border-linesoft">
-                <Switch checked={Boolean(g.hidden)} onChange={() => toggleHidden(g)} label="Hide from Directory" />
-                {g.hidden && (
-                  <Switch
-                    checked={Boolean(g.hide_restricts_access)}
-                    onChange={() => toggleRestrictsAccess(g)}
-                    label="Also restrict current members' access"
-                  />
-                )}
-              </div>
+              )}
             </div>
-          ))}
+            );
+          })}
           {groups.length === 0 && <p className="text-sm text-inkfaint">No ministries created yet.</p>}
         </div>
 
@@ -578,13 +615,24 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
             </div>
           </details>
         )}
+        </>
+        )}
 
         {message && <p className="text-sm text-inksoft mt-3">{message}</p>}
 
-        <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">All Users</p>
+        <button
+          onClick={() => setUsersOpen((o) => !o)}
+          aria-expanded={usersOpen}
+          className="flex items-center justify-between w-full mt-6 mb-2 text-left"
+        >
+          <span className="text-xs uppercase tracking-wide text-inkfaint">All Users ({users.length})</span>
+          <span className="text-xs text-inkfaint">{usersOpen ? "Hide" : "Show"}</span>
+        </button>
+        {usersOpen && (
+        <>
         <p className="text-xs text-inkfaint mb-2">
           Every registered account. Only promote people you trust — admins can manage every ministry and
-          everyone's account.
+          everyone's account. Tap a name for its actions.
         </p>
         {users.length > 6 && (
           <div className="relative mb-2">
@@ -600,49 +648,68 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
         {users.length > 0 && filteredUsers.length === 0 && (
           <p className="text-sm text-inkfaint mb-2">No users match that search.</p>
         )}
-        <div className="space-y-2">
-          {filteredUsers.map((u) => (
-            <div key={u.id} className="sp-card flex flex-wrap justify-between items-center">
-              <span className="text-sm text-ink">
-                {u.display_name} <span className="text-inkfaint">(@{u.username})</span>
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => openUserMinistryPanel(u)}
-                  className="sp-btn-secondary text-xs py-1.5 px-3"
-                >
-                  Block ministries
-                </button>
-                <button
-                  onClick={() => toggleAdmin(u)}
-                  disabled={pendingUserId === u.id}
-                  className={u.is_church_admin ? "sp-btn-secondary text-xs py-1.5 px-3 disabled:opacity-50" : "sp-btn-sage text-xs py-1.5 px-3 disabled:opacity-50"}
-                >
-                  {pendingUserId === u.id ? "..." : u.is_church_admin ? "Remove admin" : "Make admin"}
-                </button>
-              </div>
-              {u.is_church_admin && (
-                <Switch
-                  className="basis-full mt-2 pt-2 border-t border-linesoft"
-                  checked={Boolean(u.admin_notifications_enabled)}
-                  onChange={() => toggleAdminNotifications(u)}
-                  busy={pendingNotifId === u.id}
-                  label="Admin notifications"
-                  description="Join requests, feedback and promotion requests. Turning it off doesn't change their admin access."
-                />
-              )}
-              {!u.is_church_admin && u.id !== currentUserId && (
-                <button
-                  onClick={() => deleteAccount(u)}
-                  className="basis-full text-left mt-2 pt-2 border-t border-linesoft text-xs text-red-600 dark:text-red-400 underline"
-                  aria-label={`Delete ${u.display_name}'s account`}
-                >
-                  Delete account…
-                </button>
+        <div className="space-y-1.5">
+          {filteredUsers.map((u) => {
+            const expanded = expandedUserId === u.id;
+            return (
+            <div key={u.id} className="sp-card py-2.5">
+              <button
+                onClick={() => setExpandedUserId(expanded ? null : u.id)}
+                aria-expanded={expanded}
+                className="flex justify-between items-center gap-2 w-full text-left"
+              >
+                <span className="text-sm text-ink min-w-0 truncate">
+                  {u.display_name} <span className="text-inkfaint">(@{u.username})</span>
+                  {u.is_church_admin && (
+                    <span className="ml-2 text-xs bg-accent/15 text-accent rounded-full px-2 py-0.5">Admin</span>
+                  )}
+                </span>
+                <ChevronDown size={16} className={`flex-shrink-0 text-inkfaint transition-transform ${expanded ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+              {expanded && (
+                <div className="mt-2.5 pt-2.5 border-t border-linesoft">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => openUserMinistryPanel(u)}
+                      className="sp-btn-secondary text-xs py-1.5 px-3"
+                    >
+                      Block ministries
+                    </button>
+                    <button
+                      onClick={() => toggleAdmin(u)}
+                      disabled={pendingUserId === u.id}
+                      className={u.is_church_admin ? "sp-btn-secondary text-xs py-1.5 px-3 disabled:opacity-50" : "sp-btn-sage text-xs py-1.5 px-3 disabled:opacity-50"}
+                    >
+                      {pendingUserId === u.id ? "..." : u.is_church_admin ? "Remove admin" : "Make admin"}
+                    </button>
+                  </div>
+                  {u.is_church_admin && (
+                    <Switch
+                      className="mt-2.5"
+                      checked={Boolean(u.admin_notifications_enabled)}
+                      onChange={() => toggleAdminNotifications(u)}
+                      busy={pendingNotifId === u.id}
+                      label="Admin notifications"
+                      description="Join requests, feedback and promotion requests. Turning it off doesn't change their admin access."
+                    />
+                  )}
+                  {!u.is_church_admin && u.id !== currentUserId && (
+                    <button
+                      onClick={() => deleteAccount(u)}
+                      className="block text-left mt-2.5 text-xs text-red-600 dark:text-red-400 underline"
+                      aria-label={`Delete ${u.display_name}'s account`}
+                    >
+                      Delete account…
+                    </button>
+                  )}
+                </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
+        </>
+        )}
 
         <button
           onClick={() => setLogOpen((o) => !o)}
