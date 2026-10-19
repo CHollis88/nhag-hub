@@ -12,6 +12,7 @@ import { useAction } from "./useAction";
 import { useToast } from "./ToastProvider";
 import { usePinPrompt } from "./PinPrompt";
 import Switch from "./Switch";
+import { getMiniPlayerEnabled, setMiniPlayerEnabled } from "@/lib/miniPlayer";
 import { useSimpleMode } from "@/lib/useSimpleMode";
 import { setSimpleMode } from "@/lib/simpleMode";
 
@@ -40,6 +41,7 @@ export default function SettingsView({ onClose, onOpenAttribution, onOpenPatchNo
   const [showFeedback, setShowFeedback] = useState(false);
   const [textSize, setTextSize] = useState("md");
   const [desktopLayout, setDesktopLayoutState] = useState(false);
+  const [miniPlayer, setMiniPlayerState] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [prefs, setPrefs] = useState(null); // null = loading
@@ -59,6 +61,7 @@ export default function SettingsView({ onClose, onOpenAttribution, onOpenPatchNo
     setTheme(getStoredPreference());
     setTextSize(getStoredTextSize());
     setDesktopLayoutState(getDesktopMode());
+    setMiniPlayerState(getMiniPlayerEnabled());
     isSubscribedToPush().then(setPushSubscribed);
     loadPrefs();
   }, [loadPrefs]);
@@ -83,6 +86,10 @@ export default function SettingsView({ onClose, onOpenAttribution, onOpenPatchNo
     } else {
       toast.success(next ? "Simple mode is on." : "Simple mode is off.");
     }
+  };
+  const setMiniPlayer = (next) => {
+    setMiniPlayerState(next);
+    setMiniPlayerEnabled(next);
   };
   const setDesktopLayout = (next) => {
     setDesktopLayoutState(next);
@@ -238,6 +245,14 @@ export default function SettingsView({ onClose, onOpenAttribution, onOpenPatchNo
         checked={desktopLayout}
         onChange={setDesktopLayout}
         label="Use wide desktop layout on larger screens"
+        className="mb-4"
+      />
+
+      <Switch
+        checked={miniPlayer}
+        onChange={setMiniPlayer}
+        label="Mini player"
+        description="Keeps a song playing, with a small play / next bar at the bottom, while you move around the app. Off by default: music stops when you leave the playlist screen. This setting is for this device only."
         className="mb-4"
       />
 

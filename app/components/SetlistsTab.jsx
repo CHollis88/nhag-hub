@@ -184,9 +184,13 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
                     <li key={song.id} className="text-sm">
                       <div className="flex items-baseline gap-2">
                         <span className="text-inkfaint w-4 flex-shrink-0">{i + 1}.</span>
-                        <span className="text-ink flex-1">{linkedSong?.title}</span>
-                        {song.note && <span className="text-inkfaint text-xs">{song.note}</span>}
+                        <span className="text-ink flex-1 min-w-0 font-medium">{linkedSong?.title}</span>
                       </div>
+                      {/* The key / note is what the choir reads in rehearsal, so it
+                          gets its own readable line, not tiny grey text. */}
+                      {song.note && (
+                        <p className="ml-6 mt-0.5 mb-0 text-sm font-semibold text-accent break-words">{song.note}</p>
+                      )}
                       {/* One button, not a pill per link -- tapping it opens the
                           same full-screen viewer Songs uses, which already
                           shows every link this song has as its own pill up

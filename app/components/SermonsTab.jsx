@@ -233,7 +233,7 @@ export default function SermonsTab({ isAdmin }) {
               type="date"
               value={sermonDate}
               onChange={(e) => setSermonDate(e.target.value)}
-              className="sp-input flex-1"
+              className="sp-input flex-1 min-w-0"
             />
             <input
               value={speaker}

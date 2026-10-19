@@ -32,8 +32,8 @@ const SUB_TABS = [
 // per Cam's explicit answer that a program's library is NOT shared with
 // the ministry's main Songs tab), not a filtered view of the parent
 // group's.
-function ProgramShell({ groupId, program, canManage, onBack, onUpdated }) {
-  const [subTab, setSubTab] = useState("songs");
+function ProgramShell({ groupId, program, canManage, onBack, onUpdated, initialTab = "songs" }) {
+  const [subTab, setSubTab] = useState(initialTab);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const confirm = useConfirm();
@@ -112,7 +112,11 @@ function ProgramShell({ groupId, program, canManage, onBack, onUpdated }) {
             key={key}
             onClick={() => setSubTab(key)}
             className={`flex items-center gap-1.5 text-xs font-semibold rounded-full px-3.5 py-1.5 ${
-              subTab === key ? "bg-accent text-white" : "bg-paper text-inkfaint border border-line"
+              subTab === key
+                ? "bg-accent text-white"
+                : key === "playlist"
+                  ? "bg-accent/10 text-accent border border-accent/40"
+                  : "bg-paper text-inkfaint border border-line"
             }`}
           >
             <Icon size={13} /> {label}
@@ -149,6 +153,7 @@ function ProgramShell({ groupId, program, canManage, onBack, onUpdated }) {
 
 export default function ProgramsTab({ groupId, canManage }) {
   const [openProgram, setOpenProgram] = useState(null);
+  const [openTab, setOpenTab] = useState("songs"); // "playlist" when opened with a card's Listen button
   const createForm = useFormDisclosure();
   const showCreateForm = createForm.open;
   const [newName, setNewName] = useState("");
@@ -192,7 +197,9 @@ export default function ProgramsTab({ groupId, canManage }) {
     return (
       <ProgramShell
         groupId={groupId}
+        key={`${openProgram.id}-${openTab}`}
         program={openProgram}
+        initialTab={openTab}
         canManage={canManage}
         onBack={() => {
           setOpenProgram(null);
@@ -249,10 +256,13 @@ export default function ProgramsTab({ groupId, canManage }) {
         {programs.map((p) => {
           const bg = p.tile_color || DEFAULT_TILE_COLOR;
           return (
+            <div key={p.id} className="sp-card p-0 overflow-hidden flex flex-col items-center text-center relative">
             <button
-              key={p.id}
-              onClick={() => setOpenProgram(p)}
-              className="sp-card p-0 overflow-hidden flex flex-col items-center text-center relative"
+              onClick={() => {
+                setOpenTab("songs");
+                setOpenProgram(p);
+              }}
+              className="w-full flex flex-col items-center text-center"
             >
               {p.hidden && (
                 <span className="absolute top-2 right-2 text-[0.5625rem] uppercase tracking-wide bg-inkfaint/20 text-inkfaint rounded-full px-1.5 py-0.5 font-semibold">
@@ -280,6 +290,17 @@ export default function ProgramsTab({ groupId, canManage }) {
                 <p className="font-serif text-sm text-ink leading-snug break-words">{p.name}</p>
               </div>
             </button>
+            <button
+              onClick={() => {
+                setOpenTab("playlist");
+                setOpenProgram(p);
+              }}
+              className="w-full flex items-center justify-center gap-1.5 bg-accent text-white text-xs font-semibold py-2.5 min-h-[44px]"
+              aria-label={`Listen to ${p.name}`}
+            >
+              <Headphones size={14} aria-hidden="true" /> Listen
+            </button>
+            </div>
           );
         })}
       </div>

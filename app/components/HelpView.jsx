@@ -251,6 +251,10 @@ const LEADER_SUBFOLDERS = [
     title: "Programs & Bible Plan",
     items: [
       {
+        q: "What is the mini player, and how do I turn it on?",
+        a: "The mini player keeps your music playing while you move around the app. A small bar at the bottom shows the song and has play, back, next, and stop buttons. It is off by default, which means the music stops when you leave the playlist screen. To turn it on, open Settings and switch on Mini player. It is a setting of this device only, so turn it on separately on each phone or computer where you want it. Tap the X on the bar to stop the music and hide it.",
+      },
+      {
         q: "How does a program's Playlist tab work?",
         a: "Open a program and tap Playlist. Choose how to listen: By part plays one part for every song (like every Alto), By song plays every track of a song before moving to the next song, and Custom plays a playlist you build yourself. By part and By song play all the program's songs A to Z, or in the running order of a setlist if you pick one under \"Play from\". For a Custom playlist, tap New playlist, then Add tracks: tap a part to add it from every song, or tick individual tracks, and use the arrows to reorder. Custom playlists are private to you and saved for that program. If a link has been removed from a song, that track is skipped.",
       },

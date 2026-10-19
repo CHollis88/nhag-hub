@@ -181,8 +181,8 @@ function EditEventControl({ event, onSave, editing, onEdit, onClose, formRef }) 
     <div ref={formRef} className="sp-card mt-2" role="group" aria-label="Edit event">
       <input value={title} onChange={(e) => setTitle(e.target.value)} className="sp-input mb-2" />
       <div className="flex gap-2 mb-2">
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="sp-input flex-1" />
-        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="sp-input flex-1" />
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="sp-input flex-1 min-w-0" />
+        <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="sp-input flex-1 min-w-0" />
       </div>
       <input
         value={location}
@@ -545,8 +545,8 @@ export default function GroupEventsTab({ groupId, canManage }) {
             className="sp-input mb-2"
           />
           <div className="flex gap-2 mb-2">
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="sp-input flex-1" />
-            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="sp-input flex-1" />
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="sp-input flex-1 min-w-0" />
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="sp-input flex-1 min-w-0" />
           </div>
           <input
             value={location}

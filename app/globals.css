@@ -157,6 +157,32 @@ body {
   font-size: max(0.875rem, 16px) !important;
 }
 
+/* Date, time and dropdown fields: phones draw these with their own sizes, so side
+   by side they came out different heights and the date box could push past its
+   column. Same height everywhere, never wider than the column, text left. */
+input[type="date"].sp-input,
+input[type="time"].sp-input,
+select.sp-input {
+  min-height: 2.75rem;
+  max-width: 100%;
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  text-align: left;
+}
+input[type="date"].sp-input::-webkit-date-and-time-value,
+input[type="time"].sp-input::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.4em;
+}
+select.sp-input {
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1.5l5 5 5-5' fill='none' stroke='%238a8a8a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+}
+
 @layer components {
   .sp-card {    @apply bg-card border border-line rounded-2xl p-4;
   }

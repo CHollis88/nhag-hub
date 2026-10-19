@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowUp, ArrowDown, X, Plus, Check, Pencil, Trash2, ListMusic } from "lucide-react";
+import { ArrowUp, ArrowDown, X, Plus, Check, Pencil, Trash2, ListMusic, ChevronDown } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import EmptyState from "./EmptyState";
 import QueuePlayer from "./QueuePlayer";
@@ -171,31 +171,46 @@ function SongMode({ songs, title }) {
       skippedPrefix="Skipped, no tracks switched on:"
       title={title}
       controls={
-        <div>
-          <p className="text-xs text-inksoft font-semibold mt-0 mb-0.5">Tracks to play for each song</p>
-          <p className="text-xs text-inkfaint mt-0 mb-1.5">Tap a track to turn it off or back on. Each song plays its tracks in this order, then moves to the next song.</p>
-          <div className="flex gap-1.5 flex-wrap" role="group" aria-label="Tracks to include">
-            {toggles.map((t) => {
-              const on = enabled.has(t.id);
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => flip(t.id)}
-                  aria-pressed={on}
-                  className={`text-xs font-semibold rounded-full px-3 py-1.5 flex items-center gap-1 ${
-                    on ? "bg-accent text-white" : "bg-paper text-inkfaint border border-line"
-                  }`}
-                >
-                  {on && <Check size={12} strokeWidth={3} aria-hidden="true" />}
-                  <span className={on ? "" : "line-through"}>{t.label}</span>{" "}
-                  <span className="font-normal opacity-80">· {t.count === 1 ? "1 song" : `${t.count} songs`}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <TrackPicker toggles={toggles} enabled={enabled} onFlip={flip} />
       }
     />
+  );
+}
+
+// A dropdown, not a row of pills: with custom tracks there can be a dozen kinds
+// of track, which filled a phone screen. Closed it is one line saying what is on.
+function TrackPicker({ toggles, enabled, onFlip }) {
+  const [open, setOpen] = useState(false);
+  const onNames = toggles.filter((t) => enabled.has(t.id)).map((t) => t.label);
+  const summary = onNames.length === 0 ? "None" : onNames.length === toggles.length ? "All tracks" : onNames.join(", ");
+  return (
+    <div>
+      <p className="text-xs text-inksoft font-semibold mt-0 mb-1">Tracks to play for each song</p>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="sp-input flex items-center justify-between gap-2 text-left min-h-[44px]"
+      >
+        <span className="min-w-0 flex-1 truncate">{summary}</span>
+        <ChevronDown size={16} className={`flex-shrink-0 text-inkfaint transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+      </button>
+      {open && (
+        <div className="mt-1 border border-line rounded-lg bg-card divide-y divide-linesoft" role="group" aria-label="Tracks to play">
+          {toggles.map((t) => {
+            const on = enabled.has(t.id);
+            return (
+              <label key={t.id} className="flex items-center gap-3 px-3 py-2.5 min-h-[44px] text-sm text-ink cursor-pointer">
+                <input type="checkbox" checked={on} onChange={() => onFlip(t.id)} className="w-4 h-4 accent-accent flex-shrink-0" />
+                <span className="flex-1 min-w-0 truncate">{t.label}</span>
+                <span className="text-xs text-inkfaint flex-shrink-0">{t.count === 1 ? "1 song" : `${t.count} songs`}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+      <p className="text-xs text-inkfaint mt-1.5 mb-0">Each song plays its checked tracks in this order, then moves to the next song.</p>
+    </div>
   );
 }
 

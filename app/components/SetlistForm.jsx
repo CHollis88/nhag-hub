@@ -76,11 +76,11 @@ export default function SetlistForm({ initial, allSongs, onCancel, onSave, formR
         {initial ? "Edit setlist" : "New setlist"}
       </h3>
       <div className="grid grid-cols-2 gap-2">
-        <div>
+        <div className="min-w-0">
           <label htmlFor="setlist-date" className="block text-xs uppercase tracking-wide text-inkfaint mb-1">Date</label>
           <input id="setlist-date" type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} className="sp-input" />
         </div>
-        <div>
+        <div className="min-w-0">
           <label htmlFor="setlist-service" className="block text-xs uppercase tracking-wide text-inkfaint mb-1">Service</label>
           <select id="setlist-service" value={service} onChange={(e) => setService(e.target.value)} className="sp-input">
             <option value="AM">AM Service</option>

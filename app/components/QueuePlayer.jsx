@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { X, Play, Pause, SkipBack, SkipForward } from "lucide-react";
-import { toDirectDownloadUrl } from "@/lib/songMedia";
+import { useAudioQueue } from "./PlayerProvider";
 
 function formatTime(seconds) {
   if (!isFinite(seconds) || seconds < 0) return "0:00";
@@ -34,175 +34,29 @@ function formatTime(seconds) {
 // one usually isn't. The Media Session block puts the song name and the play /
 // next / previous buttons on the lock screen and in the car.
 export default function QueuePlayer({ items, skipped = [], skippedPrefix = "Skipped, nothing to play:", controls = null, title, embedded = false, showLabels = false, onClose }) {
-  const audioRef = useRef(null);
-  const [index, setIndex] = useState(0);
-  const [loaded, setLoaded] = useState(false); // has a src been set yet?
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [notice, setNotice] = useState("");
+  const player = useAudioQueue();
+  const { setQueue, registerViewer, step, playIndex, togglePlay, seek: seekTo } = player;
 
-  // Latest values for handlers that outlive a render (ended, media-session buttons).
-  const live = useRef({ items, index });
-  live.current = { items, index };
-  const playingRef = useRef(false);
-  const currentRef = useRef(null); // the item showing as of the last render
+  // This screen is open: the mini bar hides, and closing it (with the mini
+  // player OFF) stops the music.
+  useEffect(() => registerViewer(), [registerViewer]);
 
+  // Hand the queue to the shared player; it keeps your place when it changes.
+  useEffect(() => {
+    setQueue(items, title || "");
+  }, [items, title, setQueue]);
+
+  // The shared player may still hold an earlier list for a moment (before the
+  // effect above runs), so index/current are read against THIS screen's items.
+  const sameList = player.title === (title || "");
+  const index = sameList ? Math.min(player.index, Math.max(items.length - 1, 0)) : 0;
   const current = items[index] || null;
+  const playing = sameList && player.playing;
+  const currentTime = sameList ? player.currentTime : 0;
+  const duration = sameList ? player.duration : 0;
+  const notice = sameList ? player.notice : "";
 
-  // Set the src and start it. Called straight from a tap or from "ended" so the
-  // browser counts it as allowed playback.
-  const playIndex = useCallback((i, fromItems) => {
-    const list = fromItems || live.current.items;
-    const item = list[i];
-    const audio = audioRef.current;
-    if (!item || !audio) return;
-    const src = toDirectDownloadUrl(item.url);
-    if (!src) return;
-    setIndex(i);
-    setCurrentTime(0);
-    setDuration(0);
-    setLoaded(true);
-    currentRef.current = item;
-    audio.src = src;
-    audio.play().catch(() => setPlaying(false));
-  }, []);
-
-  const step = useCallback((delta) => {
-    const { items: list, index: i } = live.current;
-    const next = i + delta;
-    if (next < 0 || next >= list.length) return false;
-    playIndex(next);
-    return true;
-  }, [playIndex]);
-
-  // The queue changed. Keep the place; only reload audio if another track is due.
-  useEffect(() => {
-    const prev = currentRef.current;
-    if (!prev || !loaded) {
-      // Nothing started yet (or it was stopped): just show the right row.
-      setIndex((i) => (i >= items.length ? 0 : i));
-      if (prev) {
-        let k = items.findIndex((it) => it.pos === prev.pos && it.url === prev.url);
-        if (k === -1) k = items.findIndex((it) => it.pos >= prev.pos);
-        setIndex(k === -1 ? 0 : k);
-      }
-      return;
-    }
-    let i = items.findIndex((it) => it.pos === prev.pos && it.url === prev.url);
-    if (i === -1) i = items.findIndex((it) => it.pos >= prev.pos);
-    if (i === -1) i = 0;
-    const next = items[i];
-    setIndex(i);
-    if (!next) {
-      audioRef.current?.pause();
-      setLoaded(false);
-      return;
-    }
-    if (next.url !== prev.url) {
-      if (playingRef.current) playIndex(i, items);
-      else {
-        audioRef.current?.pause();
-        setLoaded(false);
-      }
-    } else {
-      currentRef.current = next;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items]);
-
-  useEffect(() => {
-    if (!loaded) currentRef.current = items[index] || currentRef.current;
-  }, [items, index, loaded]);
-
-  const togglePlay = () => {
-    const audio = audioRef.current;
-    if (!audio || !items.length) return;
-    if (!loaded) return playIndex(index);
-    if (audio.paused) audio.play().catch(() => setPlaying(false));
-    else audio.pause();
-  };
-
-  const onEnded = () => {
-    if (!step(1)) {
-      setPlaying(false);
-      playingRef.current = false;
-      setNotice("That was the last one.");
-    }
-  };
-
-  // A file that won't play is skipped, not stuck on.
-  const onError = () => {
-    const item = live.current.items[live.current.index];
-    if (!item) return;
-    setNotice(`Couldn't play "${item.title}" (${item.label}), skipped it.`);
-    if (!step(1)) setPlaying(false);
-  };
-
-  const onLoadedMetadata = () => {
-    const d = audioRef.current?.duration;
-    if (!d || !isFinite(d)) return onError(); // Drive's HTML "can't scan" page, not audio
-    setDuration(d);
-  };
-
-  const seek = (e) => {
-    const value = Number(e.target.value);
-    if (audioRef.current) audioRef.current.currentTime = value;
-    setCurrentTime(value);
-  };
-
-  // Lock screen / car controls. iPhones only show next / previous track (and not
-  // the podcast-style "back 10 / forward 10") if those handlers are registered
-  // while audio is actually playing, and if no seek handlers or position state
-  // are set. So this runs on mount AND every time a track starts, and it
-  // deliberately clears the seek handlers.
-  const stepRef = useRef(step);
-  stepRef.current = step;
-  const registerLockScreen = useCallback(() => {
-    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
-    const ms = navigator.mediaSession;
-    const set = (action, fn) => {
-      try { ms.setActionHandler(action, fn); } catch { /* not supported here */ }
-    };
-    set("play", () => audioRef.current?.play().catch(() => {}));
-    set("pause", () => audioRef.current?.pause());
-    set("nexttrack", () => stepRef.current(1));
-    set("previoustrack", () => stepRef.current(-1));
-    set("seekbackward", null);
-    set("seekforward", null);
-    set("seekto", null);
-  }, []);
-
-  useEffect(() => {
-    registerLockScreen();
-    return () => {
-      if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
-      const ms = navigator.mediaSession;
-      for (const a of ["play", "pause", "nexttrack", "previoustrack", "seekbackward", "seekforward", "seekto"]) {
-        try { ms.setActionHandler(a, null); } catch { /* ignore */ }
-      }
-      try { ms.metadata = null; ms.playbackState = "none"; } catch { /* ignore */ }
-    };
-  }, [registerLockScreen]);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !("mediaSession" in navigator) || !current || !loaded) return;
-    try {
-      navigator.mediaSession.metadata = new window.MediaMetadata({ title: current.title, artist: current.short, album: title });
-    } catch { /* ignore */ }
-  }, [current, loaded, title]);
-
-  // Leaving the screen stops the music.
-  useEffect(() => {
-    const audio = audioRef.current;
-    return () => {
-      if (audio) {
-        audio.pause();
-        audio.removeAttribute("src");
-        audio.load();
-      }
-    };
-  }, []);
+  const seek = (e) => seekTo(Number(e.target.value));
 
   const root = embedded ? "flex flex-col" : "fixed inset-0 bg-card z-[80] flex flex-col";
 
@@ -219,27 +73,6 @@ export default function QueuePlayer({ items, skipped = [], skippedPrefix = "Skip
           </button>
         </div>
       )}
-
-      <audio
-        ref={audioRef}
-        preload="auto"
-        onLoadedMetadata={onLoadedMetadata}
-        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-        onPlay={() => {
-          playingRef.current = true;
-          setPlaying(true);
-          registerLockScreen();
-          try { navigator.mediaSession.playbackState = "playing"; } catch { /* ignore */ }
-        }}
-        onPlaying={registerLockScreen}
-        onPause={() => {
-          playingRef.current = false;
-          setPlaying(false);
-          try { navigator.mediaSession.playbackState = "paused"; } catch { /* ignore */ }
-        }}
-        onEnded={onEnded}
-        onError={onError}
-      />
 
       {controls && <div className="px-4 py-3 flex-shrink-0">{controls}</div>}
 
