@@ -1,121 +1,62 @@
 import { NextResponse } from "next/server";
-import { reactorNames, nameFor } from "@/lib/reactors";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { notifyDmThread } from "@/lib/push";
-import { withNoStore } from "@/lib/cacheHeaders";
-import { pageParams, trimPage } from "@/lib/pagination";
 
-async function isParticipant(supabase, threadId, userId) {
-  const { data } = await supabase
-    .from("group_dm_participants")
-    .select("thread_id")
-    .eq("thread_id", threadId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  return Boolean(data);
-}
-
-export async function GET(req, { params }) {
+// Toggling mute or marking a thread read -- both scoped to MY
+// participant row only, never affecting the other participant(s). Mute
+// silences push/in-app-notification alerts for this thread (see
+// notifyDmThread in lib/push.js) but does NOT hide its unread count --
+// that's computed from last_read_at vs message timestamps, independent
+// of mute, per Cam's decision that a muted thread should still show you
+// how many you've missed once you open the app.
+export async function PATCH(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
   const { threadId } = await params;
-  const supabase = supabaseServer();
-
-  if (!(await isParticipant(supabase, threadId, user.id))) {
-    return NextResponse.json({ error: "You're not part of this conversation." }, { status: 403 });
-  }
-
-  // v71 #44: the NEWEST page (50 by default), or the page older than `before`.
-  const { limit, before, error: pageError } = pageParams(req.nextUrl.searchParams);
-  if (pageError) return NextResponse.json({ error: pageError }, { status: 400 });
-
-  let query = supabase
-    .from("group_dm_messages")
-    .select("id, sender_id, body, created_at, users(display_name)")
-    .eq("thread_id", threadId)
-    .order("created_at", { ascending: false })
-    .limit(limit + 1);
-  if (before) query = query.lt("created_at", before);
-  const { data: newestFirst, error } = await query;
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const { rows, hasMore } = trimPage(newestFirst, limit);
-  const messages = rows.reverse(); // oldest -> newest, as the screen draws them
-
-  const messageIds = (messages || []).map((m) => m.id);
-  const { data: reactions } = messageIds.length
-    ? await supabase
-        .from("message_reactions")
-        .select("message_id, emoji, user_id")
-        .eq("message_type", "dm")
-        .in("message_id", messageIds)
-    : { data: [] };
-
-  const names = await reactorNames(supabase, reactions);
-  const reactionsByMessage = {};
-  for (const r of reactions || []) {
-    if (!reactionsByMessage[r.message_id]) reactionsByMessage[r.message_id] = [];
-    reactionsByMessage[r.message_id].push({ emoji: r.emoji, user_id: r.user_id, name: nameFor(names, r.user_id) });
-  }
-
-  const withReactions = (messages || []).map((m) => ({ ...m, reactions: reactionsByMessage[m.id] || [] }));
-
-  // no-store, not a short private cache -- this endpoint is polled every
-  // 4s while a thread is open (see DirectMessagesTab), so it needs to
-  // actually hit the network every time, same reasoning as
-  // /api/notifications' own no-store.
-  return withNoStore({ messages: withReactions, has_more: hasMore });
-}
-
-export async function POST(req, { params }) {
-  const user = await getCurrentUser(req);
-  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
-
-  const { id: groupId, threadId } = await params;
-  const { body } = await req.json();
-  if (!body || !body.trim()) {
-    return NextResponse.json({ error: "Message can't be empty." }, { status: 400 });
-  }
+  const { muted, mark_read } = await req.json();
 
   const supabase = supabaseServer();
-  if (!(await isParticipant(supabase, threadId, user.id))) {
-    return NextResponse.json({ error: "You're not part of this conversation." }, { status: 403 });
-  }
-
-  const { data: message, error } = await supabase
-    .from("group_dm_messages")
-    .insert({ thread_id: threadId, sender_id: user.id, body: body.trim() })
-    .select("id, sender_id, body, created_at, users(display_name)")
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // My own last_read_at should reflect my own message too, so my own
-  // sent message never counts toward my own unread badge.
-  await supabase
+  const { data: myRow } = await supabase
     .from("group_dm_participants")
-    .update({ last_read_at: new Date().toISOString() })
+    .select("thread_id")
+    .eq("thread_id", threadId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!myRow) {
+    return NextResponse.json({ error: "You're not part of this conversation." }, { status: 403 });
+  }
+
+  const updates = {};
+  if (muted !== undefined) updates.muted = Boolean(muted);
+  if (mark_read) updates.last_read_at = new Date().toISOString();
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from("group_dm_participants")
+    .update(updates)
     .eq("thread_id", threadId)
     .eq("user_id", user.id);
 
-  notifyDmThread(threadId, user.id, {
-    title: `${user.display_name}`,
-    body: body.trim().slice(0, 140),
-    url: `/?group=${groupId}&tab=dm&thread=${threadId}`,
-  }).catch(() => {});
-
-  return NextResponse.json({ message: { ...message, reactions: [] } });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
 
-// "Clear chat" -- wipes every message (and their reactions) in this
-// thread, but keeps the thread and its participants intact, so it's
-// still there to message into again. Distinct from DELETE on the thread
-// itself (see [threadId]/route.js), which removes the conversation
-// entirely. Any participant can clear it -- same reasoning as deleting
-// the thread outright: this is a private space between the people in
-// it, not a ministry-wide asset, so it isn't leader/admin-gated.
+// Deletes the whole conversation -- for everyone in it, not just the
+// caller, since there's no per-user "hide from my view only" concept
+// here (messages are one shared set of rows, same as everywhere else in
+// this app). Any participant can do this; it isn't leader/admin-gated,
+// since a DM thread is a private space between the people in it, not a
+// ministry-wide asset. group_dm_participants and group_dm_messages both
+// cascade automatically via their FK to group_dm_threads (migration_026)
+// -- but message_reactions has no FK to either message table (it's a
+// shared table for DM and Chat reactions, keyed by message_type instead),
+// so its rows for this thread's messages must be deleted explicitly
+// first or they'd become permanently orphaned.
 export async function DELETE(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -123,7 +64,13 @@ export async function DELETE(req, { params }) {
   const { threadId } = await params;
   const supabase = supabaseServer();
 
-  if (!(await isParticipant(supabase, threadId, user.id))) {
+  const { data: myRow } = await supabase
+    .from("group_dm_participants")
+    .select("thread_id")
+    .eq("thread_id", threadId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!myRow) {
     return NextResponse.json({ error: "You're not part of this conversation." }, { status: 403 });
   }
 
@@ -133,7 +80,7 @@ export async function DELETE(req, { params }) {
     await supabase.from("message_reactions").delete().eq("message_type", "dm").in("message_id", messageIds);
   }
 
-  const { error } = await supabase.from("group_dm_messages").delete().eq("thread_id", threadId);
+  const { error } = await supabase.from("group_dm_threads").delete().eq("id", threadId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

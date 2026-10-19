@@ -1,77 +1,276 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup } from "@/lib/groupAuth";
-import { ensureBucket, cleanupUploadOnFailure } from "@/lib/storage";
+import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
+import { logActivity } from "@/lib/activityLog";
+import { PLANS, DEFAULT_PLAN_ID } from "@/lib/planRegistry";
+import { withNoStore } from "@/lib/cacheHeaders";
+import { clearSessionCache } from "@/lib/session";
+import { requireRecentPin } from "@/lib/adminAuth";
 
-const BUCKET = "group-icons";
-const MAX_BYTES = 5 * 1024 * 1024; // 5MB
-const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const VALID_FEATURES = [
+  "prayer",
+  "songs_setlists",
+  "reading_plan_journal",
+  "programs",
+  "direct_messages",
+  "chat_members",
+  "chat_leaders",
+  "curriculum",
+];
+const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
 
-export async function POST(req, { params }) {
+// Plain-language names for the activity log ("Sarah turned on Programs
+// for Choir").
+const FEATURE_LABELS = {
+  prayer: "Prayer",
+  songs_setlists: "Songs + Setlists",
+  reading_plan_journal: "Bible Plan",
+  programs: "Programs",
+  direct_messages: "Messages",
+  chat_members: "Members Chat",
+  chat_leaders: "Leaders Chat",
+  curriculum: "Curriculum",
+};
+
+// Single-group detail fetch -- used by RosterTab's appearance panel to
+// show the group's current icon/color before changing them, without
+// needing the full /api/groups list.
+export async function GET(req, { params }) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { id } = await params;
+  if (!(await isActiveGroupMember(user, id))) {
+    return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
+  }
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("groups")
+    .select("id, name, type, features, image_url, tile_color, description, reading_plan_locked, reading_plan_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Group not found." }, { status: 404 });
+  return withNoStore({ group: data });
+}
+
+export async function PATCH(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) {
     return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
   }
 
-  const { id: groupId } = await params;
-  if (!(await canManageGroup(user, groupId))) {
-    return NextResponse.json(
-      { error: "Only this group's leaders or a Church Admin can change its icon." },
-      { status: 403 }
-    );
+  const { id } = await params;
+  const { name, type, features, tile_color, description, reading_plan_locked, reading_plan_id, hidden, hide_restricts_access, archived } =
+    await req.json();
+
+  const updates = { updated_at: new Date().toISOString() };
+
+  // Renaming a ministry -- and its type/category label -- is delegated to
+  // its own leader too, per the project's decision.
+  if (name !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can rename it." },
+        { status: 403 }
+      );
+    }
+    if (!name.trim()) return NextResponse.json({ error: "name cannot be empty." }, { status: 400 });
+    updates.name = name.trim();
+  }
+  if (type !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can change its type label." },
+        { status: 403 }
+      );
+    }
+    updates.type = type.trim();
   }
 
-  const formData = await req.formData();
-  const file = formData.get("file");
-  if (!file || typeof file === "string") {
-    return NextResponse.json({ error: "No file provided." }, { status: 400 });
+  if (description !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can change its description." },
+        { status: 403 }
+      );
+    }
+    updates.description = description.trim() || null;
   }
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: "Image must be PNG, JPEG, or WebP." }, { status: 400 });
+
+  // Bolt-on modules: a ministry's own leaders can turn them on/off for
+  // their ministry, and a Church Admin can for any ministry (v71 decision
+  // L -- reverses the earlier admin-only rule). Turning a module off only
+  // hides it; nothing is deleted. Every change is written to the
+  // activity log.
+  let featuresBefore = null;
+  let groupNameForLog = null;
+  if (features !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can turn modules on or off." },
+        { status: 403 }
+      );
+    }
+    const cleanFeatures = Array.isArray(features) ? [...new Set(features.filter((f) => VALID_FEATURES.includes(f)))] : [];
+
+    const supabase = supabaseServer();
+    const { data: current } = await supabase.from("groups").select("name, type, features").eq("id", id).maybeSingle();
+    if (!current) return NextResponse.json({ error: "Group not found." }, { status: 404 });
+    featuresBefore = current.features || [];
+    groupNameForLog = current.name;
+
+    // Curriculum is scoped to class-type ministries only (Cam's
+    // decision -- it's meant for Sunday School-style classes, not a
+    // general-purpose module every ministry sees in its bolt-on list).
+    // Checks the incoming `type` if it's changing in this same request,
+    // otherwise the group's current saved type.
+    if (cleanFeatures.includes("curriculum")) {
+      const effectiveType = type !== undefined ? type.trim() : current.type || "";
+      if (!effectiveType.toLowerCase().includes("class")) {
+        return NextResponse.json(
+          { error: "Curriculum can only be enabled for a ministry whose type includes \"class\"." },
+          { status: 400 }
+        );
+      }
+    }
+
+    updates.features = cleanFeatures;
   }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Image must be under 5MB." }, { status: 400 });
+
+  // Tile color is cosmetic to this one ministry -- its own leader can set
+  // it too, not just a Church Admin, per the project's decision to let
+  // each ministry pick its own tile color.
+  if (tile_color !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can change its tile color." },
+        { status: 403 }
+      );
+    }
+    if (tile_color !== null && !HEX_COLOR_RE.test(tile_color)) {
+      return NextResponse.json({ error: "tile_color must be a hex color like #8B1E2F." }, { status: 400 });
+    }
+    updates.tile_color = tile_color;
+  }
+
+  // Whether the ministry's reading plan is locked to one plan for
+  // everyone, and which plan -- the ministry's own leader decides this,
+  // same authority level as its other cosmetic/behavioral choices.
+  if (reading_plan_locked !== undefined || reading_plan_id !== undefined) {
+    if (!(await canManageGroup(user, id))) {
+      return NextResponse.json(
+        { error: "Only this group's leaders or a Church Admin can change its reading plan settings." },
+        { status: 403 }
+      );
+    }
+    if (reading_plan_locked !== undefined) updates.reading_plan_locked = Boolean(reading_plan_locked);
+    if (reading_plan_id !== undefined) {
+      if (!PLANS[reading_plan_id]) {
+        return NextResponse.json({ error: "That's not a recognized reading plan." }, { status: 400 });
+      }
+      updates.reading_plan_id = reading_plan_id;
+    }
+  }
+
+  // Hiding a ministry -- and whether that also cuts off existing
+  // members' access -- is admin-only. This is a bigger deal than the
+  // ministry's own cosmetic choices (name/color/etc, which a leader can
+  // set): it's the admin deciding whether a ministry is discoverable at
+  // all, and separately, whether it's effectively taken offline for
+  // people already in it. See migration_023 and lib/groupAuth.js for
+  // where hide_restricts_access is actually enforced.
+  if (hidden !== undefined || hide_restricts_access !== undefined) {
+    if (!user.is_church_admin) {
+      return NextResponse.json({ error: "Church Admin access required for that change." }, { status: 403 });
+    }
+    if (hidden !== undefined) updates.hidden = Boolean(hidden);
+    if (hide_restricts_access !== undefined) updates.hide_restricts_access = Boolean(hide_restricts_access);
+  }
+
+  // v71 #24: archive / restore. Archived = hidden from members and the
+  // directory with everything kept; an admin can restore it. Nothing is
+  // deleted, so no PIN -- permanent delete (below) is the guarded action.
+  if (archived !== undefined) {
+    if (!user.is_church_admin) {
+      return NextResponse.json({ error: "Church Admin access required for that change." }, { status: 403 });
+    }
+    updates.archived_at = archived ? new Date().toISOString() : null;
   }
 
   const supabase = supabaseServer();
-  // Icons are public on purpose (they show on the home screen tiles).
-  // Idempotent create -- no manual "create this bucket" dashboard step.
-  await ensureBucket(supabase, BUCKET, { isPublic: true });
+  const { data, error } = await supabase
+    .from("groups")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .maybeSingle();
 
-  const ext = file.type.split("/")[1];
-  const path = `${groupId}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Group not found." }, { status: 404 });
 
-  // An icon upload overwrites in place (same path). If this path already
-  // held a file, a failed database update must NOT delete it; only a brand
-  // new object (e.g. first PNG after a JPEG) is an orphan worth removing.
-  const { data: existedBefore } = await supabase.storage.from(BUCKET).exists(path);
+  if (archived !== undefined) {
+    clearSessionCache(); // every member's cached memberships now carry the new flag
+    logActivity(
+      user.id,
+      archived ? "ministry_archived" : "ministry_restored",
+      `${user.display_name} ${archived ? "archived" : "restored"} ${data.name}`,
+      { group_id: id }
+    );
+  }
 
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, buffer, { contentType: file.type, upsert: true });
+  if (featuresBefore) {
+    const after = data.features || [];
+    const turnedOn = after.filter((f) => !featuresBefore.includes(f));
+    const turnedOff = featuresBefore.filter((f) => !after.includes(f));
+    const ministry = data.name || groupNameForLog || "a ministry";
+    for (const f of turnedOn) {
+      logActivity(user.id, "features_changed", `${user.display_name} turned on ${FEATURE_LABELS[f] || f} for ${ministry}`);
+    }
+    for (const f of turnedOff) {
+      logActivity(user.id, "features_changed", `${user.display_name} turned off ${FEATURE_LABELS[f] || f} for ${ministry}`);
+    }
+  }
 
-  if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
+  // Hiding a ministry changes every member's cached access at once.
+  if (hidden !== undefined || hide_restricts_access !== undefined) clearSessionCache();
 
-  const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
-  // Cache-bust so the new icon shows immediately even though the path
-  // (and therefore the URL) is identical to whatever was there before.
-  const imageUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+  return NextResponse.json({ group: data });
+}
 
-  // v71 #15: clean up the uploaded object if the database update fails.
-  const { error: updateError } = await cleanupUploadOnFailure(
-    supabase,
-    BUCKET,
-    path,
-    () =>
-      supabase
-        .from("groups")
-        .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
-        .eq("id", groupId),
-    { createdNew: !existedBefore }
+// Hard delete, per the project's decision that group deletion doesn't need
+// to preserve/archive anything. Cascades to group_members and
+// group_promotion_requests via foreign key ON DELETE CASCADE.
+export async function DELETE(req, { params }) {
+  const user = await getCurrentUser(req);
+  if (!user?.is_church_admin) {
+    return NextResponse.json({ error: "Church Admin access required." }, { status: 403 });
+  }
+
+  // v71 #21: permanent deletion asks for the PIN again. (Archiving is the
+  // reversible way to take a ministry away; this is the one that isn't.)
+  const pinNeeded = requireRecentPin(user);
+  if (pinNeeded) return pinNeeded;
+
+  const { id } = await params;
+  const supabase = supabaseServer();
+
+  // Fetch the name before deleting -- needed for a meaningful log entry,
+  // since it won't be recoverable from the row afterward.
+  const { data: group } = await supabase.from("groups").select("name").eq("id", id).maybeSingle();
+
+  const { error } = await supabase.from("groups").delete().eq("id", id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  clearSessionCache();
+  logActivity(
+    user.id,
+    "ministry_deleted",
+    `${user.display_name} permanently deleted ${group?.name ? `"${group.name}"` : "a ministry"}`,
+    { group_id: id }
   );
-
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
-  return NextResponse.json({ image_url: imageUrl });
+  return NextResponse.json({ ok: true });
 }
