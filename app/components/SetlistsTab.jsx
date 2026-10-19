@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useFormDisclosure } from "./useFormDisclosure";
-import { Plus, Trash2, Pencil, PlayCircle } from "lucide-react";
+import { Plus, Trash2, Pencil, PlayCircle, Headphones } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import EmptyState from "./EmptyState";
 import { useConfirm } from "./ConfirmDialog";
@@ -13,7 +13,9 @@ import { STALE, invalidate } from "@/lib/resourceCache";
 import { useScrollMemory } from "@/lib/useScreenState";
 import SetlistForm from "./SetlistForm";
 import MediaViewerModal from "./MediaViewerModal";
+import ListenByPartModal from "./ListenByPartModal";
 import { songMediaFields } from "@/lib/songMedia";
+import { listenParts } from "@/lib/listenQueue";
 
 function fmtDate(d) {
   return new Date(d + "T00:00:00").toLocaleDateString(undefined, {
@@ -49,6 +51,7 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
   // closing it naturally lands right back on the setlist, with no
   // separate navigation/back-button plumbing needed.
   const [viewer, setViewer] = useState(null);
+  const [listen, setListen] = useState(null); // { title, songs } -- Listen by part
 
   // Same reuse pattern as SongsTab: defaults to the group's own
   // setlists URL so Choir's existing Setlists tab is unaffected;
@@ -201,6 +204,21 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
                 })}
               </ol>
             )}
+            {/* One button for the whole setlist: play ONE part (Alto, Split Track,
+                a custom track...) for every song, in order. Only shown when at
+                least one song has a track to play. */}
+            {(() => {
+              const linked = s.songs.map((x) => x.group_songs || x.program_songs).filter(Boolean);
+              if (listenParts(linked).length === 0) return null;
+              return (
+                <button
+                  onClick={() => setListen({ title: `${fmtDate(s.service_date)} · ${s.service}`, songs: linked })}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-accent border border-accent/40 rounded-full px-3 min-h-[36px]"
+                >
+                  <Headphones size={14} aria-hidden="true" /> Listen by part
+                </button>
+              );
+            })()}
             {canManage && (
               <div className="absolute top-4 right-4 flex items-center gap-3">
                 <button onClick={(e) => openEdit(s, e.currentTarget)} data-return-focus={`setlist-edit-${s.id}`} className="text-inkfaint p-1" aria-label={`Edit ${s.service} setlist`}>
@@ -218,6 +236,7 @@ export default function SetlistsTab({ groupId, canManage, baseUrl, songsUrl }) {
       {viewer && (
         <MediaViewerModal song={viewer.song} initialField={viewer.field} onClose={() => setViewer(null)} />
       )}
+      {listen && <ListenByPartModal title={listen.title} songs={listen.songs} onClose={() => setListen(null)} />}
     </div>
   );
 }

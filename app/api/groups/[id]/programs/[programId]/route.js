@@ -1,103 +1,97 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
-import { withNoStore } from "@/lib/cacheHeaders";
+import { canManageGroup, assertInGroup } from "@/lib/groupAuth";
+import { ensureBucket, cleanupUploadOnFailure } from "@/lib/storage";
 
-const HEX_COLOR_RE = /^#[0-9a-f]{6}$/i;
+// Reuses the same "group-icons" Storage bucket a ministry's own icon
+// lives in, rather than creating a whole separate bucket for what's
+// conceptually the same kind of asset (a small icon image) -- just
+// prefixed "program-" so a program's file never collides with its
+// parent group's own icon path.
+const BUCKET = "group-icons";
+const MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
-export async function GET(req, { params }) {
+export async function POST(req, { params }) {
   const user = await getCurrentUser(req);
-  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
-
-  const { id: groupId, programId } = await params;
-  if (!(await isActiveGroupMember(user, groupId))) {
-    return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
+  if (!user) {
+    return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
   }
 
-  const supabase = supabaseServer();
-  const { data, error } = await supabase
-    .from("programs")
-    .select("id, name, image_url, tile_color, hidden, created_at")
-    .eq("id", programId)
-    .eq("group_id", groupId)
-    .maybeSingle();
+  const { id: groupId, programId } = await params;
+  if (!(await canManageGroup(user, groupId))) {
+    return NextResponse.json(
+      { error: "Only this group's leaders or a Church Admin can change a program's icon." },
+      { status: 403 }
+    );
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Program not found." }, { status: 404 });
-
-  // A hidden program is still directly reachable by a leader/admin (they
-  // need to be able to open it to un-hide it or manage it) but not by a
-  // regular member who somehow has its ID -- matches it being excluded
-  // from the list entirely for them.
-  if (data.hidden && !(await canManageGroup(user, groupId))) {
+  // v71 #2: the program must belong to THIS group -- otherwise a leader of
+  // ministry A could act on ministry B's program by pairing A's group ID
+  // with B's program ID.
+  if (!(await assertInGroup("programs", programId, groupId))) {
     return NextResponse.json({ error: "Program not found." }, { status: 404 });
   }
 
-  return withNoStore({ program: data });
-}
-
-export async function PATCH(req, { params }) {
-  const user = await getCurrentUser(req);
-  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
-
-  const { id: groupId, programId } = await params;
-  if (!(await canManageGroup(user, groupId))) {
-    return NextResponse.json(
-      { error: "Only this group's leaders or a Church Admin can edit a program." },
-      { status: 403 }
-    );
+  const formData = await req.formData();
+  const file = formData.get("file");
+  if (!file || typeof file === "string") {
+    return NextResponse.json({ error: "No file provided." }, { status: 400 });
   }
-
-  const { name, tile_color, hidden } = await req.json();
-  const updates = { updated_at: new Date().toISOString() };
-  if (name !== undefined) {
-    if (!name.trim()) return NextResponse.json({ error: "name cannot be empty." }, { status: 400 });
-    updates.name = name.trim();
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return NextResponse.json({ error: "Image must be PNG, JPEG, or WebP." }, { status: 400 });
   }
-  if (tile_color !== undefined) {
-    if (tile_color !== null && !HEX_COLOR_RE.test(tile_color)) {
-      return NextResponse.json({ error: "tile_color must be a hex color like #8B1E2F." }, { status: 400 });
-    }
-    updates.tile_color = tile_color;
+  if (file.size > MAX_BYTES) {
+    return NextResponse.json({ error: "Image must be under 5MB." }, { status: 400 });
   }
-  // Per-program hiding -- same leader/admin authority as everything
-  // else about a program, distinct from ministry-level hiding
-  // (migration_023), which is admin-only. A leader who can create and
-  // manage a program can also hide it, since it's their own content.
-  if (hidden !== undefined) updates.hidden = Boolean(hidden);
 
   const supabase = supabaseServer();
-  const { data, error } = await supabase
+
+  // Confirm the program actually belongs to this group before touching
+  // storage or the DB -- same defensive check every program sub-route
+  // does via .eq("group_id", groupId) on its query.
+  const { data: program, error: programError } = await supabase
     .from("programs")
-    .update(updates)
+    .select("id")
     .eq("id", programId)
     .eq("group_id", groupId)
-    .select()
     .maybeSingle();
+  if (programError) return NextResponse.json({ error: programError.message }, { status: 500 });
+  if (!program) return NextResponse.json({ error: "Program not found." }, { status: 404 });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!data) return NextResponse.json({ error: "Program not found." }, { status: 404 });
-  return NextResponse.json({ program: data });
-}
+  await ensureBucket(supabase, BUCKET, { isPublic: true });
 
-// Cascades to remove its songs, setlists, and documents (all reference
-// program_id with on delete cascade -- see migration_025). A real
-// consequence worth confirming client-side before calling this.
-export async function DELETE(req, { params }) {
-  const user = await getCurrentUser(req);
-  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+  const ext = file.type.split("/")[1];
+  const path = `program-${programId}.${ext}`;
+  const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { id: groupId, programId } = await params;
-  if (!(await canManageGroup(user, groupId))) {
-    return NextResponse.json(
-      { error: "Only this group's leaders or a Church Admin can delete a program." },
-      { status: 403 }
-    );
-  }
+  // Same rule as the ministry icon: never delete a file that was already
+  // there before this upload overwrote it.
+  const { data: existedBefore } = await supabase.storage.from(BUCKET).exists(path);
 
-  const supabase = supabaseServer();
-  const { error } = await supabase.from("programs").delete().eq("id", programId).eq("group_id", groupId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(path, buffer, { contentType: file.type, upsert: true });
+
+  if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
+
+  const { data: publicUrlData } = supabase.storage.from(BUCKET).getPublicUrl(path);
+  const imageUrl = `${publicUrlData.publicUrl}?t=${Date.now()}`;
+
+  // v71 #15: clean up the uploaded object if the database update fails.
+  const { error: updateError } = await cleanupUploadOnFailure(
+    supabase,
+    BUCKET,
+    path,
+    () =>
+      supabase
+        .from("programs")
+        .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
+        .eq("id", programId),
+    { createdNew: !existedBefore }
+  );
+
+  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  return NextResponse.json({ image_url: imageUrl });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, ChevronLeft, Music, ListMusic, FileText, Settings } from "lucide-react";
+import { Plus, ChevronLeft, Music, ListMusic, FileText, Settings, Headphones } from "lucide-react";
 import Image from "next/image";
 import { SkeletonList } from "./Skeleton";
 import TabTransition from "./TabTransition";
@@ -9,6 +9,7 @@ import { readableTextColor } from "@/lib/colorContrast";
 import SongsTab from "./SongsTab";
 import SetlistsTab from "./SetlistsTab";
 import ProgramDocumentsTab from "./ProgramDocumentsTab";
+import ProgramPlaylistTab from "./ProgramPlaylistTab";
 import EmptyState from "./EmptyState";
 import { useConfirm } from "./ConfirmDialog";
 import ProgramSettingsPanel, { DEFAULT_TILE_COLOR } from "./ProgramSettingsPanel";
@@ -20,6 +21,7 @@ import { STALE, invalidate } from "@/lib/resourceCache";
 const SUB_TABS = [
   { key: "songs", label: "Songs", icon: Music },
   { key: "setlist", label: "Setlist", icon: ListMusic },
+  { key: "playlist", label: "Playlist", icon: Headphones },
   { key: "documents", label: "Documents", icon: FileText },
 ];
 
@@ -133,6 +135,9 @@ function ProgramShell({ groupId, program, canManage, onBack, onUpdated }) {
             baseUrl={`/api/groups/${groupId}/programs/${program.id}/setlists`}
             songsUrl={`/api/groups/${groupId}/programs/${program.id}/songs`}
           />
+        )}
+        {subTab === "playlist" && (
+          <ProgramPlaylistTab groupId={groupId} programId={program.id} programName={program.name} />
         )}
         {subTab === "documents" && (
           <ProgramDocumentsTab groupId={groupId} programId={program.id} canManage={canManage} />

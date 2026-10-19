@@ -3,11 +3,16 @@ import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, assertInGroup } from "@/lib/groupAuth";
 
-export async function POST(req, { params }) {
+// Edits the note and/or position of a song already in a setlist. Position
+// is a simple integer -- the client is responsible for sending the full
+// reordered set of positions after a drag/reorder action (or, in the
+// simpler up/down-button UI actually shipped, just swapping two adjacent
+// positions with two PATCH calls).
+export async function PATCH(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId, setlistId } = await params;
+  const { id: groupId, setlistId, setlistSongId } = await params;
   if (!(await canManageGroup(user, groupId))) {
     return NextResponse.json(
       { error: "Only this group's leaders or a Church Admin can edit setlists." },
@@ -15,42 +20,56 @@ export async function POST(req, { params }) {
     );
   }
 
-  // v71 #2: the setlist must belong to THIS group.
-  if (!(await assertInGroup("group_setlists", setlistId, groupId))) {
-    return NextResponse.json({ error: "Setlist not found." }, { status: 404 });
+  // v71 #2: setlist -> this group, and the entry -> that setlist.
+  if (
+    !(await assertInGroup("group_setlists", setlistId, groupId)) ||
+    !(await assertInGroup("group_setlist_songs", setlistSongId, setlistId, "setlist_id"))
+  ) {
+    return NextResponse.json({ error: "Setlist entry not found." }, { status: 404 });
   }
 
-  const { song_id, note } = await req.json();
-  if (!song_id) {
-    return NextResponse.json({ error: "song_id is required." }, { status: 400 });
+  const { note, position } = await req.json();
+  const updates = {};
+  if (note !== undefined) updates.note = note || null;
+  if (position !== undefined) updates.position = position;
+
+  const supabase = supabaseServer();
+  const { data, error } = await supabase
+    .from("group_setlist_songs")
+    .update(updates)
+    .eq("id", setlistSongId)
+    .select("id, note, position, group_songs(id, title, composer, lyrics_url, chords_url, sheet_music_url, soprano_url, alto_url, tenor_url, bass_url, split_track_url, demo_url, extra1_label, extra1_url, extra2_label, extra2_url, extra3_label, extra3_url)")
+    .maybeSingle();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!data) return NextResponse.json({ error: "Setlist entry not found." }, { status: 404 });
+  return NextResponse.json({ setlistSong: data });
+}
+
+// Removes a song from THIS setlist only -- does not touch the song in the
+// library (group_songs), just its placement here.
+export async function DELETE(req, { params }) {
+  const user = await getCurrentUser(req);
+  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+
+  const { id: groupId, setlistId, setlistSongId } = await params;
+  if (!(await canManageGroup(user, groupId))) {
+    return NextResponse.json(
+      { error: "Only this group's leaders or a Church Admin can edit setlists." },
+      { status: 403 }
+    );
   }
 
-  // ...and so must the song being added -- otherwise the insert below
-  // would attach (and the response would return the lyrics/chart links
-  // of) another ministry's song.
-  if (!(await assertInGroup("group_songs", song_id, groupId))) {
-    return NextResponse.json({ error: "Song not found." }, { status: 404 });
+  // v71 #2: setlist -> this group, and the entry -> that setlist.
+  if (
+    !(await assertInGroup("group_setlists", setlistId, groupId)) ||
+    !(await assertInGroup("group_setlist_songs", setlistSongId, setlistId, "setlist_id"))
+  ) {
+    return NextResponse.json({ error: "Setlist entry not found." }, { status: 404 });
   }
 
   const supabase = supabaseServer();
-
-  // New songs go to the end of the list -- position = current max + 1.
-  const { data: existing, error: existingError } = await supabase
-    .from("group_setlist_songs")
-    .select("position")
-    .eq("setlist_id", setlistId)
-    .order("position", { ascending: false })
-    .limit(1);
-
-  if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
-  const nextPosition = existing.length ? existing[0].position + 1 : 0;
-
-  const { data, error } = await supabase
-    .from("group_setlist_songs")
-    .insert({ setlist_id: setlistId, song_id, note: note || null, position: nextPosition })
-    .select("id, note, position, group_songs(id, title, composer, lyrics_url, chords_url, sheet_music_url, soprano_url, alto_url, tenor_url, bass_url, split_track_url, demo_url, extra1_label, extra1_url, extra2_label, extra2_url, extra3_label, extra3_url)")
-    .single();
-
+  const { error } = await supabase.from("group_setlist_songs").delete().eq("id", setlistSongId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ setlistSong: data });
+  return NextResponse.json({ ok: true });
 }

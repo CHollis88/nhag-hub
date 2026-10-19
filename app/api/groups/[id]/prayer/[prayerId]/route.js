@@ -1,72 +1,59 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup } from "@/lib/groupAuth";
+import { isActiveGroupMember } from "@/lib/groupAuth";
+import { notifyGroup } from "@/lib/push";
 
-// The person who submitted it can edit their own prayer request's text.
-// Leaders/admins can moderate (delete) but editing someone else's words
-// isn't something even leaders should do -- that's the owner's own
-// account, not moderation.
+const VALID_STATUSES = ["open", "answered", "still-praying"];
+
+// Only the prayer's own author (or a leader/admin, for cleanup cases
+// like an inactive author) can update its status -- this is a personal
+// update on someone's own request, not a moderation action.
 export async function PATCH(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
   const { id: groupId, prayerId } = await params;
-  const { body } = await req.json();
-  if (!body?.trim()) {
-    return NextResponse.json({ error: "A prayer request can't be empty." }, { status: 400 });
+  if (!(await isActiveGroupMember(user, groupId))) {
+    return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }
+
+  const { status, notify } = await req.json();
+  if (!VALID_STATUSES.includes(status)) {
+    return NextResponse.json({ error: "Invalid status." }, { status: 400 });
+  }
+  const shouldNotify = notify !== false;
 
   const supabase = supabaseServer();
   const { data: prayer, error: fetchError } = await supabase
     .from("group_prayer")
-    .select("created_by")
+    .select("created_by, body, is_anonymous")
     .eq("id", prayerId)
-    .eq("group_id", groupId)
+    .eq("group_id", groupId) // v71 #2: must belong to THIS group
     .maybeSingle();
   if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
   if (!prayer) return NextResponse.json({ error: "Prayer request not found." }, { status: 404 });
+
   if (prayer.created_by !== user.id) {
-    return NextResponse.json({ error: "You can only edit your own prayer requests." }, { status: 403 });
+    return NextResponse.json({ error: "Only the person who submitted this request can update its status." }, { status: 403 });
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("group_prayer")
-    .update({ body: body.trim() })
-    .eq("id", prayerId)
-    .select("id, body")
-    .single();
-
+    .update({ status, status_updated_at: new Date().toISOString() })
+    .eq("id", prayerId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ prayer: data });
-}
 
-// Either the person who submitted it, or this group's leader/admin
-// (moderation), can remove a prayer request. No one else.
-export async function DELETE(req, { params }) {
-  const user = await getCurrentUser(req);
-  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
-
-  const { id: groupId, prayerId } = await params;
-  const supabase = supabaseServer();
-
-  const { data: prayer, error: fetchError } = await supabase
-    .from("group_prayer")
-    .select("id, created_by")
-    .eq("id", prayerId)
-    .eq("group_id", groupId)
-    .maybeSingle();
-
-  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 });
-  if (!prayer) return NextResponse.json({ error: "Prayer request not found." }, { status: 404 });
-
-  const isOwner = prayer.created_by === user.id;
-  const canModerate = await canManageGroup(user, groupId);
-  if (!isOwner && !canModerate) {
-    return NextResponse.json({ error: "You can only remove your own prayer requests." }, { status: 403 });
+  // Only notify the group for the "answered" milestone -- a genuine
+  // celebration worth a push. "still-praying" is just a status refresh,
+  // not news, so it stays silent.
+  if (status === "answered" && shouldNotify) {
+    notifyGroup(groupId, {
+      title: "A prayer was answered 🙏",
+      body: prayer.is_anonymous ? "Someone's prayer request was answered." : "Tap to see what happened.",
+      url: `/?group=${groupId}&tab=prayer`,
+    }).catch(() => {});
   }
 
-  const { error } = await supabase.from("group_prayer").delete().eq("id", prayerId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, status });
 }

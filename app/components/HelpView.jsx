@@ -251,6 +251,14 @@ const LEADER_SUBFOLDERS = [
     title: "Programs & Bible Plan",
     items: [
       {
+        q: "How does a program's Playlist tab work?",
+        a: "Open a program and tap Playlist. Choose how to listen: By part plays one part for every song (like every Alto), By song plays every track of a song before moving to the next song, and Custom plays a playlist you build yourself. By part and By song play all the program's songs A to Z, or in the running order of a setlist if you pick one under \"Play from\". For a Custom playlist, tap New playlist, then Add tracks: tap a part to add it from every song, or tick individual tracks, and use the arrows to reorder. Custom playlists are private to you and saved for that program. If a link has been removed from a song, that track is skipped.",
+      },
+      {
+        q: "How do I listen to a whole setlist by part?",
+        a: "On any setlist, tap \"Listen by part\", then pick a part: Split Track, Soprano, Alto, Tenor, Bass, Demo, or one of your own custom tracks. It plays that part for every song, in setlist order, and moves to the next song by itself. If a song has no track for your part, it plays that song's Split Track, then its Demo, and tells you which one. A custom track, like a lowered key, is never swapped: songs without it are skipped. You can change the part at any time and keep your place, and the song name and play, next, and previous buttons show on your lock screen.",
+      },
+      {
         q: "How do I create or hide a Program?",
         a: "From the Programs tab (once it's turned on for your ministry), leaders can create a new program, which gets its own Songs, Setlist, and Documents — entirely separate from the ministry's everyday Songs tab, so planning a special event never mixes into everyday repertoire. A leader can also hide a program that's finished or not ready yet; it simply won't show up in the grid for regular members, though leaders and admins can still see and manage it.",
       },

@@ -1,96 +1,38 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
-import { withPrivateCache } from "@/lib/cacheHeaders";
-import { ensureBucket, cleanupUploadOnFailure } from "@/lib/storage";
-import crypto from "crypto";
+import { isActiveGroupMember } from "@/lib/groupAuth";
+import { storagePathFrom, createSignedUrl } from "@/lib/storage";
 
-// Same bucket-per-content-type pattern as program-documents -- PDFs are
-// a distinct content type from icons, so this stays its own bucket.
-// PRIVATE (v71 #18), same model as program documents: `file_url` holds the
-// object path and files are served only through .../[curriculumId]/download
-// after a membership check.
 const BUCKET = "curriculum-materials";
-const MAX_BYTES = 20 * 1024 * 1024;
-const ALLOWED_TYPES = ["application/pdf"];
 
+// v71 #18 -- the ONLY way to open a curriculum material. Private bucket:
+// membership check, then a redirect to a 60-second signed link.
 export async function GET(req, { params }) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
 
-  const { id: groupId } = await params;
+  const { id: groupId, curriculumId } = await params;
   if (!(await isActiveGroupMember(user, groupId))) {
     return NextResponse.json({ error: "You're not a member of this group." }, { status: 403 });
   }
 
   const supabase = supabaseServer();
-  const { data, error } = await supabase
+  const { data: item, error } = await supabase
     .from("curriculum_materials")
-    .select("id, title, description, created_at, users(display_name)")
+    .select("file_url")
+    .eq("id", curriculumId)
     .eq("group_id", groupId)
-    .order("created_at", { ascending: false });
-
+    .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return withPrivateCache({ materials: data }, { maxAge: 60, staleWhileRevalidate: 300 });
-}
 
-// Leader/admin only to upload -- same as programs' documents tab.
-export async function POST(req, { params }) {
-  const user = await getCurrentUser(req);
-  if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
+  const path = storagePathFrom(BUCKET, item?.file_url);
+  if (!path) return NextResponse.json({ error: "Material not found." }, { status: 404 });
 
-  const { id: groupId } = await params;
-  if (!(await canManageGroup(user, groupId))) {
-    return NextResponse.json(
-      { error: "Only this group's leaders or a Church Admin can upload curriculum materials." },
-      { status: 403 }
-    );
-  }
+  const url = await createSignedUrl(supabase, BUCKET, path);
+  if (!url) return NextResponse.json({ error: "That file couldn't be opened. It may have been removed." }, { status: 404 });
 
-  const formData = await req.formData();
-  const file = formData.get("file");
-  const title = formData.get("title");
-  const description = formData.get("description");
-  if (!file || typeof file === "string") {
-    return NextResponse.json({ error: "No file provided." }, { status: 400 });
-  }
-  if (!title?.trim()) {
-    return NextResponse.json({ error: "title is required." }, { status: 400 });
-  }
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: "Only PDF files are supported." }, { status: 400 });
-  }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "File must be under 20MB." }, { status: 400 });
-  }
-
-  const supabase = supabaseServer();
-  await ensureBucket(supabase, BUCKET, { isPublic: false });
-
-  const path = `${groupId}/${crypto.randomUUID()}.pdf`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error: uploadError } = await supabase.storage
-    .from(BUCKET)
-    .upload(path, buffer, { contentType: "application/pdf" });
-  if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
-
-  // v71 #15: a failed insert deletes the file that was just uploaded.
-  const { data, error } = await cleanupUploadOnFailure(supabase, BUCKET, path, () =>
-    supabase
-      .from("curriculum_materials")
-      .insert({
-        group_id: groupId,
-        title: title.trim(),
-        description: description?.trim() || null,
-        file_url: path, // the object path in the private bucket
-        created_by: user.id,
-      })
-      .select("id, title, description, created_at")
-      .single()
-  );
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ material: data });
+  const res = NextResponse.redirect(url, 307);
+  res.headers.set("Cache-Control", "private, no-store");
+  return res;
 }
