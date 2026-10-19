@@ -151,25 +151,39 @@ export default function QueuePlayer({ items, skipped = [], skippedPrefix = "Skip
     setCurrentTime(value);
   };
 
-  // Lock screen / car controls.
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return undefined;
+  // Lock screen / car controls. iPhones only show next / previous track (and not
+  // the podcast-style "back 10 / forward 10") if those handlers are registered
+  // while audio is actually playing, and if no seek handlers or position state
+  // are set. So this runs on mount AND every time a track starts, and it
+  // deliberately clears the seek handlers.
+  const stepRef = useRef(step);
+  stepRef.current = step;
+  const registerLockScreen = useCallback(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
     const ms = navigator.mediaSession;
     const set = (action, fn) => {
       try { ms.setActionHandler(action, fn); } catch { /* not supported here */ }
     };
     set("play", () => audioRef.current?.play().catch(() => {}));
     set("pause", () => audioRef.current?.pause());
-    set("nexttrack", () => step(1));
-    set("previoustrack", () => step(-1));
-    set("seekto", (d) => {
-      if (audioRef.current && typeof d.seekTime === "number") audioRef.current.currentTime = d.seekTime;
-    });
+    set("nexttrack", () => stepRef.current(1));
+    set("previoustrack", () => stepRef.current(-1));
+    set("seekbackward", null);
+    set("seekforward", null);
+    set("seekto", null);
+  }, []);
+
+  useEffect(() => {
+    registerLockScreen();
     return () => {
-      for (const a of ["play", "pause", "nexttrack", "previoustrack", "seekto"]) set(a, null);
-      try { ms.metadata = null; } catch { /* ignore */ }
+      if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+      const ms = navigator.mediaSession;
+      for (const a of ["play", "pause", "nexttrack", "previoustrack", "seekbackward", "seekforward", "seekto"]) {
+        try { ms.setActionHandler(a, null); } catch { /* ignore */ }
+      }
+      try { ms.metadata = null; ms.playbackState = "none"; } catch { /* ignore */ }
     };
-  }, [step]);
+  }, [registerLockScreen]);
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !("mediaSession" in navigator) || !current || !loaded) return;
@@ -177,13 +191,6 @@ export default function QueuePlayer({ items, skipped = [], skippedPrefix = "Skip
       navigator.mediaSession.metadata = new window.MediaMetadata({ title: current.title, artist: current.short, album: title });
     } catch { /* ignore */ }
   }, [current, loaded, title]);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !("mediaSession" in navigator) || !duration) return;
-    try {
-      navigator.mediaSession.setPositionState({ duration, position: Math.min(currentTime, duration), playbackRate: 1 });
-    } catch { /* ignore */ }
-  }, [currentTime, duration]);
 
   // Leaving the screen stops the music.
   useEffect(() => {
@@ -221,10 +228,14 @@ export default function QueuePlayer({ items, skipped = [], skippedPrefix = "Skip
         onPlay={() => {
           playingRef.current = true;
           setPlaying(true);
+          registerLockScreen();
+          try { navigator.mediaSession.playbackState = "playing"; } catch { /* ignore */ }
         }}
+        onPlaying={registerLockScreen}
         onPause={() => {
           playingRef.current = false;
           setPlaying(false);
+          try { navigator.mediaSession.playbackState = "paused"; } catch { /* ignore */ }
         }}
         onEnded={onEnded}
         onError={onError}
