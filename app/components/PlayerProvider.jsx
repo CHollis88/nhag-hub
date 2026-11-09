@@ -165,6 +165,28 @@ export default function PlayerProvider({ children }) {
     if (!loaded) currentRef.current = items[index] || currentRef.current;
   }, [items, index, loaded]);
 
+  // The song viewer (Songs and Setlists) has its own player. When the mini
+  // player is ON and you close the viewer while a track is playing, the track is
+  // handed over here and carries on from the same spot, showing the mini bar.
+  // It is one track: it stops when it ends, like it does in the viewer.
+  const playSingle = useCallback(({ url, title: songTitle, label, startAt = 0 }) => {
+    const audio = audioRef.current;
+    if (!audio || !toDirectDownloadUrl(url)) return;
+    const item = { pos: 0, title: songTitle, url, label, fellBack: false, note: "", short: label, counter: "" };
+    titleRef.current = "";
+    setTitle("");
+    live.current = { items: [item], index: 0 };
+    setItems([item]);
+    playIndex(0, [item]);
+    if (startAt > 1) {
+      const seekOnce = () => {
+        audio.removeEventListener("loadedmetadata", seekOnce);
+        try { audio.currentTime = startAt; } catch { /* not seekable yet: starts from the top */ }
+      };
+      audio.addEventListener("loadedmetadata", seekOnce);
+    }
+  }, [playIndex]);
+
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
     const { items: list, index: i } = live.current;
@@ -249,7 +271,7 @@ export default function PlayerProvider({ children }) {
 
   const value = {
     items, index, current, loaded, playing, currentTime, duration, notice, title,
-    setQueue, playIndex, step, togglePlay, seek, stop, registerViewer,
+    miniOn, setQueue, playIndex, playSingle, step, togglePlay, seek, stop, registerViewer,
   };
 
   return (

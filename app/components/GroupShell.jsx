@@ -31,6 +31,7 @@ import { hasNewContent, markSeen } from "@/lib/lastSeen";
 import { requestJson } from "@/lib/request";
 import { useToast } from "./ToastProvider";
 import EmptyState from "./EmptyState";
+import { invalidate } from "@/lib/resourceCache";
 
 // Tabs that append after the shared News/Events/Prayer/Roster set.
 const APPEND_FEATURE_TABS = {
@@ -303,6 +304,9 @@ export default function GroupShell({
               // the current tab's content so it refetches its own data
               // fresh, plus refresh the badge data this header itself
               // depends on.
+              // Also mark the shared screen cache stale, or the remounted tab
+              // would just show its cached copy for up to 2 more minutes.
+              invalidate(() => true);
               setRefreshNonce((n) => n + 1);
               loadLatestContentRef.current?.();
             }}

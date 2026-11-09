@@ -19,7 +19,7 @@ import {
   Tag,
   Play,
   Pause,
-  Square,
+  RotateCcw,
 } from "lucide-react";
 import { BOOKS, ABBR_TO_NAME, adjacentChapter, formatReference, parseQuickReference, tokensToText } from "@/lib/bibleRef";
 import RichContent, { TyndaleAttribution } from "./RichContent";
@@ -601,7 +601,11 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const [chapterPlaying, setChapterPlaying] = useState(false);
   const [chapterPaused, setChapterPaused] = useState(false);
   const [speakingToken, setSpeakingToken] = useState(null); // { verse, index } | null
+  const [ttsMessage, setTtsMessage] = useState("");
   const utteranceRef = useRef(null);
+  // Read Aloud keeps its own place so Pause really pauses. `gen` changes every
+  // time we stop or restart, so a late callback from an old utterance is ignored.
+  const speechRef = useRef({ gen: 0, chunks: null, chunk: 0, offset: 0, fails: 0 });
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpTab, setJumpTab] = useState("goto"); // "goto" | "find"
   const [jumpInput, setJumpInput] = useState("");
@@ -1215,19 +1219,38 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     loadMyData();
   };
 
-  const buildSpokenChapterData = () => {
-    if (!verses) return null;
+  // ---- Read Aloud ---------------------------------------------------------
+  // The browser's speech engine is unreliable on long text: Android refuses
+  // anything over about 4,000 characters (a third of the Bible's chapters are
+  // longer), Chrome's online voices stop after roughly 15 seconds, and the
+  // browser's own pause() acts like Stop on many phones. So the chapter is read
+  // as a chain of SHORT pieces, one at a time, and Pause simply stops and
+  // remembers the word it was on. Resume carries on from that word.
+  const SOFT_CHARS = 160; // close a piece at the next sentence / verse end after this
+  const HARD_CHARS = 300; // close a piece here no matter what
+
+  const buildSpeechChunks = () => {
+    if (!verses) return [];
     const verseNums = Object.keys(verses).map(Number).sort((a, b) => a - b);
-    const flatTokens = [];
-    let text = "";
+    const chunks = [];
+    let cur = { text: "", tokens: [] };
+    const close = () => {
+      if (cur.tokens.length) chunks.push(cur);
+      cur = { text: "", tokens: [] };
+    };
     for (const vNum of verseNums) {
-      verses[vNum].forEach((tok, i) => {
+      const toks = verses[vNum];
+      toks.forEach((tok, i) => {
         if (!tok.t) return; // empty placeholder (see VerseText)
-        flatTokens.push({ verse: vNum, index: i, offset: text.length });
-        text += tok.t + " ";
+        cur.tokens.push({ verse: vNum, index: i, offset: cur.text.length });
+        cur.text += tok.t + " ";
+        const endsSentence = /[.;:!?]["')\]]*$/.test(tok.t);
+        if (cur.text.length >= HARD_CHARS || (cur.text.length >= SOFT_CHARS && endsSentence)) close();
       });
+      if (cur.text.length >= SOFT_CHARS) close(); // a verse boundary is a natural place to break
     }
-    return { text, flatTokens };
+    close();
+    return chunks;
   };
 
   const findTokenAtOffset = (flatTokens, charIndex) => {
@@ -1239,59 +1262,126 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     return match;
   };
 
-  const playChapter = () => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const built = buildSpokenChapterData();
-    if (!built) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(built.text);
+  const speakChunk = (gen) => {
+    const sp = speechRef.current;
+    if (gen !== sp.gen || typeof window === "undefined" || !window.speechSynthesis) return;
+    const chunk = sp.chunks?.[sp.chunk];
+    if (!chunk) {
+      // Reached the end of the chapter: the next Play starts from verse 1.
+      sp.chunk = 0;
+      sp.offset = 0;
+      setChapterPlaying(false);
+      setChapterPaused(false);
+      setSpeakingToken(null);
+      return;
+    }
+    const startOffset = sp.offset;
+    const text = chunk.text.slice(startOffset);
+    if (!text.trim()) {
+      sp.chunk += 1;
+      sp.offset = 0;
+      speakChunk(gen);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = 0.95;
     const voice = getSelectedVoice();
     if (voice) utterance.voice = voice;
+    const mark = (tok) => {
+      sp.offset = tok.offset; // where Pause / Resume will pick up
+      setSpeakingToken({ verse: tok.verse, index: tok.index });
+    };
+    utterance.onstart = () => {
+      if (gen !== sp.gen) return;
+      sp.fails = 0;
+      const tok = findTokenAtOffset(chunk.tokens, startOffset);
+      if (tok) mark(tok);
+    };
     utterance.onboundary = (event) => {
+      if (gen !== sp.gen) return;
       if (event.name && event.name !== "word") return;
-      const tok = findTokenAtOffset(built.flatTokens, event.charIndex);
-      if (tok) setSpeakingToken({ verse: tok.verse, index: tok.index });
+      const tok = findTokenAtOffset(chunk.tokens, startOffset + event.charIndex);
+      if (tok) mark(tok);
     };
     utterance.onend = () => {
-      setChapterPlaying(false);
-      setChapterPaused(false);
-      setSpeakingToken(null);
+      if (gen !== sp.gen) return;
+      sp.chunk += 1;
+      sp.offset = 0;
+      speakChunk(gen);
     };
-    utterance.onerror = () => {
-      setChapterPlaying(false);
-      setChapterPaused(false);
-      setSpeakingToken(null);
+    utterance.onerror = (event) => {
+      if (gen !== sp.gen) return;
+      if (event.error === "interrupted" || event.error === "canceled") return; // that was us
+      // A real failure: skip this piece once, but give up if it keeps happening.
+      sp.fails += 1;
+      if (sp.fails >= 3) {
+        setChapterPlaying(false);
+        setChapterPaused(false);
+        setTtsMessage("This device couldn't read the chapter aloud. Try a different voice below, or try again.");
+        return;
+      }
+      sp.chunk += 1;
+      sp.offset = 0;
+      speakChunk(gen);
     };
-    utteranceRef.current = utterance;
+    utteranceRef.current = utterance; // keep a reference: Chrome can drop a speaking utterance that gets garbage-collected
     window.speechSynthesis.speak(utterance);
-    setChapterPlaying(true);
-    setChapterPaused(false);
   };
 
+  const beginSpeaking = ({ fromStart = false } = {}) => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    const chunks = buildSpeechChunks();
+    if (!chunks.length) return;
+    const sp = speechRef.current;
+    if (fromStart || !sp.chunks) {
+      sp.chunk = 0;
+      sp.offset = 0;
+    }
+    sp.chunks = chunks;
+    sp.fails = 0;
+    sp.gen += 1;
+    const gen = sp.gen;
+    window.speechSynthesis.cancel();
+    setTtsMessage("");
+    setChapterPlaying(true);
+    setChapterPaused(false);
+    // Chrome drops a speak() made in the same instant as cancel(), so wait a beat.
+    setTimeout(() => speakChunk(gen), 60);
+  };
+
+  const playChapter = () => beginSpeaking({ fromStart: !speechRef.current.chunks });
+  const resumeChapter = () => beginSpeaking();
+  const restartChapter = () => beginSpeaking({ fromStart: true });
+
+  // Pause = stop the sound and remember the word. (The browser's own pause()
+  // is not used: on many phones it behaves like Stop and the chapter restarts.)
   const pauseChapter = () => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.pause();
+    speechRef.current.gen += 1;
+    window.speechSynthesis.cancel();
     setChapterPaused(true);
   };
 
-  const resumeChapter = () => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.resume();
-    setChapterPaused(false);
-  };
-
-  const stopChapter = () => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+  // Forget the reading position (new chapter, new translation, leaving the reader).
+  const resetSpeech = () => {
+    const sp = speechRef.current;
+    sp.gen += 1;
+    sp.chunks = null;
+    sp.chunk = 0;
+    sp.offset = 0;
+    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
     setChapterPlaying(false);
     setChapterPaused(false);
     setSpeakingToken(null);
+    setTtsMessage("");
   };
 
   const speakWord = (text, verseNum, index) => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
+    // Tapping a word while the chapter is being read pauses the chapter (its
+    // place is kept) so the two voices don't talk over each other.
+    if (chapterPlaying && !chapterPaused) pauseChapter();
+    else window.speechSynthesis.cancel();
     const clean = (text || "").replace(/[.,;:!?"'()]/g, "");
     if (!clean) return;
     const utterance = new SpeechSynthesisUtterance(clean);
@@ -1303,15 +1393,20 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       utterance.onend = () => setSpeakingToken(null);
       utterance.onerror = () => setSpeakingToken(null);
     }
-    window.speechSynthesis.speak(utterance);
+    utteranceRef.current = utterance;
+    setTimeout(() => window.speechSynthesis.speak(utterance), 60);
   };
 
-  // Stop any speech in progress when leaving the chapter or the reader.
+  // A different chapter or translation means a different text: stop and forget
+  // the place. Also stops when leaving the reader.
   useEffect(() => {
+    resetSpeech();
     return () => {
+      speechRef.current.gen += 1;
       if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
     };
-  }, [book, chapter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book, chapter, translation]);
 
   // Used by the verse action bar to decide button labels/visibility for the
   // currently selected range.
@@ -1891,7 +1986,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
                     onClick={resumeChapter}
                     className="sp-btn-primary flex-1 text-sm flex items-center justify-center gap-2"
                   >
-                    <Play size={16} /> Resume
+                    <Play size={16} /> Resume{speakingToken?.verse ? ` at verse ${speakingToken.verse}` : ""}
                   </button>
                 ) : (
                   <button
@@ -1902,16 +1997,17 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
                   </button>
                 )}
                 <button
-                  onClick={stopChapter}
+                  onClick={restartChapter}
                   className="flex items-center justify-center gap-2 text-sm font-semibold text-accent border border-line rounded-lg px-4"
                 >
-                  <Square size={15} /> Stop
+                  <RotateCcw size={15} /> Start over
                 </button>
               </>
             )}
           </div>
+          {ttsMessage && <p className="text-xs text-accent mt-2" role="alert">{ttsMessage}</p>}
           <p className="text-xs text-inkfaint mt-2">
-            Follows along, highlighting each word as it's spoken.
+            Follows along, highlighting each word as it's spoken. Pause keeps your place.
           </p>
         </div>
 

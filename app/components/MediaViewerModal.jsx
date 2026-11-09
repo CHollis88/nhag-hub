@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { X, SkipBack, SkipForward } from "lucide-react";
 import { songMediaFields } from "@/lib/songMedia";
 import NativeAudioPlayer from "./NativeAudioPlayer";
 import NativeDocViewer from "./NativeDocViewer";
 import MediaErrorBoundary from "./MediaErrorBoundary";
+import { useAudioQueue } from "./PlayerProvider";
 
 // Full-screen inline viewer/player -- shared by SongsTab (tapping a
 // link button on a song), and identical for Choir's main library and
@@ -22,6 +23,8 @@ import MediaErrorBoundary from "./MediaErrorBoundary";
 // `url` prop doesn't change just from picking a pdf, playback isn't
 // interrupted by switching to Lyrics.
 export default function MediaViewerModal({ song, initialField, onClose }) {
+  const player = useAudioQueue();
+  const audioStateRef = useRef(null);
   const allFields = songMediaFields(song);
   const initialType = allFields.find(([key]) => key === initialField)?.[3];
   const [viewingField, setViewingField] = useState(initialType === "pdf" ? initialField : null);
@@ -63,11 +66,24 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
   const playingUrl = playingField ? song[playingField] : null;
   const playingLabel = allFields.find(([key]) => key === playingField)?.[1];
 
+  // Closing while a track is playing: with the mini player ON, the track keeps
+  // playing from the same spot in the mini bar. With it OFF (the default) closing
+  // stops the music, as it always has.
+  const close = () => {
+    if (player?.miniOn && playingField && playingUrl) {
+      const state = audioStateRef.current?.();
+      if (state?.playing) {
+        player.playSingle({ url: playingUrl, title: song.title, label: playingLabel, startAt: state.time });
+      }
+    }
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 bg-card z-[80] flex flex-col">
       <div className="flex justify-between items-center gap-2 px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 border-b border-linesoft flex-shrink-0">
         <h3 className="font-serif text-lg text-ink m-0 min-w-0 truncate">{song.title}</h3>
-        <button onClick={onClose} className="text-inkfaint flex-shrink-0 p-1" aria-label="Close">
+        <button onClick={close} className="text-inkfaint flex-shrink-0 p-1" aria-label="Close">
           <X size={22} />
         </button>
       </div>
@@ -130,7 +146,17 @@ export default function MediaViewerModal({ song, initialField, onClose }) {
             }
           >
             <MediaErrorBoundary resetKey={playingField}>
-              <NativeAudioPlayer url={playingUrl} label={playingLabel} compact={!!viewingField} />
+              <NativeAudioPlayer
+                url={playingUrl}
+                label={playingLabel}
+                compact={!!viewingField}
+                controlRef={audioStateRef}
+                // This viewer's own audio just started: stop anything the mini
+                // player was carrying so the two never play at once.
+                onPlayStart={() => {
+                  if (player?.loaded) player.stop();
+                }}
+              />
             </MediaErrorBoundary>
           </div>
         )}

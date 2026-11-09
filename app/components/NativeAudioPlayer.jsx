@@ -34,7 +34,7 @@ function formatTime(seconds) {
  * branches), React would tear it down and recreate it, silently
  * restarting playback the moment someone opens a pdf alongside it.
  */
-export default function NativeAudioPlayer({ url, label, compact = false }) {
+export default function NativeAudioPlayer({ url, label, compact = false, controlRef = null, onPlayStart = null }) {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -42,6 +42,19 @@ export default function NativeAudioPlayer({ url, label, compact = false }) {
   const [failed, setFailed] = useState(false);
 
   const directUrl = toDirectDownloadUrl(url);
+
+  // Lets the viewer ask "is it playing, and where?" when it is closed, so the
+  // mini player can carry on from the same spot.
+  useEffect(() => {
+    if (!controlRef) return undefined;
+    controlRef.current = () => ({
+      playing: Boolean(audioRef.current) && !audioRef.current.paused && !audioRef.current.ended,
+      time: audioRef.current?.currentTime || 0,
+    });
+    return () => {
+      controlRef.current = null;
+    };
+  }, [controlRef]);
 
   // A new track was picked -- reset playback state and give the direct
   // link a fresh chance.
@@ -105,7 +118,10 @@ export default function NativeAudioPlayer({ url, label, compact = false }) {
         preload="metadata"
         onLoadedMetadata={onLoadedMetadata}
         onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-        onPlay={() => setPlaying(true)}
+        onPlay={() => {
+          setPlaying(true);
+          onPlayStart?.();
+        }}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
         onError={() => setFailed(true)}

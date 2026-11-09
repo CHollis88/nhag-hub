@@ -2,7 +2,7 @@
 
 import HeaderButton from "./components/HeaderButton";
 import { useSimpleMode } from "@/lib/useSimpleMode";
-import { setCacheUser, clearResourceCache, forget } from "@/lib/resourceCache";
+import { setCacheUser, clearResourceCache, forget, invalidate } from "@/lib/resourceCache";
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -461,7 +461,14 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   //  2. refreshNonce -- remounts the current tab's content so its own data
   //     (events, news, groups list, etc.) refetches too.
   //  3. refreshNotifications() -- updates the bell badge.
+  //  0. invalidate(everything) -- the shared screen cache (v71 #42-45) treats a
+  //     list as fresh for a couple of minutes, so a remounted tab used to show
+  //     its cached copy and fetch nothing: Refresh appeared to do nothing,
+  //     most visibly on Sermons. This marks every cached list stale. Only the
+  //     screen on view fetches again, right now; the rest refresh the next time
+  //     you open them, so one tap on Refresh costs one screen's worth of requests.
   const refreshEverything = () => {
+    invalidate(() => true);
     refreshMe();
     setRefreshNonce((n) => n + 1);
     refreshNotifications();

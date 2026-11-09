@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
-import { withPrivateCache } from "@/lib/cacheHeaders";
+import { withNoStore } from "@/lib/cacheHeaders";
 
 // Sermons are church-wide only (no per-group sermons table), so series
 // are church-wide too -- same admin-only posting rule as sermons
@@ -27,10 +27,12 @@ export async function GET(req) {
   const counts = {};
   for (const row of inSeries || []) counts[row.series_id] = (counts[row.series_id] || 0) + 1;
 
-  return withPrivateCache(
-    { series: data.map((s) => ({ ...s, sermon_count: counts[s.id] || 0 })) },
-    { maxAge: 60, staleWhileRevalidate: 300 }
-  );
+  // No browser caching: this list changes the moment a series is added or a
+  // sermon moves, and with `private, max-age=60, stale-while-revalidate=300` a
+  // Refresh (or a reload) could show a version up to 6 minutes old. The in-app
+  // cache (lib/resourceCache.js) already keeps repeat visits from re-asking, so
+  // this costs no extra requests.
+  return withNoStore({ series: data.map((s) => ({ ...s, sermon_count: counts[s.id] || 0 })) });
 }
 
 export async function POST(req) {
