@@ -5,6 +5,7 @@ import { useSimpleMode } from "@/lib/useSimpleMode";
 import { setCacheUser, clearResourceCache, forget, invalidate } from "@/lib/resourceCache";
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { OPEN_ORIGIN_EVENT } from "@/lib/nowWhere";
+import { OPEN_BIBLE_EVENT } from "./components/ReadAloudBar";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
@@ -454,6 +455,11 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     if (o.programId) qs.set("program", o.programId);
     openNotificationUrl(`/?${qs.toString()}`);
   };
+  useEffect(() => {
+    const onBible = (e) => e.detail?.book && setBibleOverlay({ book: e.detail.book, chapter: e.detail.chapter });
+    window.addEventListener(OPEN_BIBLE_EVENT, onBible);
+    return () => window.removeEventListener(OPEN_BIBLE_EVENT, onBible);
+  }, []);
   useEffect(() => {
     const onOpen = (e) => openOriginRef.current?.(e.detail);
     window.addEventListener(OPEN_ORIGIN_EVENT, onOpen);

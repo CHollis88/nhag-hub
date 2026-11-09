@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useSyncExternalStore } from "react";
+import { bibleSpeech, subscribe as bibleSpeechSubscribe, getSnapshot as getSpeechSnapshot } from "@/lib/bibleSpeech";
 import {
   ChevronLeft,
   AlignLeft,
@@ -600,13 +601,15 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const [voices, setVoices] = useState([]);
   const [selectedVoiceURI, setSelectedVoiceURI] = useState(null);
   const [wordTapMode, setWordTapMode] = useState(false);
-  const [chapterPlaying, setChapterPlaying] = useState(false);
-  const [chapterPaused, setChapterPaused] = useState(false);
-  const [speakingToken, setSpeakingToken] = useState(null); // { verse, index } | null
-  const [ttsMessage, setTtsMessage] = useState("");
+  const sp = useSyncExternalStore(bibleSpeechSubscribe, getSpeechSnapshot, getSpeechSnapshot);
+  const [wordToken, setWordToken] = useState(null); // word being spoken after a tap
+  const wordUtteranceRef = useRef(null);
+  const chapterPlaying = sp.active; // reading or paused, this chapter or another
+  const chapterPaused = sp.paused;
+  const ttsMessage = sp.message;
+  const speakingToken = wordToken ?? (sp.key && sp.key === `${book}:${chapter}:${translation}` ? sp.token : null);
   const [ttsRate, setTtsRate] = useState("0.95");
   const [ttsContinue, setTtsContinue] = useState(false);
-  const utteranceRef = useRef(null);
   // v71.25: refs so a running chapter always sees the latest speed / "keep going" choice.
   const ttsRateRef = useRef(0.95);
   const ttsContinueRef = useRef(false);
@@ -614,7 +617,6 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const autoNextRef = useRef(false); // start reading as soon as the next chapter loads
   // Read Aloud keeps its own place so Pause really pauses. `gen` changes every
   // time we stop or restart, so a late callback from an old utterance is ignored.
-  const speechRef = useRef({ gen: 0, chunks: null, chunk: 0, offset: 0, fails: 0 });
   const [jumpOpen, setJumpOpen] = useState(false);
   const [jumpTab, setJumpTab] = useState("goto"); // "goto" | "find"
   const [jumpInput, setJumpInput] = useState("");
@@ -704,8 +706,10 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       const saved = getPref("sp_bible_tts_voice", "");
       if (saved && list.some((v) => v.voiceURI === saved)) {
         setSelectedVoiceURI(saved);
+        bibleSpeech.setVoice(saved);
       } else if (list.length > 0 && !selectedVoiceURI) {
         setSelectedVoiceURI(list[0].voiceURI);
+        bibleSpeech.setVoice(list[0].voiceURI);
       }
     };
     loadVoices();
@@ -718,6 +722,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     const r = getPref("sp_bible_tts_rate", "0.95");
     setTtsRate(r);
     ttsRateRef.current = parseFloat(r) || 0.95;
+    bibleSpeech.setRate(ttsRateRef.current);
     const c = getPref("sp_bible_tts_continue", "off") === "on";
     setTtsContinue(c);
     ttsContinueRef.current = c;
@@ -726,6 +731,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const chooseRate = (r) => {
     setTtsRate(r);
     ttsRateRef.current = parseFloat(r) || 0.95;
+    bibleSpeech.setRate(ttsRateRef.current);
     setPref("sp_bible_tts_rate", r);
   };
 
@@ -738,6 +744,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
 
   const chooseVoice = (uri) => {
     setSelectedVoiceURI(uri);
+    bibleSpeech.setVoice(uri);
     setPref("sp_bible_tts_voice", uri);
   };
 
@@ -1308,106 +1315,25 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     return chunks;
   };
 
-  const findTokenAtOffset = (flatTokens, charIndex) => {
-    let match = null;
-    for (const tok of flatTokens) {
-      if (tok.offset <= charIndex) match = tok;
-      else break;
-    }
-    return match;
-  };
-
-  const speakChunk = (gen) => {
-    const sp = speechRef.current;
-    if (gen !== sp.gen || typeof window === "undefined" || !window.speechSynthesis) return;
-    const chunk = sp.chunks?.[sp.chunk];
-    if (!chunk) {
-      // Reached the end of the chapter: the next Play starts from verse 1.
-      sp.chunk = 0;
-      sp.offset = 0;
-      setChapterPlaying(false);
-      setChapterPaused(false);
-      setSpeakingToken(null);
-      // "Keep going": move to the next chapter and read it as soon as it loads.
-      if (ttsContinueRef.current && advanceRef.current) {
-        autoNextRef.current = true;
-        if (!advanceRef.current()) autoNextRef.current = false; // end of the Bible
-      }
-      return;
-    }
-    const startOffset = sp.offset;
-    const text = chunk.text.slice(startOffset);
-    if (!text.trim()) {
-      sp.chunk += 1;
-      sp.offset = 0;
-      speakChunk(gen);
-      return;
-    }
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = ttsRateRef.current;
-    const voice = getSelectedVoice();
-    if (voice) utterance.voice = voice;
-    const mark = (tok) => {
-      sp.offset = tok.offset; // where Pause / Resume will pick up
-      setSpeakingToken({ verse: tok.verse, index: tok.index });
-    };
-    utterance.onstart = () => {
-      if (gen !== sp.gen) return;
-      sp.fails = 0;
-      const tok = findTokenAtOffset(chunk.tokens, startOffset);
-      if (tok) mark(tok);
-    };
-    utterance.onboundary = (event) => {
-      if (gen !== sp.gen) return;
-      if (event.name && event.name !== "word") return;
-      const tok = findTokenAtOffset(chunk.tokens, startOffset + event.charIndex);
-      if (tok) mark(tok);
-    };
-    utterance.onend = () => {
-      if (gen !== sp.gen) return;
-      sp.chunk += 1;
-      sp.offset = 0;
-      speakChunk(gen);
-    };
-    utterance.onerror = (event) => {
-      if (gen !== sp.gen) return;
-      if (event.error === "interrupted" || event.error === "canceled") return; // that was us
-      // A real failure: skip this piece once, but give up if it keeps happening.
-      sp.fails += 1;
-      if (sp.fails >= 3) {
-        setChapterPlaying(false);
-        setChapterPaused(false);
-        setTtsMessage("This device couldn't read the chapter aloud. Try a different voice below, or try again.");
-        return;
-      }
-      sp.chunk += 1;
-      sp.offset = 0;
-      speakChunk(gen);
-    };
-    utteranceRef.current = utterance; // keep a reference: Chrome can drop a speaking utterance that gets garbage-collected
-    window.speechSynthesis.speak(utterance);
-  };
-
-  const beginSpeaking = ({ fromStart = false } = {}) => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    const chunks = buildSpeechChunks();
+  // The speaking itself lives in lib/bibleSpeech.js so it keeps going when you
+  // leave this screen. This component builds the text pieces and drives it.
+  const curKey = `${book}:${chapter}:${translation}`;
+  const startReading = ({ startChunk = 0, startOffset = 0, chunks: given } = {}) => {
+    const chunks = given || buildSpeechChunks();
     if (!chunks.length) return;
-    const sp = speechRef.current;
-    if (fromStart || !sp.chunks) {
-      sp.chunk = 0;
-      sp.offset = 0;
-    }
-    sp.chunks = chunks;
-    sp.fails = 0;
-    sp.gen += 1;
-    const gen = sp.gen;
-    window.speechSynthesis.cancel();
-    setTtsMessage("");
-    setChapterPlaying(true);
-    setChapterPaused(false);
-    // Chrome drops a speak() made in the same instant as cancel(), so wait a beat.
-    setTimeout(() => speakChunk(gen), 60);
+    bibleSpeech.begin({
+      chunks, key: curKey, book, chapter,
+      label: `${ABBR_TO_NAME[book]} ${chapter}`,
+      startChunk, startOffset,
+    });
   };
+
+  // Play: carry on if this chapter is the one already loaded, otherwise start it.
+  const playChapter = () => (sp.key === curKey && sp.hasChunks ? bibleSpeech.resume() : startReading());
+  const resumeChapter = () => bibleSpeech.resume();
+  const restartChapter = () => (sp.active && sp.key !== curKey ? bibleSpeech.restart() : startReading());
+  const pauseChapter = () => bibleSpeech.pause();
+  const resetSpeech = () => bibleSpeech.stop();
 
   // v71.25: start reading at a chosen verse (from the verse action bar).
   const readFromVerse = (verseNum) => {
@@ -1416,55 +1342,34 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     let ci = chunks.findIndex((c) => c.tokens.some((t) => t.verse >= verseNum));
     if (ci < 0) ci = 0;
     const tok = chunks[ci].tokens.find((t) => t.verse >= verseNum) || chunks[ci].tokens[0];
-    const sp = speechRef.current;
-    sp.chunks = chunks;
-    sp.chunk = ci;
-    sp.offset = tok.offset;
-    beginSpeaking();
+    startReading({ chunks, startChunk: ci, startOffset: tok.offset });
     setVerseMenu(null);
   };
 
-  // When "keep going" moved us to a new chapter, start it once its text is in.
+  // "Keep going": when a chapter ends the engine asks us to move on; once the
+  // next chapter's text is in, start it. Only works while this screen is open.
+  useEffect(() => {
+    bibleSpeech.setChapterEndHandler(() => {
+      if (!ttsContinueRef.current || !advanceRef.current) return false;
+      autoNextRef.current = true;
+      if (!advanceRef.current()) { autoNextRef.current = false; return false; }
+      return true;
+    });
+    return () => bibleSpeech.setChapterEndHandler(null);
+  }, []);
   useEffect(() => {
     if (autoNextRef.current && verses) {
       autoNextRef.current = false;
-      beginSpeaking({ fromStart: true });
+      startReading();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verses]);
-
-  const playChapter = () => beginSpeaking({ fromStart: !speechRef.current.chunks });
-  const resumeChapter = () => beginSpeaking();
-  const restartChapter = () => beginSpeaking({ fromStart: true });
-
-  // Pause = stop the sound and remember the word. (The browser's own pause()
-  // is not used: on many phones it behaves like Stop and the chapter restarts.)
-  const pauseChapter = () => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    speechRef.current.gen += 1;
-    window.speechSynthesis.cancel();
-    setChapterPaused(true);
-  };
-
-  // Forget the reading position (new chapter, new translation, leaving the reader).
-  const resetSpeech = () => {
-    const sp = speechRef.current;
-    sp.gen += 1;
-    sp.chunks = null;
-    sp.chunk = 0;
-    sp.offset = 0;
-    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
-    setChapterPlaying(false);
-    setChapterPaused(false);
-    setSpeakingToken(null);
-    setTtsMessage("");
-  };
 
   const speakWord = (text, verseNum, index) => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     // Tapping a word while the chapter is being read pauses the chapter (its
     // place is kept) so the two voices don't talk over each other.
-    if (chapterPlaying && !chapterPaused) pauseChapter();
+    if (sp.active && !sp.paused) bibleSpeech.pause();
     else window.speechSynthesis.cancel();
     const clean = (text || "").replace(/[.,;:!?"'()]/g, "");
     if (!clean) return;
@@ -1473,24 +1378,30 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     const voice = getSelectedVoice();
     if (voice) utterance.voice = voice;
     if (verseNum != null && index != null) {
-      setSpeakingToken({ verse: verseNum, index });
-      utterance.onend = () => setSpeakingToken(null);
-      utterance.onerror = () => setSpeakingToken(null);
+      setWordToken({ verse: verseNum, index });
+      utterance.onend = () => setWordToken(null);
+      utterance.onerror = () => setWordToken(null);
     }
-    utteranceRef.current = utterance;
+    wordUtteranceRef.current = utterance;
     setTimeout(() => window.speechSynthesis.speak(utterance), 60);
   };
 
-  // A different chapter or translation means a different text: stop and forget
-  // the place. Also stops when leaving the reader.
+  // Changing chapter or translation on screen stops the reading (unless "keep
+  // going" did the changing). Opening this screen does NOT stop it, and neither
+  // does leaving it -- the bar at the bottom keeps control.
+  const firstSpeechRun = useRef(true);
   useEffect(() => {
-    resetSpeech();
-    return () => {
-      speechRef.current.gen += 1;
-      if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
-    };
+    if (firstSpeechRun.current) { firstSpeechRun.current = false; return; }
+    if (autoNextRef.current) return;
+    bibleSpeech.stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book, chapter, translation]);
+  useEffect(() => {
+    bibleSpeech.setUi({ readerMounted: true });
+    return () => bibleSpeech.setUi({ readerMounted: false, sheetOpen: false });
+  }, []);
+  useEffect(() => { bibleSpeech.setUi({ sheetOpen: ttsOpen }); }, [ttsOpen]);
+  useEffect(() => { if (sp.openRequest) setTtsOpen(true); }, [sp.openRequest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Used by the verse action bar to decide button labels/visibility for the
   // currently selected range.
@@ -2127,6 +2038,9 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
               Some phones only allow this while the screen is on and the app is open.
             </p>
           )}
+          {sp.active && sp.key !== curKey && (
+            <p className="text-xs text-inkfaint mt-2">Currently reading {sp.label}. Stop it to read this chapter instead.</p>
+          )}
           {ttsMessage && <p className="text-xs text-accent mt-2" role="alert">{ttsMessage}</p>}
           <p className="text-xs text-inkfaint mt-2">
             Follows along, highlighting each word as it's spoken. Pause keeps your place.
@@ -2445,40 +2359,6 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       )}
       {verseActionBarShowing && <div className="h-24" aria-hidden="true" />}
       {verseActionBar}
-      {/* v71.25: mini bar for Read Aloud -- close the settings sheet and keep listening. */}
-      {chapterPlaying && !ttsOpen && !verseActionBarShowing && (
-        <div
-          className="fixed left-2 right-2 md:left-auto md:right-4 md:w-96 z-[55] bg-card border border-line rounded-2xl shadow-lg bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4 flex items-center gap-2 px-3 py-2"
-          role="region"
-          aria-label="Read Aloud"
-        >
-          <button
-            onClick={() => setTtsOpen(true)}
-            className="flex-1 min-w-0 text-left"
-            aria-label="Open Read Aloud controls"
-          >
-            <p className="text-sm font-medium text-ink truncate">
-              {ABBR_TO_NAME[book]} {chapter}
-              {speakingToken?.verse ? `:${speakingToken.verse}` : ""}
-            </p>
-            <p className="text-xs text-inkfaint">{chapterPaused ? "Paused" : "Reading aloud"}</p>
-          </button>
-          <button
-            onClick={chapterPaused ? resumeChapter : pauseChapter}
-            className="sp-btn-primary h-10 w-10 rounded-full flex items-center justify-center"
-            aria-label={chapterPaused ? "Resume" : "Pause"}
-          >
-            {chapterPaused ? <Play size={16} /> : <Pause size={16} />}
-          </button>
-          <button
-            onClick={resetSpeech}
-            className="h-10 w-10 flex items-center justify-center text-inkfaint"
-            aria-label="Stop reading"
-          >
-            <X size={16} />
-          </button>
-        </div>
-      )}
       {colorPickerPopup}
       {noteEditorPopup}
       {tagEditorPopup}

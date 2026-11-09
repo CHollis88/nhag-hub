@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Grid3x3, List } from "lucide-react";
 import EventCalendar from "./EventCalendar";
+import CalendarSync from "./CalendarSync";
 import WeekCalendarView from "./WeekCalendarView";
 import { SkeletonList } from "./Skeleton";
 import { readableTextColor } from "@/lib/colorContrast";
@@ -115,6 +116,8 @@ export default function CalendarTab({ me }) {
           </div>
         )}
       </div>
+
+      <CalendarSync />
 
       {sources.length > 1 && (
         <div className="flex flex-wrap gap-1.5 mb-4">
