@@ -32,6 +32,7 @@ import { requestJson } from "@/lib/request";
 import { useToast } from "./ToastProvider";
 import EmptyState from "./EmptyState";
 import { invalidate } from "@/lib/resourceCache";
+import { setWhere } from "@/lib/nowWhere";
 
 // Tabs that append after the shared News/Events/Prayer/Roster set.
 const APPEND_FEATURE_TABS = {
@@ -76,6 +77,7 @@ export default function GroupShell({
   initialTab,
   initialThreadId,
   initialChannel,
+  initialProgramId,
 }) {
   const features = group.features || [];
   const hasReadingPlan = features.includes("reading_plan_journal");
@@ -90,6 +92,11 @@ export default function GroupShell({
   useEffect(() => {
     if (!hasPrayer && tab === "prayer") setTab("news");
   }, [hasPrayer, tab]);
+  // v71.25: lets the mini player bring the user back to this screen.
+  useEffect(() => {
+    setWhere(tab === "programs" ? { groupId: group.id, tab } : { groupId: group.id, tab, programId: null });
+  }, [group.id, tab]);
+  useEffect(() => () => setWhere({ groupId: null, tab: null, programId: null }), []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [attributionOpen, setAttributionOpen] = useState(false);
@@ -408,7 +415,7 @@ export default function GroupShell({
               <SetlistsTab groupId={group.id} canManage={canManage} />
             )}
             {features.includes("programs") && tab === "programs" && (
-              <ProgramsTab groupId={group.id} canManage={canManage} />
+              <ProgramsTab groupId={group.id} canManage={canManage} initialProgramId={initialProgramId} />
             )}
             {features.includes("curriculum") && tab === "curriculum" && (
               <CurriculumTab groupId={group.id} canManage={canManage} />

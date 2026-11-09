@@ -15,6 +15,7 @@ import { STALE, invalidate } from "@/lib/resourceCache";
 import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
 import { useAction } from "./useAction";
 import { useToast } from "./ToastProvider";
+import { EventShareButtons } from "./ShareButtons";
 import EmptyState from "./EmptyState";
 
 function ReplyThread({ groupId, eventId }) {
@@ -633,6 +634,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
               {ev.event_time && ` · ${formatTime12h(ev.event_time)}`}
             </p>
             {ev.location && <p className="text-sm text-inksoft mt-1">{ev.location}</p>}
+            <EventShareButtons event={ev} />
 
             {ev.allow_rsvp && (
               <RsvpControl

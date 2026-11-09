@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { Play, Pause, SkipBack, SkipForward, X } from "lucide-react";
 import { toDirectDownloadUrl } from "@/lib/songMedia";
 import { getMiniPlayerEnabled, MINI_PLAYER_EVENT } from "@/lib/miniPlayer";
+import { getWhere, OPEN_ORIGIN_EVENT } from "@/lib/nowWhere";
 
 // v71_22 -- the ONE audio player for the whole app. It used to live inside the
 // Playlist / Listen-by-part screen, so leaving that screen stopped the music.
@@ -44,6 +45,7 @@ export default function PlayerProvider({ children }) {
   const loadedRef = useRef(false);
   loadedRef.current = loaded;
   const miniOnRef = useRef(false);
+  const originRef = useRef(null); // where in the app the audio was started (for tap-to-open)
   miniOnRef.current = miniOn;
 
   // The device setting, and changes to it from Settings.
@@ -110,6 +112,7 @@ export default function PlayerProvider({ children }) {
   // refreshed song list) keeps your place and does NOT restart the track that
   // is playing unless a different track is now due.
   const setQueue = useCallback((newItems, newTitle) => {
+    originRef.current = getWhere();
     if (titleRef.current !== newTitle && loadedRef.current) {
       const audio = audioRef.current;
       if (audio) {
@@ -172,6 +175,7 @@ export default function PlayerProvider({ children }) {
   const playSingle = useCallback(({ url, title: songTitle, label, startAt = 0 }) => {
     const audio = audioRef.current;
     if (!audio || !toDirectDownloadUrl(url)) return;
+    originRef.current = getWhere();
     const item = { pos: 0, title: songTitle, url, label, fellBack: false, note: "", short: label, counter: "" };
     titleRef.current = "";
     setTitle("");
@@ -269,7 +273,16 @@ export default function PlayerProvider({ children }) {
 
   const showMini = miniOn && loaded && viewers === 0 && Boolean(current);
 
+  // Tap on the bar: ask the app to go back to the screen the audio came from.
+  const openOrigin = useCallback(() => {
+    const o = originRef.current;
+    if (o?.groupId && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(OPEN_ORIGIN_EVENT, { detail: o }));
+    }
+  }, []);
+
   const value = {
+    openOrigin,
     items, index, current, loaded, playing, currentTime, duration, notice, title,
     miniOn, setQueue, playIndex, playSingle, step, togglePlay, seek, stop, registerViewer,
   };
@@ -305,7 +318,7 @@ export default function PlayerProvider({ children }) {
 // The bar. Sits just above the bottom navigation on phones (which is ~4.5rem
 // tall plus the home-indicator area) and in the corner on wide screens.
 function MiniPlayer() {
-  const { current, playing, index, items, togglePlay, step, stop, title, duration, currentTime } = useAudioQueue();
+  const { current, playing, index, items, togglePlay, step, stop, title, duration, currentTime, openOrigin } = useAudioQueue();
   const pct = duration ? Math.min(100, (currentTime / duration) * 100) : 0;
   return (
     <div
@@ -317,13 +330,18 @@ function MiniPlayer() {
         <div className="h-full bg-accent" style={{ width: `${pct}%` }} />
       </div>
       <div className="flex items-center gap-1 pl-3 pr-1 py-1.5">
-        <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={openOrigin}
+          className="min-w-0 flex-1 text-left"
+          aria-label="Open what's playing"
+        >
           <p className="m-0 text-sm font-semibold text-ink truncate">{current.title}</p>
           <p className="m-0 text-xs text-inkfaint truncate">
             {current.short || current.label}
             {title ? ` · ${title}` : ""}
           </p>
-        </div>
+        </button>
         <button onClick={() => step(-1)} disabled={index <= 0} className="p-2.5 text-inkfaint disabled:opacity-30" aria-label="Previous">
           <SkipBack size={20} />
         </button>

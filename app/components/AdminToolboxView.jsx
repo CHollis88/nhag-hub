@@ -46,6 +46,24 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
   const run = useAction();
   const runAdmin = useAdminAction(); // asks for the PIN again where the server requires it
 
+  const downloadExport = async (kind) => {
+    const { ok, data } = await runAdmin(() => requestJson(`/api/admin/export?kind=${kind}`), {
+      success: "Downloaded",
+      pinTitle: "Download your data",
+      pinMessage: "Enter your PIN to download church data.",
+      pinLabel: "Download",
+    });
+    if (!ok || !data?.content) return;
+    const url = URL.createObjectURL(new Blob([data.content], { type: `${data.mime};charset=utf-8` }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = data.filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  };
+
   const loadUsers = useCallback(async () => {
     try {
       const data = await requestJson("/api/admin/users");
@@ -710,6 +728,18 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
         </div>
         </>
         )}
+
+        <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Download your data</p>
+        <div className="sp-card">
+          <p className="text-sm text-inksoft mb-3">
+            Backup includes news, events, sermons, ministries, songs and setlists. Members is a spreadsheet of who is in
+            which ministry. Prayer requests, messages, chat and journals are never included.
+          </p>
+          <div className="flex gap-2 flex-wrap">
+            <button className="sp-btn-secondary text-sm" onClick={() => downloadExport("backup")}>Content backup (JSON)</button>
+            <button className="sp-btn-secondary text-sm" onClick={() => downloadExport("members")}>Member list (CSV)</button>
+          </div>
+        </div>
 
         <button
           onClick={() => setLogOpen((o) => !o)}

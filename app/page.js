@@ -4,6 +4,7 @@ import HeaderButton from "./components/HeaderButton";
 import { useSimpleMode } from "@/lib/useSimpleMode";
 import { setCacheUser, clearResourceCache, forget, invalidate } from "@/lib/resourceCache";
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
+import { OPEN_ORIGIN_EVENT } from "@/lib/nowWhere";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
@@ -335,6 +336,8 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
       initialTab: options.initialTab,
       initialThreadId: options.initialThreadId,
       initialChannel: options.initialChannel,
+      initialProgramId: options.initialProgramId,
+      nonce: (options.nonce ?? 0),
     });
   const backToHub = () => {
     setActiveGroup(null);
@@ -361,7 +364,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
 
   const routeDeepLink = (dl) =>
     (async () => {
-      const { groupId, groupTab, thread, channel, tab: globalTab, admin, whatsnew } = dl;
+      const { groupId, groupTab, thread, channel, program, tab: globalTab, admin, whatsnew } = dl;
 
       if (admin === "toolbox") {
         // v71 #19: with Admin Privileges off the Toolbox can't load anything
@@ -388,6 +391,8 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             initialTab: groupTab,
             initialThreadId: thread,
             initialChannel: channel,
+            initialProgramId: program,
+            nonce: Date.now(),
           });
           return;
         }
@@ -434,11 +439,26 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
       groupTab: group ? params.get("tab") : null,
       thread: params.get("thread"),
       channel: params.get("channel"),
+      program: params.get("program"),
       tab: group ? null : params.get("tab"),
       admin: params.get("admin"),
       whatsnew: params.get("whatsnew"),
     });
   };
+
+  // v71.25: tapping the mini player brings you back to what is playing.
+  const openOriginRef = useRef(null);
+  openOriginRef.current = (o) => {
+    if (!me?.user || !o?.groupId) return;
+    const qs = new URLSearchParams({ group: o.groupId, tab: o.tab || "programs" });
+    if (o.programId) qs.set("program", o.programId);
+    openNotificationUrl(`/?${qs.toString()}`);
+  };
+  useEffect(() => {
+    const onOpen = (e) => openOriginRef.current?.(e.detail);
+    window.addEventListener(OPEN_ORIGIN_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_ORIGIN_EVENT, onOpen);
+  }, []);
 
   // Lets Reading Plan (or anything else nested inside a group) jump into
   // the universal Bible tab at a specific passage without losing your
@@ -528,6 +548,8 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
         initialTab={activeGroup.initialTab}
         initialThreadId={activeGroup.initialThreadId}
         initialChannel={activeGroup.initialChannel}
+        initialProgramId={activeGroup.initialProgramId}
+        key={`${activeGroup.id}-${activeGroup.nonce ?? 0}`}
       />
     );
   }

@@ -8,6 +8,7 @@ import EmptyState from "./EmptyState";
 import { SkeletonList } from "./Skeleton";
 import { useConfirm } from "./ConfirmDialog";
 import { useToast } from "./ToastProvider";
+import { SermonShareButton } from "./ShareButtons";
 import { useAction } from "./useAction";
 import { requestJson } from "@/lib/request";
 import { useResource } from "@/lib/useResource";
@@ -363,6 +364,7 @@ export default function SermonsTab({ isAdmin }) {
                 Watch <ExternalLink size={11} />
               </a>
             )}
+            {s.status !== "draft" && <span className="ml-2"><SermonShareButton sermon={s} /></span>}
             <p className="text-xs text-inkfaint">
               {s.users?.display_name && `Posted by ${s.users.display_name}`}
             </p>

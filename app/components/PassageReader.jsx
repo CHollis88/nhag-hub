@@ -16,6 +16,7 @@ import {
   FileText,
   Copy,
   Check,
+  Share2,
   Tag,
   Play,
   Pause,
@@ -35,6 +36,7 @@ import InfoTooltip from "./InfoTooltip";
 import { cleanOccurrences } from "@/lib/lexiconFormat";
 import { tagColorClass } from "@/lib/tagColor";
 import { useAction } from "./useAction";
+import { shareText } from "@/lib/share";
 import { ReaderSkeleton, PopupSkeleton } from "./Skeleton";
 
 const FONT_OPTIONS = [
@@ -602,7 +604,14 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
   const [chapterPaused, setChapterPaused] = useState(false);
   const [speakingToken, setSpeakingToken] = useState(null); // { verse, index } | null
   const [ttsMessage, setTtsMessage] = useState("");
+  const [ttsRate, setTtsRate] = useState("0.95");
+  const [ttsContinue, setTtsContinue] = useState(false);
   const utteranceRef = useRef(null);
+  // v71.25: refs so a running chapter always sees the latest speed / "keep going" choice.
+  const ttsRateRef = useRef(0.95);
+  const ttsContinueRef = useRef(false);
+  const advanceRef = useRef(null); // () => go to the next chapter (false if there isn't one)
+  const autoNextRef = useRef(false); // start reading as soon as the next chapter loads
   // Read Aloud keeps its own place so Pause really pauses. `gen` changes every
   // time we stop or restart, so a late callback from an old utterance is ignored.
   const speechRef = useRef({ gen: 0, chunks: null, chunk: 0, offset: 0, fails: 0 });
@@ -704,6 +713,28 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     return () => window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const r = getPref("sp_bible_tts_rate", "0.95");
+    setTtsRate(r);
+    ttsRateRef.current = parseFloat(r) || 0.95;
+    const c = getPref("sp_bible_tts_continue", "off") === "on";
+    setTtsContinue(c);
+    ttsContinueRef.current = c;
+  }, []);
+
+  const chooseRate = (r) => {
+    setTtsRate(r);
+    ttsRateRef.current = parseFloat(r) || 0.95;
+    setPref("sp_bible_tts_rate", r);
+  };
+
+  const toggleContinue = () => {
+    const next = !ttsContinueRef.current;
+    ttsContinueRef.current = next;
+    setTtsContinue(next);
+    setPref("sp_bible_tts_continue", next ? "on" : "off");
+  };
 
   const chooseVoice = (uri) => {
     setSelectedVoiceURI(uri);
@@ -990,6 +1021,12 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     setChapter(target.chapter);
   };
 
+  advanceRef.current = () => {
+    if (!nextTarget) return false;
+    changeChapter(1);
+    return true;
+  };
+
   const goToReference = (ref) => {
     const m = ref.match(/^(\w+)\s+(\d+):(\d+)/);
     if (!m) return;
@@ -1034,6 +1071,24 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       setTimeout(() => setCopiedVerse(null), 1500);
     } catch {
       // Clipboard access can fail (e.g. permissions); fail quietly, nothing to recover.
+    }
+  };
+
+  const shareVerseRange = async (range) => {
+    if (!verses) return;
+    const parts = [];
+    for (let v = range.start; v <= range.end; v++) {
+      if (verses[v]) parts.push(tokensToText(verses[v]));
+    }
+    if (!parts.length) return;
+    const reference =
+      range.start === range.end
+        ? `${ABBR_TO_NAME[book]} ${chapter}:${range.start}`
+        : `${ABBR_TO_NAME[book]} ${chapter}:${range.start}-${range.end}`;
+    const r = await shareText({ title: reference, text: `"${parts.join(" ")}" — ${reference}` });
+    if (r === "copied") {
+      setCopiedVerse(`${range.start}-${range.end}`);
+      setTimeout(() => setCopiedVerse(null), 1500);
     }
   };
 
@@ -1273,6 +1328,11 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       setChapterPlaying(false);
       setChapterPaused(false);
       setSpeakingToken(null);
+      // "Keep going": move to the next chapter and read it as soon as it loads.
+      if (ttsContinueRef.current && advanceRef.current) {
+        autoNextRef.current = true;
+        if (!advanceRef.current()) autoNextRef.current = false; // end of the Bible
+      }
       return;
     }
     const startOffset = sp.offset;
@@ -1284,7 +1344,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       return;
     }
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 0.95;
+    utterance.rate = ttsRateRef.current;
     const voice = getSelectedVoice();
     if (voice) utterance.voice = voice;
     const mark = (tok) => {
@@ -1348,6 +1408,30 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     // Chrome drops a speak() made in the same instant as cancel(), so wait a beat.
     setTimeout(() => speakChunk(gen), 60);
   };
+
+  // v71.25: start reading at a chosen verse (from the verse action bar).
+  const readFromVerse = (verseNum) => {
+    const chunks = buildSpeechChunks();
+    if (!chunks.length) return;
+    let ci = chunks.findIndex((c) => c.tokens.some((t) => t.verse >= verseNum));
+    if (ci < 0) ci = 0;
+    const tok = chunks[ci].tokens.find((t) => t.verse >= verseNum) || chunks[ci].tokens[0];
+    const sp = speechRef.current;
+    sp.chunks = chunks;
+    sp.chunk = ci;
+    sp.offset = tok.offset;
+    beginSpeaking();
+    setVerseMenu(null);
+  };
+
+  // When "keep going" moved us to a new chapter, start it once its text is in.
+  useEffect(() => {
+    if (autoNextRef.current && verses) {
+      autoNextRef.current = false;
+      beginSpeaking({ fromStart: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verses]);
 
   const playChapter = () => beginSpeaking({ fromStart: !speechRef.current.chunks });
   const resumeChapter = () => beginSpeaking();
@@ -1752,6 +1836,22 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
               </>
             )}
           </button>
+          <button
+            onClick={() => shareVerseRange(verseMenu)}
+            className="flex flex-col items-center gap-1 text-inkfaint px-3 py-1.5 flex-shrink-0"
+          >
+            <Share2 size={18} />
+            <span className="text-[0.6875rem]">Share</span>
+          </button>
+          {typeof window !== "undefined" && window.speechSynthesis && (
+            <button
+              onClick={() => readFromVerse(verseMenu.start)}
+              className="flex flex-col items-center gap-1 text-inkfaint px-3 py-1.5 flex-shrink-0"
+            >
+              <Play size={18} />
+              <span className="text-[0.6875rem]">Read from here</span>
+            </button>
+          )}
           {rangeHasHighlights(verseMenu) && (
             <button
               onClick={() => clearRangeHighlights(verseMenu)}
@@ -2005,6 +2105,28 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
               </>
             )}
           </div>
+          <div className="flex items-center gap-1.5 mt-3 flex-wrap" role="group" aria-label="Reading speed">
+            <span className="text-xs text-inkfaint mr-1">Speed</span>
+            {[["0.75", "Slow"], ["0.95", "Normal"], ["1.15", "Fast"], ["1.4", "Faster"]].map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => chooseRate(val)}
+                aria-pressed={ttsRate === val}
+                className={`text-xs rounded-full px-3 py-1.5 border ${ttsRate === val ? "bg-accent text-white border-accent" : "text-inksoft border-line"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center justify-between gap-3 mt-3 text-sm text-ink">
+            <span>Keep going into the next chapter</span>
+            <input type="checkbox" checked={ttsContinue} onChange={toggleContinue} className="h-5 w-5" />
+          </label>
+          {ttsContinue && (
+            <p className="text-xs text-inkfaint mt-1">
+              Some phones only allow this while the screen is on and the app is open.
+            </p>
+          )}
           {ttsMessage && <p className="text-xs text-accent mt-2" role="alert">{ttsMessage}</p>}
           <p className="text-xs text-inkfaint mt-2">
             Follows along, highlighting each word as it's spoken. Pause keeps your place.
@@ -2323,6 +2445,40 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       )}
       {verseActionBarShowing && <div className="h-24" aria-hidden="true" />}
       {verseActionBar}
+      {/* v71.25: mini bar for Read Aloud -- close the settings sheet and keep listening. */}
+      {chapterPlaying && !ttsOpen && !verseActionBarShowing && (
+        <div
+          className="fixed left-2 right-2 md:left-auto md:right-4 md:w-96 z-[55] bg-card border border-line rounded-2xl shadow-lg bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4 flex items-center gap-2 px-3 py-2"
+          role="region"
+          aria-label="Read Aloud"
+        >
+          <button
+            onClick={() => setTtsOpen(true)}
+            className="flex-1 min-w-0 text-left"
+            aria-label="Open Read Aloud controls"
+          >
+            <p className="text-sm font-medium text-ink truncate">
+              {ABBR_TO_NAME[book]} {chapter}
+              {speakingToken?.verse ? `:${speakingToken.verse}` : ""}
+            </p>
+            <p className="text-xs text-inkfaint">{chapterPaused ? "Paused" : "Reading aloud"}</p>
+          </button>
+          <button
+            onClick={chapterPaused ? resumeChapter : pauseChapter}
+            className="sp-btn-primary h-10 w-10 rounded-full flex items-center justify-center"
+            aria-label={chapterPaused ? "Resume" : "Pause"}
+          >
+            {chapterPaused ? <Play size={16} /> : <Pause size={16} />}
+          </button>
+          <button
+            onClick={resetSpeech}
+            className="h-10 w-10 flex items-center justify-center text-inkfaint"
+            aria-label="Stop reading"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
       {colorPickerPopup}
       {noteEditorPopup}
       {tagEditorPopup}

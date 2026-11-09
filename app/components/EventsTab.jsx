@@ -12,6 +12,7 @@ import { STALE, invalidate } from "@/lib/resourceCache";
 import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
 import { useAction } from "./useAction";
 import { useToast } from "./ToastProvider";
+import { EventShareButtons } from "./ShareButtons";
 import EmptyState from "./EmptyState";
 
 // Fixed occurrence counts per interval -- no user-facing picker for this
@@ -536,6 +537,7 @@ export default function EventsTab({ isAdmin }) {
               {ev.event_time && ` · ${formatTime12h(ev.event_time)}`}
             </p>
             {ev.location && <p className="text-sm text-inksoft mt-1">{ev.location}</p>}
+            <EventShareButtons event={ev} />
 
             {ev.allow_rsvp && (
               <RsvpControl

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { setWhere } from "@/lib/nowWhere";
 import { Plus, ChevronLeft, Music, ListMusic, FileText, Settings, Headphones } from "lucide-react";
 import Image from "next/image";
 import { SkeletonList } from "./Skeleton";
@@ -151,7 +152,7 @@ function ProgramShell({ groupId, program, canManage, onBack, onUpdated, initialT
   );
 }
 
-export default function ProgramsTab({ groupId, canManage }) {
+export default function ProgramsTab({ groupId, canManage, initialProgramId }) {
   const [openProgram, setOpenProgram] = useState(null);
   const [openTab, setOpenTab] = useState("songs"); // "playlist" when opened with a card's Listen button
   const createForm = useFormDisclosure();
@@ -168,6 +169,23 @@ export default function ProgramsTab({ groupId, canManage }) {
     { staleMs: STALE.list }
   );
   const loadFailed = Boolean(programsError);
+
+  // v71.25: coming back from the mini player -- reopen the playlist that was playing.
+  const reopenedRef = useRef(false);
+  useEffect(() => {
+    if (reopenedRef.current || !initialProgramId || !programs) return;
+    reopenedRef.current = true;
+    const p = programs.find((x) => x.id === initialProgramId);
+    if (p) {
+      setOpenTab("playlist");
+      setOpenProgram(p);
+    }
+  }, [initialProgramId, programs]);
+
+  // ...and tell the mini player which program is open.
+  useEffect(() => {
+    setWhere({ programId: openProgram?.id || null });
+  }, [openProgram]);
   const reload = () => invalidate(programsKey);
 
   const createProgram = async (e) => {
