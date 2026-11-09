@@ -2018,7 +2018,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           </div>
           <div className="flex items-center gap-1.5 mt-3 flex-wrap" role="group" aria-label="Reading speed">
             <span className="text-xs text-inkfaint mr-1">Speed</span>
-            {[["0.75", "Slow"], ["0.95", "Normal"], ["1.15", "Fast"], ["1.4", "Faster"]].map(([val, label]) => (
+            {[["0.75", "Slow"], ["0.95", "Normal"], ["1.2", "Fast"], ["1.5", "Faster"]].map(([val, label]) => (
               <button
                 key={val}
                 onClick={() => chooseRate(val)}
