@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Modal from "./Modal";
+import ProfilePhoto from "./ProfilePhoto";
 import { useToast } from "./ToastProvider";
 import { requestJson } from "@/lib/request";
 
@@ -44,6 +45,7 @@ export default function ProfileView({ me, refreshMe, onClose }) {
 
   return (
     <Modal title="Profile" onClose={onClose} z={60} maxHeight="85vh">
+      <ProfilePhoto me={me} refreshMe={refreshMe} />
       <form onSubmit={saveProfile} className="mb-6">
         <label htmlFor="profile-name" className="block text-xs uppercase tracking-wide text-inkfaint mb-1">
           Display name

@@ -2,7 +2,7 @@
 
 import { authorName } from "@/lib/authorName";
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search, List, CalendarDays, Pencil } from "lucide-react";
+import { Search, List, CalendarDays, Pencil, CalendarX2 } from "lucide-react";
 import EventCalendar from "./EventCalendar";
 import ReplyButtons from "./ReplyButtons";
 import { SkeletonList } from "./Skeleton";
@@ -609,7 +609,7 @@ export default function GroupEventsTab({ groupId, canManage }) {
           />
         </div>
       )}
-      {events?.length === 0 && <p className="text-sm text-inkfaint">No upcoming events.</p>}
+      {events?.length === 0 && <EmptyState icon={CalendarX2} text="No events coming up for this ministry." />}
       {events?.length > 0 && filtered.length === 0 && viewMode === "calendar" && (
         <p className="text-sm text-inkfaint">
           {selectedDate ? "No events on that date." : "Tap a date with a dot to see its events."}

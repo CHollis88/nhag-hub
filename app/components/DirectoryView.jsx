@@ -11,10 +11,11 @@ import { useResource } from "@/lib/useResource";
 import { fetchResource, peek, STALE } from "@/lib/resourceCache";
 import { requestJson } from "@/lib/request";
 import { HOME_GROUPS } from "@/lib/homeData";
+import Avatar from "./Avatar";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 
-function DirectoryEntry({ group, leaders, isMember }) {
+function DirectoryEntry({ group, leaders, isMember, canRemovePhoto = false }) {
   const [open, setOpen] = useState(false);
   const [members, setMembers] = useState(null);
   const [profileUserId, setProfileUserId] = useState(null);
@@ -86,17 +87,20 @@ function DirectoryEntry({ group, leaders, isMember }) {
                 <button
                   key={m.id}
                   onClick={() => setProfileUserId(m.users?.id)}
-                  className="text-sm text-inksoft text-left block w-full hover:underline"
+                  className="text-sm text-inksoft text-left flex items-center gap-2 w-full py-0.5 hover:underline"
                 >
-                  {m.users?.display_name}
-                  {m.role === "leader" && <span className="text-inkfaint text-xs"> · Leader</span>}
+                  <Avatar url={m.users?.avatar_url} name={m.users?.display_name} size={26} />
+                  <span>
+                    {m.users?.display_name}
+                    {m.role === "leader" && <span className="text-inkfaint text-xs"> · Leader</span>}
+                  </span>
                 </button>
               ))}
             </div>
           )}
         </div>
       )}
-      {profileUserId && <MemberProfileModal userId={profileUserId} onClose={() => setProfileUserId(null)} />}
+      {profileUserId && <MemberProfileModal userId={profileUserId} canRemovePhoto={canRemovePhoto} onClose={() => setProfileUserId(null)} />}
     </div>
   );
 }
@@ -155,7 +159,7 @@ export default function DirectoryView({ me, onClose }) {
       )}
       <div className="space-y-2">
         {filtered.map((g) => (
-          <DirectoryEntry key={g.id} group={g} leaders={g.leaders} isMember={myGroupIds.has(g.id)} />
+          <DirectoryEntry canRemovePhoto={!!me?.user?.is_church_admin} key={g.id} group={g} leaders={g.leaders} isMember={myGroupIds.has(g.id)} />
         ))}
       </div>
     </div>

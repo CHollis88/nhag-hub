@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { withNoStore } from "@/lib/cacheHeaders";
 import { invalidateUserSessions } from "@/lib/session";
+import { withAvatars } from "@/lib/avatars";
 
 // Any active member of the group can see the roster (per the project's
 // decision that members can see who else is in their group). Only a
@@ -45,7 +46,10 @@ export async function GET(req, { params }) {
 
   // Short TTL like /api/me -- this is where a leader checks the pending
   // join queue, so it needs to feel current, not cached for a full minute.
-  return withNoStore({ active, pending: canManage ? pending : undefined });
+  // Profile photos (looked up separately so a missing column never breaks the roster).
+  const activeWithPhotos = await withAvatars(supabase, active);
+  const pendingWithPhotos = canManage ? await withAvatars(supabase, pending) : undefined;
+  return withNoStore({ active: activeWithPhotos, pending: pendingWithPhotos });
 }
 
 // Leader (own group) or admin adds an EXISTING user directly. Goes straight

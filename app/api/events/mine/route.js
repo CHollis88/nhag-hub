@@ -3,6 +3,7 @@ import { fetchByIds, groupBy } from "@/lib/batchFetch";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { getAppSettings } from "@/lib/appSettings";
 
 // v71 #1 -- ONE call for Home's "Your Next Event" and the Calendar tab.
 // Replaces 1 + N requests from the client (church-wide events, then one
@@ -24,6 +25,10 @@ import { withNoStore } from "@/lib/cacheHeaders";
 // tab: published only, and leader-only posts only for that ministry's
 // leaders (or an admin).
 const RECENT_NEWS_LIMIT = 6;
+//
+// ?include=...,home also returns what Home's cards need -- the Church prayer
+// card (`church_prayer`), the This Sunday card (`service_times`,
+// `latest_sermon`) -- again on this same request instead of new calls.
 export async function GET(req) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -37,7 +42,9 @@ export async function GET(req) {
 
   const supabase = supabaseServer();
 
-  const wantNews = req.nextUrl.searchParams.get("include") === "news";
+  const include = (req.nextUrl.searchParams.get("include") || "").split(",");
+  const wantNews = include.includes("news");
+  const wantHome = include.includes("home");
   const leaderOf = new Set(
     (user.memberships || []).filter((m) => m.role === "leader").map((m) => m.group_id)
   );
@@ -134,6 +141,40 @@ export async function GET(req) {
             created_at: n.created_at,
             author: n.users?.display_name || null,
           }));
+  }
+  if (wantHome) {
+    // Each piece is optional decoration for Home: a failure leaves it out,
+    // never breaks the events.
+    const settings = await getAppSettings();
+    body.service_times = settings.service_times || "";
+    const [sermonRes, openRes, latestRes] = await Promise.all([
+      supabase
+        .from("sermons")
+        .select("id, title, speaker, sermon_date, link_url")
+        .eq("status", "published")
+        .order("sermon_date", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      settings.church_prayer_enabled
+        ? supabase.from("global_prayer").select("id", { count: "exact", head: true }).neq("status", "answered")
+        : Promise.resolve({ count: 0 }),
+      settings.church_prayer_enabled
+        ? supabase.from("global_prayer").select("body, created_at").order("created_at", { ascending: false }).limit(1).maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
+    body.latest_sermon = sermonRes?.error ? null : sermonRes?.data || null;
+    body.church_prayer = settings.church_prayer_enabled
+      ? {
+          enabled: true,
+          open_count: openRes?.error ? 0 : openRes?.count || 0,
+          // A short preview only -- never the author, so an anonymous
+          // request stays anonymous here too.
+          latest: latestRes?.data
+            ? { body: String(latestRes.data.body).slice(0, 160), created_at: latestRes.data.created_at }
+            : null,
+        }
+      : { enabled: false };
   }
   return withNoStore(body);
 }

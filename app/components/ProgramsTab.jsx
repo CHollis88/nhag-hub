@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { setWhere } from "@/lib/nowWhere";
-import { Plus, ChevronLeft, Music, ListMusic, FileText, Settings, Headphones } from "lucide-react";
+import { Plus, ChevronLeft, Music, ListMusic, FileText, Settings, Headphones, LayoutGrid } from "lucide-react";
 import Image from "next/image";
 import { SkeletonList } from "./Skeleton";
 import TabTransition from "./TabTransition";
@@ -267,7 +267,7 @@ export default function ProgramsTab({ groupId, canManage, initialProgramId }) {
       )}
 
       {programs.length === 0 && !showCreateForm && (
-        <p className="text-sm text-inkfaint text-center py-6">No programs yet.</p>
+        <EmptyState icon={LayoutGrid} text="No programs yet." />
       )}
 
       <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-3">

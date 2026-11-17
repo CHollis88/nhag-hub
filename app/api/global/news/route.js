@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { notifyGlobal, notifyAllLeaders } from "@/lib/push";
 import { withNoStore } from "@/lib/cacheHeaders";
 import { isAnyGroupLeader } from "@/lib/groupAuth";
+import { withAvatars } from "@/lib/avatars";
 
 const VALID_CATEGORIES = ["announcement", "pastor_message"];
 
@@ -24,7 +25,7 @@ export async function GET(req) {
   const supabase = supabaseServer();
   let query = supabase
     .from("global_news")
-    .select("id, title, body, category, audience, pinned, status, created_at, users(display_name)")
+    .select("id, title, body, category, audience, pinned, status, created_at, created_by, users(display_name)")
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
   query = wantDrafts ? query.eq("status", "draft") : query.eq("status", "published");
@@ -39,7 +40,7 @@ export async function GET(req) {
   const canSeeLeaderPosts = await isAnyGroupLeader(user);
   const visible = canSeeLeaderPosts ? data : data.filter((n) => n.audience !== "leaders");
 
-  return withNoStore({ news: visible });
+  return withNoStore({ news: await withAvatars(supabase, visible, (n) => n.created_by) });
 }
 
 // Church-wide announcements are admin-only to post, per the project's

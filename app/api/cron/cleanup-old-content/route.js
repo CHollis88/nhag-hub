@@ -28,6 +28,13 @@ import { purgeInBatches } from "@/lib/cleanup";
 // post_reactions (migration_030) has the same no-foreign-key shape for
 // News, so a deleted News post's reactions are removed with it (v71 #16).
 //
+// v71.29: two more --
+//   * notifications older than 60 days (read or not): the bell only ever
+//     shows recent ones, and the table was the biggest in the database;
+//   * sermons 30 days after their sermon date (Facebook removes the live
+//     video then, so the link stops working). A sermon with no date counts
+//     from when it was added. Drafts are never touched; series stay.
+//
 // v71 #16: every step's result is CHECKED; deletes run in bounded batches
 // (lib/cleanup.js) instead of loading every id at once; and a failure is
 // reported as a failure -- a non-2xx response, visible in Vercel's cron
@@ -42,6 +49,7 @@ export async function GET(req) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const thirtyDaysAgoDate = thirtyDaysAgo.slice(0, 10); // date-only, for event_date columns
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
   // Stop starting new batches well before a serverless time limit; whatever
   // is left is simply picked up by tomorrow's run.
@@ -58,6 +66,11 @@ export async function GET(req) {
       reactions: { table: "message_reactions", typeColumn: "message_type", type: "dm", idColumn: "message_id" } },
     { key: "chat_messages", table: "group_chat_messages", column: "created_at", cutoff: ninetyDaysAgo,
       reactions: { table: "message_reactions", typeColumn: "message_type", type: "group_chat", idColumn: "message_id" } },
+    { key: "notifications", table: "notifications", column: "created_at", cutoff: sixtyDaysAgo },
+    { key: "sermons_dated", table: "sermons", column: "sermon_date", cutoff: thirtyDaysAgoDate,
+      where: (q) => q.eq("status", "published") },
+    { key: "sermons_undated", table: "sermons", column: "created_at", cutoff: thirtyDaysAgo,
+      where: (q) => q.eq("status", "published").is("sermon_date", null) },
   ];
 
   const results = {};

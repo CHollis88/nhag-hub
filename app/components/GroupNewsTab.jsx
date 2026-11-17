@@ -2,7 +2,7 @@
 
 import { authorName } from "@/lib/authorName";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { Search } from "lucide-react";
+import { Search, Megaphone } from "lucide-react";
 import RowMenu from "./RowMenu";
 import ReplyButtons from "./ReplyButtons";
 import { useConfirm } from "./ConfirmDialog";
@@ -17,6 +17,7 @@ import { STALE, invalidate } from "@/lib/resourceCache";
 import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
 import { useAction } from "./useAction";
 import { useToast } from "./ToastProvider";
+import Avatar from "./Avatar";
 
 function ReplyThread({ groupId, newsId }) {
   const [replies, setReplies] = useState(null);
@@ -313,7 +314,7 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
           />
         </div>
       )}
-      {news?.length === 0 && <p className="text-sm text-inkfaint">No news yet.</p>}
+      {news?.length === 0 && <EmptyState icon={Megaphone} text="No posts yet. When a leader posts, it shows up here." />}
       {news?.length > 0 && filtered.length === 0 && (
         <p className="text-sm text-inkfaint">No News matches that search.</p>
       )}
@@ -369,8 +370,11 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
                     )}
                   </div>
                   <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
-                  <p className="text-xs text-inksoft">
-                    {authorName(n.users)} · {fmtPostDate(n.created_at)}
+                  <p className="text-xs text-inksoft flex items-center gap-1.5">
+                    <Avatar url={n.users?.avatar_url} name={authorName(n.users)} size={20} />
+                    <span>
+                      {authorName(n.users)} · {fmtPostDate(n.created_at)}
+                    </span>
                   </p>
 
                   {canManage && n.status === "draft" && (

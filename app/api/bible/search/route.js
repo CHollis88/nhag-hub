@@ -11,7 +11,7 @@ import { withNoStore } from "@/lib/cacheHeaders";
 // dictionary/glossary lookups. Personalized (includes your notes/tags), so
 // always no-store.
 //
-// KJV and BSB are stored in the app and searched here. ESV and NLT are
+// KJV and BSB are stored in the app and searched here. ESV, NLT, NKJV and AMP are
 // searched through their publishers' own search services. If a publisher is
 // down or out of its daily allowance, the rest of the results still come
 // back, with a plain message saying the verse search didn't work.
@@ -35,10 +35,10 @@ export async function GET(req) {
     }
     return searchRemoteTranslation(translation, q, { limit: LIMIT });
   })().then(
-    (r) => ({ passages: r.passages, total: r.total, error: null }),
+    (r) => ({ passages: r.passages, total: r.total, fumsToken: r.fumsToken || null, error: null }),
     (err) => {
       console.error(`[bible search] ${translation}:`, err?.message);
-      return { passages: [], total: 0, error: err?.message || "Verse search didn't work just now." };
+      return { passages: [], total: 0, fumsToken: null, error: err?.message || "Verse search didn't work just now." };
     }
   );
 
@@ -63,6 +63,9 @@ export async function GET(req) {
     passages: verses.passages,
     passagesTotal: verses.total,
     passagesError: verses.error,
+    // API.Bible translations: usage token the browser reports (lib/fums.js)
+    // and the credit line their licence requires next to the results.
+    fumsToken: verses.fumsToken,
     dictionary: searchDictionary(q),
     notes: notesRes.data || [],
     tags: tagsRes.data || [],

@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { withNoStore } from "@/lib/cacheHeaders";
 import { withColumnFallback } from "@/lib/compat";
 import { invalidateUserSessions } from "@/lib/session";
+import { avatarsFor } from "@/lib/avatars";
 
 const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 
@@ -64,6 +65,7 @@ export async function GET(req) {
         (m) => !(m.groups?.hidden && m.groups?.hide_restricts_access) && !userHiddenIds.has(m.group_id)
       );
 
+  const avatarMap = await avatarsFor(supabase, [user.id]);
   return withNoStore({
       user: {
         id: user.id,
@@ -81,6 +83,8 @@ export async function GET(req) {
         admin_mode: user.admin_mode,
         // v71: false when this admin has turned OFF admin-duty notifications.
         admin_notifications_enabled: user.admin_notifications_enabled,
+        // v71.29 profile photo (looked up separately; none before migration_040).
+        avatar_url: avatarMap.get(user.id) || null,
       },
       memberships: visibleMemberships.map((m) => ({
         group_id: m.group_id,

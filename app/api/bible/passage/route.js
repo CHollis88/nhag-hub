@@ -80,12 +80,13 @@ export async function GET(req) {
       footnotes: cached.footnotes || {},
       copyright: cached.copyright || translation.attribution || null,
       attributionUrl: translation.attributionUrl || null,
+      fumsToken: cached.fumsToken || null,
     }, REMOTE_CACHE);
   }
 
   try {
-    const { verses, headings, footnotes, copyright } = await fetchRemoteChapter(translation.id, book, chapter);
-    await putCachedChapter(translation.id, book, chapter, verses, copyright, headings, footnotes);
+    const { verses, headings, footnotes, copyright, fumsToken } = await fetchRemoteChapter(translation.id, book, chapter);
+    await putCachedChapter(translation.id, book, chapter, verses, copyright, headings, footnotes, fumsToken);
 
     return withPublicCache({
       book,
@@ -97,6 +98,7 @@ export async function GET(req) {
       footnotes: footnotes || {},
       copyright: copyright || translation.attribution || null,
       attributionUrl: translation.attributionUrl || null,
+      fumsToken: fumsToken || null,
     }, REMOTE_CACHE);
   } catch (err) {
     // The reader falls back to KJV on any of these, so the person still

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 import { ABBR_TO_NAME, parseQuickReference } from "@/lib/bibleRef";
 import { TRANSLATIONS, DEFAULT_TRANSLATION, getTranslation } from "@/lib/bibleTranslations";
+import { reportFums } from "@/lib/fums";
 
 const TRANSLATION_PREF = "sp_bible_translation";
 
@@ -84,6 +85,11 @@ export default function BibleSearchView({ onOpenPassage }) {
     } catch {}
     onOpenPassage?.(p.book, p.chapter, p.verse);
   };
+
+  // API.Bible results (NLT/NKJV/AMP): report the view, as its licence requires.
+  useEffect(() => {
+    if (results?.fumsToken && results.passages?.length) reportFums(results.fumsToken, `search:${results.searchedIn}`);
+  }, [results]);
 
   // "John 3:16", "1 cor 13", "genesis" -> a one-tap shortcut to open that passage.
   const jump = searched ? parseQuickReference(searched) : null;
@@ -182,6 +188,20 @@ export default function BibleSearchView({ onOpenPassage }) {
                   </button>
                 ))}
               </div>
+              {/* Required credit for publisher text shown in the results. */}
+              {getTranslation(results.searchedIn)?.provider !== "local" && (
+                <p className="text-[0.625rem] leading-relaxed text-inkfaint mt-2">
+                  {getTranslation(results.searchedIn)?.attribution}
+                  {getTranslation(results.searchedIn)?.attributionUrl && (
+                    <>
+                      {" "}
+                      <a href={getTranslation(results.searchedIn).attributionUrl} target="_blank" rel="noopener noreferrer" className="underline">
+                        {getTranslation(results.searchedIn).attributionUrl.replace(/^https?:\/\//, "")}
+                      </a>
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           )}
 

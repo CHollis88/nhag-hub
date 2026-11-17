@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Search } from "lucide-react";
+import { Search, Megaphone } from "lucide-react";
 import RowMenu from "./RowMenu";
 import { useConfirm } from "./ConfirmDialog";
 import { fmtPostDate } from "@/lib/format";
@@ -16,6 +16,7 @@ import { STALE, invalidate } from "@/lib/resourceCache";
 import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
 import { useAction } from "./useAction";
 import { useToast } from "./ToastProvider";
+import Avatar from "./Avatar";
 
 function PromotionQueue() {
   const [requests, setRequests] = useState(null);
@@ -320,7 +321,7 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
           />
         </div>
       )}
-      {news?.length === 0 && <p className="text-sm text-inkfaint">No announcements yet.</p>}
+      {news?.length === 0 && <EmptyState icon={Megaphone} text="No announcements right now. Church news will show up here." />}
       {news?.length > 0 && filtered.length === 0 && (
         <p className="text-sm text-inkfaint">No News matches that search.</p>
       )}
@@ -379,8 +380,11 @@ export default function NewsTab({ isAdmin, isAnyLeader }) {
                   )}
                 </div>
                 <p className="text-sm text-inksoft whitespace-pre-wrap mb-2">{n.body}</p>
-                <p className="text-xs text-inksoft">
-                  {authorName(n.users)} · {fmtPostDate(n.created_at)}
+                <p className="text-xs text-inksoft flex items-center gap-1.5">
+                  <Avatar url={n.users?.avatar_url} name={authorName(n.users)} size={20} />
+                  <span>
+                    {authorName(n.users)} · {fmtPostDate(n.created_at)}
+                  </span>
                 </p>
                 {isAdmin && n.status === "draft" && (
                   <div className="flex gap-3 mt-2">

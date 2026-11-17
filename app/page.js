@@ -5,7 +5,7 @@ import { useSimpleMode } from "@/lib/useSimpleMode";
 import { setCacheUser, clearResourceCache, forget, invalidate, fetchResource } from "@/lib/resourceCache";
 import { HOME_RESOURCES } from "@/lib/homeData";
 import { warmSettings, warmNotifications, warmAdminToolbox } from "@/lib/screenData";
-import { useEffect, useState, useCallback, useRef, Suspense, useSyncExternalStore } from "react";
+import { useEffect, useState, useCallback, useRef, Suspense, useSyncExternalStore, useMemo } from "react";
 import { OPEN_ORIGIN_EVENT } from "@/lib/nowWhere";
 import { OPEN_BIBLE_EVENT } from "./components/ReadAloudBar";
 import Image from "next/image";
@@ -69,12 +69,13 @@ const AttributionView = preloadable(() => import("./components/AttributionView")
 const AdminToolboxView = preloadable(() => import("./components/AdminToolboxView"), dynamic(() => import("./components/AdminToolboxView")));
 const DirectoryView = preloadable(() => import("./components/DirectoryView"), dynamic(() => import("./components/DirectoryView")));
 const NotificationsView = preloadable(() => import("./components/NotificationsView"), dynamic(() => import("./components/NotificationsView")));
+const ChurchPrayerView = preloadable(() => import("./components/ChurchPrayerView"), dynamic(() => import("./components/ChurchPrayerView")));
 const ProfileView = preloadable(() => import("./components/ProfileView"), dynamic(() => import("./components/ProfileView")));
 
 let screensPreloaded = false;
 function preloadScreens(isAdmin) {
   // One after another, so this never competes with what the person is doing.
-  const screens = [GroupShellScreen, BibleTab, EventsTab, NewsTab, CalendarTab, SermonsTab, SettingsView, NotificationsView, DirectoryView, ProfileView, HelpView, PatchNotesView, AttributionView];
+  const screens = [GroupShellScreen, BibleTab, EventsTab, NewsTab, CalendarTab, SermonsTab, SettingsView, NotificationsView, DirectoryView, ProfileView, HelpView, PatchNotesView, AttributionView, ChurchPrayerView];
   if (isAdmin) screens.push(AdminToolboxView);
   screens.reduce((chain, screen) => chain.then(() => screen.preload()), Promise.resolve());
 }
@@ -86,6 +87,8 @@ import { useViewportHeight } from "@/lib/useViewportHeight";
 import { requestJson } from "@/lib/request";
 import { clearAllJournalDrafts } from "@/lib/journalDrafts";
 import { useToast } from "./components/ToastProvider";
+import PullToRefresh from "./components/PullToRefresh";
+import { markNotificationsReadFor, setUnreadForAutoRead, onUnreadChanged } from "@/lib/notifyRead";
 
 // The welcome screen: the cross from the church logo while the app gets
 // ready. It is in the very first HTML the phone receives (the Suspense
@@ -309,6 +312,10 @@ function SignInScreen({ authError }) {
 
 function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [tab, setTab] = useState("hub");
+  // Opening a main tab clears notifications about it (e.g. "/?tab=sermons").
+  useEffect(() => {
+    if (tab && tab !== "hub") markNotificationsReadFor(`/?tab=${tab}`);
+  }, [tab]);
   // Bumped by the refresh button (below) to force the current tab to
   // remount -- refetching its data from scratch and replaying the
   // tab-fade-in transition -- without a full location.reload(), which
@@ -326,6 +333,8 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [showNotifyBanner, setShowNotifyBanner] = useState(false);
   const [profileViewOpen, setProfileViewOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  // A screen clearing its own notifications updates the bell badge.
+  useEffect(() => onUnreadChanged(setUnreadCount), []);
   // v71 #19: `is_church_admin` from the server is EFFECTIVE (the admin role
   // AND this device's "Use Admin Privileges" switch). The old client-only
   // preference is gone -- what you see now is what the server will allow.
@@ -430,7 +439,10 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
           invalidate(() => true);
         }
         setLatestContent(data);
-        if (typeof data.unread_count === "number") setUnreadCount(data.unread_count);
+        if (typeof data.unread_count === "number") {
+          setUnreadCount(data.unread_count);
+          setUnreadForAutoRead(data.unread_count);
+        }
         // Present only for an effective admin (v71 #22); absent otherwise.
         setAdminAttention(typeof data.admin_attention_count === "number" ? data.admin_attention_count : 0);
       })
@@ -442,7 +454,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
 
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") refreshNotifications();
-    }, 45000);
+    }, 90000); // v71.29: was 45s. New posts still arrive instantly by push.
 
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") refreshNotifications();
@@ -485,6 +497,18 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
 
   const [activeGroup, setActiveGroup] = useState(null); // { id, name, role, features } | null
   const [bibleOverlay, setBibleOverlay] = useState(null); // { book, chapter } | null
+  const [churchPrayerOpen, setChurchPrayerOpen] = useState(false);
+  // The header's Profile button shows your photo once you've added one.
+  const myPhotoUrl = me?.user?.avatar_url || null;
+  const myPhotoIcon = useMemo(
+    () =>
+      myPhotoUrl
+        ? function MyPhoto({ size = 24 }) {
+            return <img src={myPhotoUrl} alt="" width={size} height={size} className="rounded-full object-cover ring-1 ring-white/60" style={{ width: size, height: size }} />;
+          }
+        : null,
+    [myPhotoUrl]
+  );
 
   const openGroup = (id, name, role, features, options = {}) =>
     setActiveGroup({
@@ -540,6 +564,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
       if (whatsnew) {
         markSeen("whats-new");
         setPatchNotesOpen(true);
+        markNotificationsReadFor("/?whatsnew=1");
         return;
       }
 
@@ -765,7 +790,12 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
               }
             />
           )}
-          {!simple && <HeaderButton simple={simple} label="Refresh" icon={RotateCw} iconSize={20} onClick={refreshEverything} />}
+          {/* Phones pull down to refresh; the button stays on bigger screens. */}
+          {!simple && (
+            <span className="hidden md:inline-flex">
+              <HeaderButton simple={simple} label="Refresh" icon={RotateCw} iconSize={20} onClick={refreshEverything} />
+            </span>
+          )}
           <HeaderButton
             simple={simple}
             label="Alerts"
@@ -790,7 +820,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             label={simple ? "Menu" : "Me"}
             ariaLabel={simple ? (isAdmin && adminAttention > 0 ? `Menu, ${adminAttention} need attention` : "Menu") : "Profile"}
             title={simple ? "Menu" : me.user.display_name}
-            icon={simple ? Menu : UserCircle}
+            icon={simple ? Menu : myPhotoIcon || UserCircle}
             iconSize={24}
             onClick={() => setProfileMenuOpen((o) => !o)}
             badge={
@@ -886,7 +916,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
 
       <div className="flex flex-1 min-h-0">
         <Sidebar tab={tab} setTab={switchTab} badges={badges} />
-        <main className="flex-1 overflow-y-auto">
+        <PullToRefresh onRefresh={refreshEverything} className="flex-1 overflow-y-auto">
           <TabTransition tabKey={`${tab}-${refreshNonce}`}>
             {tab === "news" && (
               <NewsTab
@@ -905,12 +935,14 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
                 onGoToTab={switchTab}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onOpenDirectory={() => switchTab("directory")}
+                onOpenChurchPrayer={() => setChurchPrayerOpen(true)}
+                onOpenPassage={openBiblePassage}
               />
             )}
             {tab === "bible" && <BibleTab deviceId={me.user.id} />}
             {tab === "directory" && <DirectoryView me={me} />}
           </TabTransition>
-        </main>
+        </PullToRefresh>
       </div>
 
       {!keyboardVisible && <BottomNav tab={tab} setTab={switchTab} badges={badges} />}
@@ -931,11 +963,14 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             setSettingsOpen(false);
             markSeen("whats-new");
             setPatchNotesOpen(true);
+            markNotificationsReadFor("/?whatsnew=1");
+        markNotificationsReadFor("/?whatsnew=1");
           }}
           hasNewPatchNotes={hasNewContent("whats-new", PATCH_NOTES[0]?.date)}
         />
       )}
       {patchNotesOpen && <PatchNotesView onClose={() => setPatchNotesOpen(false)} />}
+      {churchPrayerOpen && <ChurchPrayerView isAdmin={isAdmin} onClose={() => setChurchPrayerOpen(false)} />}
       {helpOpen && (
         <HelpView
           onClose={() => setHelpOpen(false)}
@@ -1072,7 +1107,6 @@ function HomeInner() {
 
   useEffect(() => {
     if (me && !me.user.username && typeof window !== "undefined") {
-      try { sessionStorage.setItem("nhag_setup_debug", JSON.stringify({ at: new Date().toISOString(), page: location.href, me })); } catch {}
       window.location.href = "/setup";
     }
   }, [me]);

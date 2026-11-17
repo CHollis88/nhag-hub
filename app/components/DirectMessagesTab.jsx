@@ -11,6 +11,7 @@ import { useAction } from "./useAction";
 import { requestJson } from "@/lib/request";
 import { mergeLatest, prependOlder } from "@/lib/messagePaging";
 import { useAdaptivePolling, messagesSignature } from "@/lib/useAdaptivePolling";
+import { markNotificationsReadFor } from "@/lib/notifyRead";
 
 // Direct Messages (feature key "direct_messages"). A regular member
 // picks one or more of the group's leaders to start a private thread
@@ -22,6 +23,10 @@ import { useAdaptivePolling, messagesSignature } from "@/lib/useAdaptivePolling"
 export default function DirectMessagesTab({ groupId, currentUserId, canManage, initialThreadId }) {
   const [threads, setThreads] = useState(null);
   const [openThreadId, setOpenThreadId] = useState(null);
+  // Opening a conversation clears notifications about it.
+  useEffect(() => {
+    if (openThreadId) markNotificationsReadFor(`/?group=${groupId}&tab=dm&thread=${openThreadId}`);
+  }, [groupId, openThreadId]);
   const [messages, setMessages] = useState(null);
   const [hasEarlier, setHasEarlier] = useState(false); // v71 #44
   const [muted, setMuted] = useState(false);

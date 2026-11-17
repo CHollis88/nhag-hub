@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Search, Pencil } from "lucide-react";
+import { Search, Pencil, CalendarX2 } from "lucide-react";
 import { SkeletonList } from "./Skeleton";
 import { formatTime12h } from "@/lib/formatTime";
 import { todayLocal } from "@/lib/localDate";
@@ -517,7 +517,7 @@ export default function EventsTab({ isAdmin }) {
           />
         </div>
       )}
-      {events?.length === 0 && <p className="text-sm text-inkfaint">No upcoming events.</p>}
+      {events?.length === 0 && <EmptyState icon={CalendarX2} text="No church events coming up. New ones will show up here." />}
       {events?.length > 0 && filtered.length === 0 && (
         <p className="text-sm text-inkfaint">No Events match that search.</p>
       )}

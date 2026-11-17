@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { supabaseServer } from "@/lib/supabaseServer";
 import { withPublicCache } from "@/lib/cacheHeaders";
+import { avatarsFor } from "@/lib/avatars";
 
 // Any signed-in user can view another member's profile card -- bio is
 // an opt-in self-disclosed field, not sensitive data, so this
@@ -24,5 +25,6 @@ export async function GET(req, { params }) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "User not found." }, { status: 404 });
 
-  return withPublicCache({ profile: data }, { maxAge: 300, staleWhileRevalidate: 3600 });
+  const photos = await avatarsFor(supabase, [data.id]);
+  return withPublicCache({ profile: { ...data, avatar_url: photos.get(data.id) || null } }, { maxAge: 300, staleWhileRevalidate: 3600 });
 }

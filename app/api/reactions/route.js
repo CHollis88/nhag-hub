@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember, isAnyGroupLeader } from "@/lib/groupAuth";
 import { withNoStore } from "@/lib/cacheHeaders";
 import { reactorNames, nameFor } from "@/lib/reactors";
+import { getAppSettings } from "@/lib/appSettings";
 
 // Reactions for MANY posts in one request:
 //   GET /api/reactions?type=group_news&ids=a,b,c
@@ -11,7 +12,7 @@ import { reactorNames, nameFor } from "@/lib/reactors";
 // every time the list loaded). Same visibility rules, per post, as the
 // single-post route (app/api/posts/[type]/[postId]/reactions): a post you
 // can't see is simply left out. Toggling a reaction still uses that route.
-const VALID_TYPES = ["group_news", "global_news", "group_prayer"];
+const VALID_TYPES = ["group_news", "global_news", "group_prayer", "global_prayer"];
 const MAX_IDS = 100;
 
 export async function GET(req) {
@@ -27,7 +28,9 @@ export async function GET(req) {
   const supabase = supabaseServer();
 
   // Which of these posts may this person see?
-  const cols = type === "global_news" ? "id, audience" : type === "group_news" ? "id, group_id, kind" : "id, group_id";
+  if (type === "global_prayer" && !(await getAppSettings()).church_prayer_enabled) return withNoStore({ reactions: {} });
+  const cols =
+    type === "global_news" ? "id, audience" : type === "group_news" ? "id, group_id, kind" : type === "global_prayer" ? "id" : "id, group_id";
   const { data: posts, error: postsError } = await supabase.from(type).select(cols).in("id", ids);
   if (postsError) return NextResponse.json({ error: postsError.message }, { status: 500 });
 
@@ -46,7 +49,8 @@ export async function GET(req) {
   const allowed = [];
   for (const p of posts || []) {
     let ok;
-    if (type === "global_news") {
+    if (type === "global_prayer") ok = true; // church-wide: everyone signed in
+    else if (type === "global_news") {
       if (p.audience === "leaders") {
         if (anyLeader === null) anyLeader = await isAnyGroupLeader(user);
         ok = anyLeader;

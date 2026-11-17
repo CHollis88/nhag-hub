@@ -39,6 +39,7 @@ import { tagColorClass } from "@/lib/tagColor";
 import { useAction } from "./useAction";
 import { shareText } from "@/lib/share";
 import { ReaderSkeleton, PopupSkeleton } from "./Skeleton";
+import { reportFums } from "@/lib/fums";
 
 const FONT_OPTIONS = [
   { id: "sans", label: "Sans-serif", className: "font-bible-sans" },
@@ -795,6 +796,8 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
       setFootnotes(primary.footnotes || {});
       setCopyright(primary.copyright || null);
       setAttributionUrl(primary.attributionUrl || null);
+      // NLT/NKJV/AMP (API.Bible): report this view -- a licence condition.
+      reportFums(primary.fumsToken, `${translation}:${book}:${chapter}`);
       if (kjv) setKjvVerses(kjv.verses);
     } catch (err) {
       // A licensed translation can fail for reasons the KJV never will
@@ -1632,9 +1635,10 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
           </>
           )}
 
-          {/* REQUIRED. Crossway and Tyndale both make displaying their
-              copyright notice a condition of the licence that lets this
-              app show their text at all. Don't remove it, and don't
+          {/* REQUIRED. Crossway and API.Bible (NLT/NKJV/AMP) both make
+              displaying the copyright notice -- and, for API.Bible, a
+              visible link to api.bible -- a condition of the licence that
+              lets this app show their text at all. Don't remove it, and don't
               hide it behind a tap. */}
           {copyright && (
             <p className="text-[0.625rem] leading-relaxed text-inkfaint mt-6 pt-3 border-t border-line">

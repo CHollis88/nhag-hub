@@ -7,6 +7,7 @@ import { useConfirm } from "./ConfirmDialog";
 import { useAction } from "./useAction";
 import { requestJson } from "@/lib/request";
 import { mergeLatest, prependOlder } from "@/lib/messagePaging";
+import { markNotificationsReadFor } from "@/lib/notifyRead";
 
 // Group Chat (feature keys "chat_members" and "chat_leaders" -- each
 // independently toggleable per Cam's decision, e.g. a ministry can turn
@@ -32,6 +33,10 @@ export default function GroupChatTab({
     if (initialChannel === "members" && hasMembersChannel) return "members";
     return defaultChannel;
   });
+  // Opening a channel clears notifications about it.
+  useEffect(() => {
+    if (channel) markNotificationsReadFor(`/?group=${groupId}&tab=chat&channel=${channel}`);
+  }, [groupId, channel]);
   const [messages, setMessages] = useState(null);
   // v71 #44: only the newest page is fetched (and polled); older messages load
   // on request and are kept when the newest page refreshes.

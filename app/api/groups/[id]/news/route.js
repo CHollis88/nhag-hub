@@ -4,6 +4,7 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember } from "@/lib/groupAuth";
 import { notifyGroup, notifyGroupLeaders } from "@/lib/push";
 import { withNoStore } from "@/lib/cacheHeaders";
+import { withAvatars } from "@/lib/avatars";
 
 const VALID_KINDS = ["announcement", "class", "discuss", "leader"];
 
@@ -26,7 +27,7 @@ export async function GET(req, { params }) {
   const supabase = supabaseServer();
   let query = supabase
     .from("group_news")
-    .select("id, title, body, kind, pinned, status, created_at, users(display_name)")
+    .select("id, title, body, kind, pinned, status, created_at, created_by, users(display_name)")
     .eq("group_id", groupId)
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false });
@@ -42,7 +43,7 @@ export async function GET(req, { params }) {
   const canSeeLeaderPosts = await canManageGroup(user, groupId);
   const visible = canSeeLeaderPosts ? data : data.filter((n) => n.kind !== "leader");
 
-  return withNoStore({ news: visible });
+  return withNoStore({ news: await withAvatars(supabase, visible, (n) => n.created_by) });
 }
 
 // Leader (own group) or admin only -- per the permission matrix, Members

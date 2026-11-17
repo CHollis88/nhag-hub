@@ -35,6 +35,8 @@ import { invalidate, peek } from "@/lib/resourceCache";
 import MinistryIntro from "./MinistryIntro";
 import { prefetchGroup } from "@/lib/groupBundle";
 import { setWhere } from "@/lib/nowWhere";
+import PullToRefresh from "./PullToRefresh";
+import { markNotificationsReadFor } from "@/lib/notifyRead";
 
 // Tabs that append after the shared News/Events/Prayer/Roster set.
 const APPEND_FEATURE_TABS = {
@@ -90,6 +92,11 @@ export default function GroupShell({
     const wanted = initialTab || (hasReadingPlan ? "today" : "news");
     return wanted === "prayer" && !hasPrayer ? "news" : wanted;
   });
+  // Opening a tab clears this ministry's notifications about it. Chat and
+  // Messages clear per channel / per conversation, from inside those tabs.
+  useEffect(() => {
+    if (tab && tab !== "chat" && tab !== "dm") markNotificationsReadFor(`/?group=${group.id}&tab=${tab}`);
+  }, [tab, group.id]);
   // If Prayer gets turned off while its tab is showing, step back to News.
   useEffect(() => {
     if (!hasPrayer && tab === "prayer") setTab("news");
@@ -167,12 +174,25 @@ export default function GroupShell({
     load();
     const interval = setInterval(() => {
       if (document.visibilityState === "visible") load();
-    }, 45000);
+    }, 90000); // v71.29: was 45s; push still refreshes it instantly.
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
   }, [group.id]);
+
+  // Refresh (pull down on a phone, or the header button on a bigger screen).
+  // Bumps a nonce that's part of TabTransition's key, which remounts the
+  // current tab so it refetches, and refreshes this header's badge data.
+  // This ministry's tabs are re-fetched together in ONE request first, so
+  // the tab you're on (and every other tab here) gets fresh data; the
+  // invalidate below then joins that request instead of sending its own.
+  const refreshMinistry = () => {
+    prefetchGroup(group.id, features, { force: true });
+    invalidate(() => true);
+    setRefreshNonce((n) => n + 1);
+    loadLatestContentRef.current?.();
+  };
 
   const badges = latestContent
     ? {
@@ -329,27 +349,12 @@ export default function GroupShell({
           </strong>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* Phones pull down to refresh; the button stays on bigger screens. */}
           <button
-            onClick={() => {
-              // Same idea as the main app header's refresh button: bump a
-              // nonce that's part of TabTransition's key, which remounts
-              // the current tab's content so it refetches its own data
-              // fresh, plus refresh the badge data this header itself
-              // depends on.
-              // Also mark the shared screen cache stale, or the remounted tab
-              // would just show its cached copy for up to 2 more minutes.
-              // This ministry's tabs are re-fetched together in ONE request
-              // first, so the tab you're on (and every other tab here) gets
-              // fresh data; the invalidate below then joins that request
-              // instead of sending its own.
-              prefetchGroup(group.id, features, { force: true });
-              invalidate(() => true);
-              setRefreshNonce((n) => n + 1);
-              loadLatestContentRef.current?.();
-            }}
+            className="hidden md:inline-flex text-white/90 p-1"
             aria-label="Refresh"
             title="Refresh"
-            className="text-white/90 p-1"
+            onClick={refreshMinistry}
           >
             <RotateCw size={20} />
           </button>
@@ -373,7 +378,7 @@ export default function GroupShell({
 
       <div className="flex flex-1 min-h-0">
         <GroupSidebar tab={tab} setTab={switchTab} prependTabs={prependTabs} appendTabs={appendTabs} badges={badges} hasPrayer={hasPrayer} />
-        <main className="flex-1 overflow-y-auto">
+        <PullToRefresh onRefresh={refreshMinistry} className="flex-1 overflow-y-auto">
           <TabTransition tabKey={`${tab}-${refreshNonce}`}>
             {hasReadingPlan && !readingPlanLoaded && ["today", "plan", "journal"].includes(tab) ? (
               planLoadFailed ? (
@@ -469,7 +474,7 @@ export default function GroupShell({
               />
             )}
           </TabTransition>
-        </main>
+        </PullToRefresh>
       </div>
 
       {!keyboardVisible && (

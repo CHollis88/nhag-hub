@@ -45,11 +45,19 @@ const CATEGORIES = [
       },
       {
         q: "What do the tabs at the bottom do?",
-        a: "Home is where you see the ministries you're part of, and browse or request joining others. Bible is the full study suite. News, Events, Calendar, and Sermons show church-wide content — Calendar pulls together everything from church-wide Events plus every ministry you're actually in, color-coded so you can tell at a glance where each thing is coming from. Want fewer buttons? Turn on Simple mode in Settings: the bar then shows just Home, Bible, News, Events, and Sermons, with bigger labels (Calendar and Directory are still reachable from Home).",
+        a: "Home is your starting place: the Verse of the Day, \"This Sunday\" (service times and the latest message), your next event, the newest announcements from church and from your ministries, Church Prayer, and the ministries you're part of — plus others you can ask to join. Bible is the full study suite. News, Events, Calendar, and Sermons show church-wide content — Calendar pulls together everything from church-wide Events plus every ministry you're actually in, color-coded so you can tell at a glance where each thing is coming from. Want fewer buttons? Turn on Simple mode in Settings: the bar then shows just Home, Bible, News, Events, and Sermons, with bigger labels (Calendar and Directory are still reachable from Home).",
       },
       {
         q: "How do I join a ministry?",
-        a: "From the Home tab, find the ministry under \"Other ministries\" and tap \"Request to Join\" — or tap its name first to read what it's about and who leads it, and request from there. That ministry's leader (or a Church Admin) will need to approve it before you're fully in. You'll get a confirmation message, and while you wait the row shows \"Request pending\" instead of a button, so you always know where a request stands.",
+        a: "From the Home tab, find the ministry under \"Other ministries\" (if you're not in any ministry yet, they're listed right in the Welcome card at the top) and tap \"Request to Join\" — or tap its name first to read what it's about and who leads it, and request from there. That ministry's leader (or a Church Admin) will need to approve it before you're fully in. You'll get a confirmation message, and while you wait the row shows \"Request pending\" instead of a button, so you always know where a request stands.",
+      },
+      {
+        q: "How do I refresh the app?",
+        a: "On a phone, scroll to the very top and pull the screen down, then let go — a small circle spins while everything reloads. Inside a ministry it refreshes that ministry. On a tablet or computer there's a Refresh button in the header instead, and in Simple mode it's under Menu. You usually don't need to: new posts appear by themselves, and as soon as something is posted a notification brings it in right away.",
+      },
+      {
+        q: "What's the Verse of the Day?",
+        a: "A new verse every day at the top of Home, the same for everyone in the church. It shows in the King James or the Berean Standard Bible (whichever you read; on other translations you'll see the BSB). Tap it to open the whole chapter, or tap the share button to send it to someone.",
       },
     ],
   },
@@ -87,11 +95,19 @@ const CATEGORIES = [
       },
       {
         q: "Can I submit a prayer request?",
-        a: "Yes, in a ministry that has Prayer turned on (a leader can switch it on in Ministry settings). Any member can then submit a prayer request, and you can choose to submit it anonymously. Prayer requests don't have replies, but you can tap \"I'm praying\" to let the group know without posting a reply.",
+        a: "Yes — church-wide on the Church Prayer page (see below), and in any ministry that has Prayer turned on (a leader can switch it on in Ministry settings). Any member can submit a request, and you can choose to submit it anonymously. Prayer requests don't have replies, but you can tap \"I'm praying\" to let others know, or add a reaction. When a prayer is answered, the person who asked can mark it \"Answered\" (or \"Still Praying\").",
+      },
+      {
+        q: "What is Church Prayer?",
+        a: "A prayer page for the whole church, opened from the Church Prayer card on Home. Anyone can share a request (anonymously if you like), tap \"I'm praying\", and react — tap a reaction to see who added it. Only the person who posted it, or a Church Admin, can mark it Answered or Still Praying, or remove it. Church Prayer never sends notifications, so nobody's phone buzzes for every request; instead, a small dot on the Home card tells you there's something new since you last looked.",
       },
       {
         q: "Do events always have RSVP or replies?",
         a: "Not necessarily — whoever creates an event can choose whether RSVPs and replies are turned on for that specific event. Not every event needs a headcount or a discussion thread.",
+      },
+      {
+        q: "Why did a sermon (or an old post) disappear?",
+        a: "The app tidies up after itself. A sermon is removed 30 days after the date it was preached — that's when Facebook takes the live video down, so the link would stop working anyway. Church and ministry News are removed 30 days after they're posted, Events 30 days after they happen, Messages and Chat after 90 days, and notifications after 60 days. Your Journal, notes, highlights, and tags are never removed.",
       },
       {
         q: "Why does a post or message say \"Former member\"?",
@@ -125,14 +141,19 @@ const CATEGORIES = [
           {
             platform: "Choosing a translation",
             steps: [
-              "Tap the translation button above the text to switch between King James (KJV), English Standard Version (ESV), New Living Translation (NLT), and Berean Standard Bible (BSB) — your choice is remembered for next time",
+              "Tap the translation button above the text to switch between King James (KJV), Berean Standard Bible (BSB), English Standard Version (ESV), New Living Translation (NLT), New King James Version (NKJV), and Amplified Bible (AMP) — your choice is remembered for next time",
               "Read any translation on its own, or tap the KJV button next to it to show the King James alongside for comparison",
-              "KJV and BSB carry word-by-word Hebrew and Greek tagging, so underlined words work directly. On ESV and NLT, the verse NUMBER is underlined instead — tap it to see that verse's words as the King James renders them",
-              "Where a translation marks Christ's own words, they're shown in red (currently King James, New Living Translation, and Berean Standard Bible)",
+              "KJV and BSB carry word-by-word Hebrew and Greek tagging, so underlined words work directly. On ESV, NLT, NKJV, and AMP, the verse NUMBER is underlined instead — tap it to see that verse's words as the King James renders them",
+              "Where a translation marks Christ's own words, they're shown in red",
+              "ESV, NLT, NKJV, and AMP are licensed from their publishers, so their copyright notice (and, for NLT, NKJV, and AMP, a link to api.bible, the service that provides them) appears under the text. If one of them can't load for a moment, the app shows the King James instead so you can keep reading",
               "A small marker after a verse means it has a footnote or King James marginal note — tap to read it",
             ],
           },
         ],
+      },
+      {
+        q: "How do I search the Bible?",
+        a: "Tap Search in the Bible tab and type a word, phrase, or reference. Pick which translation to search under \"Search in\" — all six work. Results also include your own notes and tags and the Bible dictionaries. Typing a reference like \"John 3:16\" gives you a one-tap shortcut to that passage, and tapping any result opens it in the translation you searched.",
       },
       {
         q: "How do highlighting, notes, and tags work?",
@@ -182,7 +203,7 @@ const CATEGORIES = [
     items: [
       {
         q: "How do notifications work?",
-        a: "You can turn on push notifications for your device in Settings, then choose what you want to hear about: church-wide News, Events, and Sermons, and separately for each ministry you're in. Tap the bell icon in the header any time to see your full notification history, not just what came through as a push. Tabs with something new since you last checked them also show a small dot. Messages and Chat have their own mute switch inside each conversation — muting silences alerts for just that conversation, but you'll still see how many new messages are waiting the next time you open it.",
+        a: "You can turn on push notifications for your device in Settings, then choose what you want to hear about: church-wide News, Events, and Sermons, and separately for each ministry you're in. Tap the bell icon in the header any time to see your notification history from the last 60 days, not just what came through as a push. Opening the screen a notification is about (a ministry's News, a conversation, What's New) marks it as read for you, so the bell count stays honest without tapping each one. Church Prayer never sends notifications. Tabs with something new since you last checked them also show a small dot. Messages and Chat have their own mute switch inside each conversation — muting silences alerts for just that conversation, but you'll still see how many new messages are waiting the next time you open it.",
       },
       {
         q: "Can I make the text bigger?",
@@ -193,8 +214,8 @@ const CATEGORIES = [
         a: "Simple mode is a switch at the top of Settings for anyone who would like the app to be easier to use. The bottom bar shows just Home, Bible, News, Events, and Sermons, with bigger labels. At the top of the screen there are only three buttons, each with a word on it: Alerts, Help, and Menu. Settings, Refresh, and (for admins) the Admin Toolbox move into the Menu. Messages also stay on the screen longer, and the Bible starts in the plainer Simple view. Nothing is taken away — Calendar and Directory are still reachable from Home — and you can switch it off any time. It's saved on the device you turn it on, so a family member can set it up for you.",
       },
       {
-        q: "Can I edit my name, username, or PIN?",
-        a: "Yes — tap the profile icon in the header (or \"Menu\" in Simple mode) and choose \"Edit Profile\" to change your display name, username, or short bio. To change your PIN, scroll to \"Security\" at the bottom of your profile and tap \"Change PIN\". Usernames still need to be unique, same as when you first signed up.",
+        q: "Can I edit my name, photo, username, or PIN?",
+        a: "Yes — tap the profile icon in the header (or \"Menu\" in Simple mode) and choose \"Edit Profile\" to change your display name, username, or short bio. At the top you can add a profile photo (it's trimmed to a square for you), change it, or remove it; it shows next to your name in the Directory, rosters, and on your posts and prayer requests. A Church Admin can also remove someone else's photo if needed: tap the person in the Directory and choose \"Remove photo (admin)\". To change your PIN, scroll to \"Security\" at the bottom of your profile and tap \"Change PIN\". Usernames still need to be unique, same as when you first signed up.",
       },
     ],
   },
@@ -222,7 +243,7 @@ const LEADER_SUBFOLDERS = [
       },
       {
         q: "Can I edit or delete News, Events, or a member's Prayer request?",
-        a: "Yes — a ministry's leaders (or a Church Admin) can edit or delete any News or Events post in that ministry. Prayer requests are the one exception: a leader can remove one if it needs to come down, but can't edit the wording of a member's own request.",
+        a: "Yes — a ministry's leaders (or a Church Admin) can edit or delete any News or Events post in that ministry. Prayer requests are the one exception: a leader can remove one if it needs to come down, but can't edit the wording of a member's own request. On the church-wide Church Prayer page, a Church Admin can remove any request and mark it Answered or Still Praying.",
       },
     ],
   },
@@ -277,7 +298,11 @@ const LEADER_SUBFOLDERS = [
     items: [
       {
         q: "Where's the Admin Toolbox, and what can I do from it?",
-        a: "Tap the toolbox icon in the header (only Church Admins see it). At the top, \"Needs attention\" lists everything waiting on you — join requests, requests to post something church-wide, and feedback — each with its own button, so you can deal with it without leaving the list. Below that you can create ministries, manage, archive or delete any ministry, make or remove other people's admin access, delete accounts, and read a plain-language log of recent admin activity.",
+        a: "Tap the toolbox icon in the header (only Church Admins see it). At the top, \"Needs attention\" lists everything waiting on you — join requests, requests to post something church-wide, and feedback — each with its own button, so you can deal with it without leaving the list. Next is \"Church settings\": the Church Prayer on/off switch and the service times shown on Home. Below that you can create ministries, manage, archive or delete any ministry, make or remove other people's admin access, delete accounts, and read a plain-language log of recent admin activity.",
+      },
+      {
+        q: "How do I turn Church Prayer off, or change the service times on Home?",
+        a: "Both are under \"Church settings\" in the Admin Toolbox. The Church Prayer switch hides the Home card and the prayer page for everyone; every request is kept, so turning it back on brings them all back. Service times are a few lines of plain text (like \"Sunday School 9:45 AM\") shown in the \"This Sunday\" card on Home along with the latest sermon — tap \"Save service times\" when you're done. Leave the box empty to hide the times.",
       },
       {
         q: "How do I hide a ministry, or block it for one specific person?",

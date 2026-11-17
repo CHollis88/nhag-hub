@@ -4,8 +4,9 @@ import { supabaseServer } from "@/lib/supabaseServer";
 import { canManageGroup, isActiveGroupMember, isAnyGroupLeader } from "@/lib/groupAuth";
 import { withPrivateCache } from "@/lib/cacheHeaders";
 import { reactorNames, nameFor } from "@/lib/reactors";
+import { getAppSettings } from "@/lib/appSettings";
 
-const VALID_TYPES = ["group_news", "global_news", "group_prayer"];
+const VALID_TYPES = ["group_news", "global_news", "group_prayer", "global_prayer"];
 // Same fixed set as message_reactions (migration_028) plus a 5th for
 // prayer/celebration content -- adding more later never needs a
 // migration since this list lives in app code, not a DB constraint.
@@ -37,6 +38,14 @@ async function canReactTo(supabase, user, type, postId) {
       return (await isAnyGroupLeader(user)) ? true : null;
     }
     return true;
+  }
+
+  if (type === "global_prayer") {
+    // Church-wide prayer: everyone signed in can see it, while it's switched on.
+    const { church_prayer_enabled } = await getAppSettings();
+    if (!church_prayer_enabled) return null;
+    const { data: post } = await supabase.from("global_prayer").select("id").eq("id", postId).maybeSingle();
+    return post ? true : null;
   }
 
   // group_prayer

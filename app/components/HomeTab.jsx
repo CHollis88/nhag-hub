@@ -11,6 +11,7 @@ import { requestJson } from "@/lib/request";
 import { useResource } from "@/lib/useResource";
 import { HOME_GROUPS, HOME_EVENTS, HOME_NEWS } from "@/lib/homeData";
 import { useToast } from "./ToastProvider";
+import { VerseOfDayCard, ThisSundayCard, ChurchPrayerCard, WelcomeCard } from "./HomeCards";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 const CHURCH_WIDE_COLOR = "#16296B"; // same brand navy used for "Church-wide" everywhere else (Calendar)
@@ -296,7 +297,7 @@ function MinistryAnnouncements({ me, groups, onOpenGroup }) {
 // announcements, then shows every ministry as a tile (icon, tile color,
 // leader names) -- yours to Launch into, others to request joining.
 // Everything admin-only lives in the separate Admin Toolbox below.
-export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenSettings, onOpenDirectory }) {
+export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenSettings, onOpenDirectory, onOpenChurchPrayer, onOpenPassage }) {
   const toast = useToast();
   const [previewGroup, setPreviewGroup] = useState(null);
 
@@ -348,13 +349,21 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
     <div className="px-5 pt-4 pb-6">
       <h2 className="font-serif text-2xl text-ink mb-4">Home</h2>
 
+      {/* Not in any ministry yet: the ministries come first, to ask to join. */}
+      {groupsData && myGroupIds.size === 0 && (
+        <WelcomeCard me={me} groups={groupsData} pendingGroupIds={pendingGroupIds} onRequestJoin={requestJoin} />
+      )}
+
       <HomeGetStartedCard onGoToTab={onGoToTab} onOpenSettings={onOpenSettings} />
 
+      <VerseOfDayCard onOpenPassage={onOpenPassage} />
+      <ThisSundayCard onOpenSermons={() => onGoToTab("sermons")} />
       <UpcomingEventsPreview me={me} onSeeAll={() => onGoToTab("calendar")} />
       <AnnouncementsPreview onSeeAll={() => onGoToTab("news")} />
       <MinistryAnnouncements me={me} groups={groupsData} onOpenGroup={onOpenGroup} />
+      <ChurchPrayerCard onOpen={onOpenChurchPrayer} />
 
-      <div className="flex items-center justify-between mb-2">
+      <div className={`flex items-center justify-between mb-2 ${groupsData && myGroupIds.size === 0 ? "hidden" : ""}`}>
         <p className="text-xs uppercase tracking-wide text-inkfaint">Your ministries</p>
         <button onClick={onOpenDirectory} className="text-xs text-accent underline py-2 -my-2 px-2 -mx-2">Directory</button>
       </div>
@@ -365,7 +374,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
           ))}
         </div>
       )}
-      {!groupsLoading && groupsData && myGroups.length === 0 && (
+      {!groupsLoading && groupsData && myGroups.length === 0 && myGroupIds.size > 0 && (
         <p className="text-sm text-inkfaint mb-2">You're not in any ministries yet — request to join one below.</p>
       )}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(10rem,12rem))] gap-2.5 md:gap-3 mb-2">
@@ -385,7 +394,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
         <p className="text-xs text-inkfaint mb-4">{pendingNotListed.join(", ")} — request pending approval.</p>
       )}
 
-      {otherGroups.length > 0 && (
+      {otherGroups.length > 0 && myGroupIds.size > 0 && (
         <>
           <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Other ministries</p>
           <div className="space-y-1.5">

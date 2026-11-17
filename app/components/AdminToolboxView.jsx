@@ -15,6 +15,7 @@ import { invalidate, fetchResource, peek } from "@/lib/resourceCache";
 import { useResource } from "@/lib/useResource";
 import { HOME_GROUPS } from "@/lib/homeData";
 import { ADMIN_ATTENTION, ADMIN_USERS } from "@/lib/adminData";
+import ChurchSettingsCard from "./ChurchSettingsCard";
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -422,6 +423,8 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
         <p className="text-xs text-sage font-semibold mt-0 mb-4">Admin privileges on</p>
 
         <AdminNeedsAttention onChanged={onAttentionChanged} />
+
+        <ChurchSettingsCard />
 
         <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Create a ministry</p>
         <form onSubmit={createGroup} className="sp-card mb-6">

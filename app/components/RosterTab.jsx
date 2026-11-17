@@ -13,6 +13,7 @@ import { requestJson, errorMessage } from "@/lib/request";
 import { useResource } from "@/lib/useResource";
 import { STALE } from "@/lib/resourceCache";
 import { useScreenState, useScrollMemory } from "@/lib/useScreenState";
+import Avatar from "./Avatar";
 
 // Unlike News/Events/Prayer (Phase 3), Roster is fully real here — it's
 // just a UI on top of the group_members data and API routes that already
@@ -195,7 +196,10 @@ export default function RosterTab({ groupId, myRole, onRenamed, onLeave }) {
           <div className="space-y-2 mb-4">
             {pending.map((p) => (
               <div key={p.id} className="sp-card flex justify-between items-center">
-                <span className="text-sm text-ink">{p.users?.display_name} (@{p.users?.username})</span>
+                <span className="text-sm text-ink flex items-center gap-2 min-w-0">
+                  <Avatar url={p.users?.avatar_url} name={p.users?.display_name} size={30} />
+                  <span className="min-w-0 break-words">{p.users?.display_name} (@{p.users?.username})</span>
+                </span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => approve(p)}
@@ -247,10 +251,13 @@ export default function RosterTab({ groupId, myRole, onRenamed, onLeave }) {
           const name = m.users?.display_name || "this person";
           return (
             <li key={m.id} className="sp-card flex justify-between items-center gap-2 py-2">
-              <span className="text-sm text-ink min-w-0">
-                <span className="break-words">{m.users?.display_name}</span>{" "}
-                <span className="text-inkfaint text-xs break-all">(@{m.users?.username})</span>{" "}
-                {m.role === "leader" && <span className="text-inkfaint text-xs whitespace-nowrap">· Leader</span>}
+              <span className="text-sm text-ink min-w-0 flex items-center gap-2.5">
+                <Avatar url={m.users?.avatar_url} name={m.users?.display_name} size={32} />
+                <span className="min-w-0">
+                  <span className="break-words">{m.users?.display_name}</span>{" "}
+                  <span className="text-inkfaint text-xs break-all">(@{m.users?.username})</span>{" "}
+                  {m.role === "leader" && <span className="text-inkfaint text-xs whitespace-nowrap">· Leader</span>}
+                </span>
               </span>
               {canManage && (
                 <RowMenu
