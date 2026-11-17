@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import HomeGetStartedCard from "./HomeGetStartedCard";
 import MinistryPreview from "./MinistryPreview";
@@ -8,6 +8,8 @@ import { readableTextColor } from "@/lib/colorContrast";
 import { formatTime12h } from "@/lib/formatTime";
 import { todayLocal } from "@/lib/localDate";
 import { requestJson } from "@/lib/request";
+import { useResource } from "@/lib/useResource";
+import { HOME_GROUPS, HOME_EVENTS, HOME_NEWS } from "@/lib/homeData";
 import { useToast } from "./ToastProvider";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
@@ -115,42 +117,34 @@ function BrowseMinistryRow({ group, leaders, isPending, onRequestJoin, onPreview
 }
 
 function UpcomingEventsPreview({ me, onSeeAll }) {
-  const [events, setEvents] = useState(null);
+  // Through the shared screen cache: coming back to Home shows this at once
+  // and only asks the server again once it's a couple of minutes old.
+  const { data: mine } = useResource(HOME_EVENTS.key, HOME_EVENTS.fetcher, { staleMs: HOME_EVENTS.staleMs });
 
-  useEffect(() => {
+  const events = useMemo(() => {
+    if (!mine) return null;
     const myGroups = (me?.memberships || []).filter((m) => m.status === "active");
-
-    // One request for church-wide + all my ministries' events (v71 #1).
-    fetch("/api/events/mine")
-      .then((r) => r.json())
-      .then((mine) => {
-      const today = todayLocal();
-
-      const globalEvents = (mine.global || []).map((ev) => ({
+    const today = todayLocal();
+    const globalEvents = (mine.global || []).map((ev) => ({
+      ...ev,
+      sourceName: "Church-wide",
+      color: CHURCH_WIDE_COLOR,
+    }));
+    const groupEvents = myGroups.flatMap((m) =>
+      ((mine.groups || {})[m.group_id] || []).map((ev) => ({
         ...ev,
-        sourceName: "Church-wide",
-        color: CHURCH_WIDE_COLOR,
-      }));
-      const groupEvents = myGroups.flatMap((m) =>
-        ((mine.groups || {})[m.group_id] || []).map((ev) => ({
-          ...ev,
-          sourceName: m.group?.name || "Ministry",
-          color: m.group?.tile_color || DEFAULT_TILE_COLOR,
-        }))
-      );
-
-      const combined = [...globalEvents, ...groupEvents]
-        .filter((e) => e.event_date >= today)
-        .sort((a, b) => {
-          if (a.event_date !== b.event_date) return a.event_date.localeCompare(b.event_date);
-          return (a.event_time || "99:99").localeCompare(b.event_time || "99:99");
-        })
-        .slice(0, 1);
-
-      setEvents(combined);
-    })
-      .catch(() => {}); // bad connection or non-JSON reply: just show nothing for this card
-  }, [me]);
+        sourceName: m.group?.name || "Ministry",
+        color: m.group?.tile_color || DEFAULT_TILE_COLOR,
+      }))
+    );
+    return [...globalEvents, ...groupEvents]
+      .filter((e) => e.event_date >= today)
+      .sort((a, b) => {
+        if (a.event_date !== b.event_date) return a.event_date.localeCompare(b.event_date);
+        return (a.event_time || "99:99").localeCompare(b.event_time || "99:99");
+      })
+      .slice(0, 1);
+  }, [mine, me]);
 
   if (events === null || events.length === 0) return null;
 
@@ -188,14 +182,10 @@ function UpcomingEventsPreview({ me, onSeeAll }) {
 }
 
 function AnnouncementsPreview({ onSeeAll }) {
-  const [news, setNews] = useState(null);
-
-  useEffect(() => {
-    fetch("/api/global/news")
-      .then((r) => r.json())
-      .then((data) => setNews((data.news || []).slice(0, 1)))
-      .catch(() => {});
-  }, []);
+  // Same cache entry the News tab uses, so whichever opens first fills both,
+  // and posting news (which refreshes that entry) updates Home too.
+  const { data: allNews } = useResource(HOME_NEWS.key, HOME_NEWS.fetcher, { staleMs: HOME_NEWS.staleMs });
+  const news = allNews ? allNews.slice(0, 1) : null;
 
   if (news === null || news.length === 0) return null;
 
@@ -225,27 +215,18 @@ function AnnouncementsPreview({ onSeeAll }) {
 // leader names) -- yours to Launch into, others to request joining.
 // Everything admin-only lives in the separate Admin Toolbox below.
 export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenSettings, onOpenDirectory }) {
-  const [groups, setGroups] = useState([]);
   const toast = useToast();
   const [previewGroup, setPreviewGroup] = useState(null);
 
-  const loadGroups = useCallback(async () => {
-    // no-store: this fires every time HomeTab mounts, including every
-    // time the refresh button remounts it -- a refresh has to be a real
-    // network hit, not risk being served from a 30s browser cache of a
-    // slightly-earlier response.
-    try {
-      const res = await fetch("/api/groups", { cache: "no-store" });
-      const data = await res.json();
-      if (res.ok && Array.isArray(data.groups)) setGroups(data.groups);
-    } catch {
-      // Bad connection or a non-JSON reply: keep what's on screen.
-    }
-  }, []);
-
-  useEffect(() => {
-    loadGroups();
-  }, [loadGroups]);
+  // Through the shared screen cache (like every other tab): going back to Home
+  // shows the ministries instantly instead of re-downloading them each time.
+  // It's refreshed quietly once it's a couple of minutes old, and the Refresh
+  // button marks everything stale, so a refresh is still a real fetch.
+  // no-store keeps the browser's own HTTP cache out of it.
+  const { data: groupsData, loading: groupsLoading } = useResource(HOME_GROUPS.key, HOME_GROUPS.fetcher, {
+    staleMs: HOME_GROUPS.staleMs,
+  });
+  const groups = groupsData || [];
 
   const membershipByGroupId = Object.fromEntries(
     me.memberships.filter((m) => m.status === "active").map((m) => [m.group_id, m])
@@ -294,7 +275,14 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
         <p className="text-xs uppercase tracking-wide text-inkfaint">Your ministries</p>
         <button onClick={onOpenDirectory} className="text-xs text-accent underline py-2 -my-2 px-2 -mx-2">Directory</button>
       </div>
-      {myGroups.length === 0 && (
+      {groupsLoading && (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(10rem,12rem))] gap-3 mb-2" aria-hidden="true">
+          {[0, 1].map((i) => (
+            <div key={i} className="h-28 rounded-xl bg-line/60 animate-pulse motion-reduce:animate-none" />
+          ))}
+        </div>
+      )}
+      {!groupsLoading && groupsData && myGroups.length === 0 && (
         <p className="text-sm text-inkfaint mb-2">You're not in any ministries yet — request to join one below.</p>
       )}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(10rem,12rem))] gap-3 mb-2">

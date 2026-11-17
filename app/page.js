@@ -2,7 +2,8 @@
 
 import HeaderButton from "./components/HeaderButton";
 import { useSimpleMode } from "@/lib/useSimpleMode";
-import { setCacheUser, clearResourceCache, forget, invalidate } from "@/lib/resourceCache";
+import { setCacheUser, clearResourceCache, forget, invalidate, fetchResource } from "@/lib/resourceCache";
+import { HOME_RESOURCES } from "@/lib/homeData";
 import { useEffect, useState, useCallback, useRef, Suspense } from "react";
 import { OPEN_ORIGIN_EVENT } from "@/lib/nowWhere";
 import { OPEN_BIBLE_EVENT } from "./components/ReadAloudBar";
@@ -43,6 +44,44 @@ import { useViewportHeight } from "@/lib/useViewportHeight";
 import { requestJson } from "@/lib/request";
 import { clearAllJournalDrafts } from "@/lib/journalDrafts";
 import { useToast } from "./components/ToastProvider";
+
+// The welcome screen: the cross from the church logo while the app gets
+// ready. It is in the very first HTML the phone receives (the Suspense
+// fallback below), so there's never a blank screen at launch, and it stays up
+// while the app checks who you are and loads Home -- so Home appears complete
+// instead of popping in piece by piece.
+function WelcomeScreen({ failed = false, onRetry }) {
+  return (
+    <div className="nhag-welcome min-h-screen flex flex-col items-center justify-center p-6 text-center">
+      <img
+        src="/splash-emblem.webp"
+        alt=""
+        width={239}
+        height={439}
+        fetchPriority="high"
+        className="nhag-welcome-emblem w-[5.5rem] h-auto mb-6"
+      />
+      <p className="font-serif text-white text-xl tracking-wide">North Hodge</p>
+      <p className="text-white/60 text-xs uppercase tracking-[0.25em] mt-1">Assembly of God</p>
+      <div className="mt-8 min-h-[5.5rem] max-w-xs" aria-live="polite">
+        {failed ? (
+          <>
+            <p className="text-white/90 text-sm font-medium mb-1">Having trouble connecting</p>
+            <p className="text-white/60 text-xs mb-4">
+              Trying again… If you're on Wi-Fi (especially a public one), try switching to cellular.
+            </p>
+            <button onClick={onRetry} className="text-sm font-semibold rounded-full px-5 py-2 bg-white text-navydeep">Try now</button>
+          </>
+        ) : (
+          <>
+            <div className="nhag-welcome-bar mx-auto" aria-hidden="true" />
+            <span className="sr-only">Loading</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function AuthCard({ children }) {
   return (
@@ -239,9 +278,13 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
       .then((reg) => reg.update().catch(() => {}))
       .catch(() => {});
 
+    // Only reload when a NEW version replaces an OLD one. On a phone's very
+    // first visit there's no old version, and reloading then just made the
+    // app load twice for nothing.
+    const hadController = Boolean(navigator.serviceWorker.controller);
     let reloaded = false;
     const onControllerChange = () => {
-      if (reloaded) return;
+      if (!hadController || reloaded) return;
       reloaded = true;
       // Loop guard: never auto-reload more than once a minute, whatever the
       // service worker does. A device that kept reloading made the app flash
@@ -825,6 +868,7 @@ function HomeInner() {
   const toast = useToast();
   const lastPrivileges = useRef(null);
   const lastGroupIds = useRef(new Set());
+  const bootedRef = useRef(false); // the first /api/me answer has been handled
 
   const load = useCallback(async () => {
     // cache: "no-store" here specifically -- this is the manual/initial
@@ -873,6 +917,17 @@ function HomeInner() {
       lastPrivileges.current = null;
       lastGroupIds.current = new Set();
     }
+    // First launch only: while the welcome screen is still up, start loading
+    // Home's data too, so Home shows up already filled in. Never holds the
+    // app back more than ~2.5s -- if the network is slow, Home finishes
+    // loading on screen like before.
+    if (next && !bootedRef.current) {
+      await Promise.race([
+        Promise.allSettled(HOME_RESOURCES.map((r) => fetchResource(r.key, r.fetcher, { staleMs: r.staleMs }))),
+        new Promise((resolve) => setTimeout(resolve, 2500)),
+      ]);
+    }
+    bootedRef.current = true;
     setMe(next);
   }, []);
 
@@ -915,25 +970,7 @@ function HomeInner() {
     setMe(null);
   };
 
-  if (me === undefined) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-navydeep">
-        <div className="text-center text-white/80 max-w-xs">
-          {loadFailed ? (
-            <>
-              <p className="font-serif text-lg mb-1">Having trouble connecting</p>
-              <p className="text-sm mb-4 opacity-80">
-                Trying again… If you're on Wi-Fi (especially a public one), try switching to cellular.
-              </p>
-              <button onClick={() => load()} className="sp-btn-secondary text-sm">Try now</button>
-            </>
-          ) : (
-            <p className="text-sm opacity-80">Loading…</p>
-          )}
-        </div>
-      </div>
-    );
-  }
+  if (me === undefined) return <WelcomeScreen failed={loadFailed} onRetry={() => load()} />;
   if (me === null) return <SignInScreen authError={searchParams.get("authError")} />;
   if (!me.user.username) return null; // redirecting to /setup
 
@@ -963,7 +1000,7 @@ function HomeInner() {
 
 export default function Home() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<WelcomeScreen />}>
       <HomeInner />
     </Suspense>
   );

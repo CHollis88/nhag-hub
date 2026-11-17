@@ -298,3 +298,49 @@ select.sp-input {
     scroll-behavior: auto !important;
   }
 }
+
+/* Welcome screen (app launch). Deep navy like the logo, a soft glow behind
+   the cross that slowly "breathes", and a thin sliding bar. Still and calm
+   for anyone who has reduced motion turned on. */
+.nhag-welcome {
+  background:
+    radial-gradient(ellipse at 50% 38%, rgba(46, 92, 196, 0.45) 0%, rgba(11, 26, 61, 0) 60%),
+    linear-gradient(180deg, #0f2257 0%, #0B1A3D 55%, #07122c 100%);
+}
+.nhag-welcome-emblem {
+  filter: drop-shadow(0 0 18px rgba(120, 170, 255, 0.35));
+  animation: nhag-welcome-in 0.6s ease-out both, nhag-welcome-glow 2.8s ease-in-out 0.6s infinite;
+}
+@keyframes nhag-welcome-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes nhag-welcome-glow {
+  0%, 100% { filter: drop-shadow(0 0 14px rgba(120, 170, 255, 0.25)); }
+  50% { filter: drop-shadow(0 0 26px rgba(150, 190, 255, 0.55)); }
+}
+.nhag-welcome-bar {
+  width: 7rem;
+  height: 3px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+  position: relative;
+  overflow: hidden;
+}
+.nhag-welcome-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.75);
+  animation: nhag-welcome-slide 1.3s ease-in-out infinite;
+}
+@keyframes nhag-welcome-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nhag-welcome-emblem { animation: none; }
+  .nhag-welcome-bar::after { animation: none; left: 30%; }
+}

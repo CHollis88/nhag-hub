@@ -11,6 +11,7 @@ import Modal from "./Modal";
 import { useConfirm } from "./ConfirmDialog";
 import { useAction } from "./useAction";
 import { requestJson } from "@/lib/request";
+import { invalidate } from "@/lib/resourceCache";
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -287,6 +288,7 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
     try {
       const data = await requestJson("/api/groups", { cache: "no-store" });
       setGroups(data.groups);
+      invalidate("home:groups"); // Home's ministry list picks up any change made here
     } catch {
       // Keeps what's already showing.
     }
