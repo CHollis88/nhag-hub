@@ -142,13 +142,24 @@ export default function GroupShell({
   // server-computed unread state and need no local tracking at all.
   const [latestContent, setLatestContent] = useState(null);
   const loadLatestContentRef = useRef(null);
+  const lastGroupLatestRef = useRef(null);
   useEffect(() => {
     let cancelled = false;
     const load = () => {
       fetch(`/api/groups/${group.id}/latest-content`)
         .then((r) => r.json())
         .then((data) => {
-          if (!cancelled) setLatestContent(data);
+          if (cancelled) return;
+          // Something new was posted in this ministry since the last check:
+          // its cached tabs are out of date, so the tab on screen reloads now
+          // and the others reload when opened.
+          const prev = lastGroupLatestRef.current;
+          lastGroupLatestRef.current = data;
+          const newer = (k) => data?.[k] && (!prev?.[k] || data[k] > prev[k]);
+          if (prev && (newer("news") || newer("events") || newer("prayer"))) {
+            invalidate((k) => k.startsWith(`group:${group.id}:`) || k === "home:events-mine");
+          }
+          setLatestContent(data);
         })
         .catch(() => {});
     };

@@ -3,6 +3,7 @@
 import { Home, Book, Megaphone, CalendarDays, CalendarRange, Mic, Users } from "lucide-react";
 import { useSimpleMode } from "@/lib/useSimpleMode";
 import { visibleTabs } from "@/lib/simpleMode";
+import { warmTab } from "@/lib/screenData";
 
 // The universal bottom nav. Icon-first, matching the Young Adults app's
 // own bottom nav pattern -- a small label underneath each icon, not a
@@ -32,6 +33,7 @@ export default function BottomNav({ tab, setTab, badges = {} }) {
             <button
               key={key}
               onClick={() => setTab(key)}
+              onPointerDown={() => warmTab(key)}
               aria-current={active ? "page" : undefined}
               className={`relative flex-1 flex flex-col items-center gap-1 py-1.5 ${simple ? "min-h-[60px] justify-center" : ""}`}
             >

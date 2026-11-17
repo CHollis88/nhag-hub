@@ -11,7 +11,10 @@ import Modal from "./Modal";
 import { useConfirm } from "./ConfirmDialog";
 import { useAction } from "./useAction";
 import { requestJson } from "@/lib/request";
-import { invalidate } from "@/lib/resourceCache";
+import { invalidate, fetchResource, peek } from "@/lib/resourceCache";
+import { useResource } from "@/lib/useResource";
+import { HOME_GROUPS } from "@/lib/homeData";
+import { ADMIN_ATTENTION, ADMIN_USERS } from "@/lib/adminData";
 
 function timeAgo(dateStr) {
   const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
@@ -30,7 +33,7 @@ function timeAgo(dateStr) {
 // Home -- per the project's decision, admin-only controls shouldn't
 // permanently take up space on the screen everyone sees every day.
 export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChanged, currentUserId }) {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState(() => peek(ADMIN_USERS.key)?.data || []);
   const [userQuery, setUserQuery] = useState("");
   const [activityLog, setActivityLog] = useState(null);
   const [logHasMore, setLogHasMore] = useState(false);
@@ -65,10 +68,11 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   };
 
-  const loadUsers = useCallback(async () => {
+  // On opening: shows the last copy at once and only re-asks the server if
+  // it's ~15 s old. After a change made here: always re-asks (force).
+  const loadUsers = useCallback(async ({ force = true } = {}) => {
     try {
-      const data = await requestJson("/api/admin/users");
-      setUsers(data.users);
+      setUsers(await fetchResource(ADMIN_USERS.key, ADMIN_USERS.fetcher, { staleMs: ADMIN_USERS.staleMs, force }));
     } catch {
       // Leaves whatever is already showing.
     }
@@ -105,7 +109,7 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
   };
 
   useEffect(() => {
-    loadUsers();
+    loadUsers({ force: false });
   }, [loadUsers]);
 
   useEffect(() => {
@@ -277,44 +281,29 @@ export default function AdminToolboxView({ onClose, onOpenGroup, onAttentionChan
     setHiddenGroupIds((prev) => (currentlyBlocked ? prev.filter((id) => id !== groupId) : [...prev, groupId]));
   };
 
-  const [groups, setGroups] = useState([]);
+  const [groups, setGroups] = useState(() => peek(HOME_GROUPS.key)?.data || []);
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupType, setNewGroupType] = useState("");
   const [newGroupColor, setNewGroupColor] = useState("#8B1E2F");
   const [message, setMessage] = useState("");
-  const [pendingCounts, setPendingCounts] = useState({});
+  // "N pending" per ministry, from the Needs Attention list (one request it
+  // already makes) -- not by loading every ministry's roster.
+  const { data: attention } = useResource(ADMIN_ATTENTION.key, ADMIN_ATTENTION.fetcher, { staleMs: ADMIN_ATTENTION.staleMs });
+  const pendingCounts = attention?.pending_by_group || {};
 
-  const loadGroups = useCallback(async () => {
+  // The same ministry list Home uses (one shared copy). After a change made
+  // here it's re-fetched (force), which updates Home's copy too.
+  const loadGroups = useCallback(async ({ force = true } = {}) => {
     try {
-      const data = await requestJson("/api/groups", { cache: "no-store" });
-      setGroups(data.groups);
-      invalidate("home:groups"); // Home's ministry list picks up any change made here
+      setGroups(await fetchResource(HOME_GROUPS.key, HOME_GROUPS.fetcher, { staleMs: HOME_GROUPS.staleMs, force }));
     } catch {
       // Keeps what's already showing.
     }
   }, []);
 
-  const loadPendingCounts = useCallback(async (groupList) => {
-    const results = await Promise.all(
-      groupList.map(async (g) => {
-        try {
-          const data = await requestJson(`/api/groups/${g.id}/members`);
-          return [g.id, data.pending?.length || 0];
-        } catch {
-          return [g.id, 0];
-        }
-      })
-    );
-    setPendingCounts(Object.fromEntries(results));
-  }, []);
-
   useEffect(() => {
-    loadGroups();
+    loadGroups({ force: false });
   }, [loadGroups]);
-
-  useEffect(() => {
-    if (groups.length) loadPendingCounts(groups);
-  }, [groups, loadPendingCounts]);
 
   const createGroup = async (e) => {
     e.preventDefault();

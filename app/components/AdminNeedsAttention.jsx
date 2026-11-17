@@ -6,6 +6,8 @@ import EmptyState from "./EmptyState";
 import { SkeletonRowList } from "./Skeleton";
 import { useAction } from "./useAction";
 import { requestJson } from "@/lib/request";
+import { useResource } from "@/lib/useResource";
+import { ADMIN_ATTENTION } from "@/lib/adminData";
 
 // v71 #22 -- the Admin Toolbox's ONE "Needs attention" list.
 //
@@ -28,25 +30,20 @@ function timeAgo(dateStr) {
 }
 
 export default function AdminNeedsAttention({ onChanged }) {
-  const [state, setState] = useState({ items: null, counts: null });
-  const [failed, setFailed] = useState(false);
+  // Through the shared screen cache (the Toolbox's pending badges read the
+  // same entry): reopening the Toolbox shows this at once, and it's re-checked
+  // behind the scenes once it's ~15 s old.
+  const { data: cached, error: loadError, refresh, setData } = useResource(ADMIN_ATTENTION.key, ADMIN_ATTENTION.fetcher, {
+    staleMs: ADMIN_ATTENTION.staleMs,
+  });
+  const state = cached || { items: null, counts: null };
+  const setState = (fn) => setData((prev) => (typeof fn === "function" ? fn(prev || { items: [], counts: {} }) : fn));
+  const failed = Boolean(loadError) && !cached;
   const [busyId, setBusyId] = useState(null);
   const busyRef = useRef(false);
   const run = useAction();
 
-  const load = useCallback(async () => {
-    try {
-      const data = await requestJson("/api/admin/needs-attention");
-      setState({ items: data.items, counts: data.counts });
-      setFailed(false);
-    } catch {
-      setFailed(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const load = () => refresh();
 
   // Runs one item's action; on success removes it from the list.
   const act = async (item, request, success) => {
@@ -63,7 +60,10 @@ export default function AdminNeedsAttention({ onChanged }) {
       const key = { join: "joins", promotion: "promotions", feedback: "feedback" }[item.kind];
       counts[key] = Math.max(0, (counts[key] || 0) - 1);
       counts.total = Math.max(0, (counts.total || 0) - 1);
-      return { items, counts };
+      // Keep the Toolbox's "N pending" badge on that ministry in step.
+      const pending_by_group = { ...(prev.pending_by_group || {}) };
+      if (item.kind === "join" && pending_by_group[item.group_id]) pending_by_group[item.group_id] -= 1;
+      return { ...prev, items, counts, pending_by_group };
     });
     onChanged?.();
   };

@@ -40,25 +40,25 @@ function MinistryTile({ group, myRole, onOpen }) {
       className="sp-card p-0 overflow-hidden flex flex-col h-full w-full text-left"
     >
       <div className="h-1 flex-shrink-0 w-full" style={{ background: bg }} />
-      <div className="p-3 md:p-4 flex flex-col items-center text-center flex-1 w-full">
+      <div className="px-2 py-2.5 md:p-4 flex flex-col items-center text-center flex-1 w-full">
         {group.image_url ? (
           <img
             src={group.image_url}
             alt=""
-            className="w-14 h-14 rounded-xl object-cover flex-shrink-0 mb-2"
+            className="w-11 h-11 md:w-14 md:h-14 rounded-xl object-cover flex-shrink-0 mb-1.5"
           />
         ) : (
           <div
-            className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center font-serif text-xl mb-2"
+            className="w-11 h-11 md:w-14 md:h-14 rounded-xl flex-shrink-0 flex items-center justify-center font-serif text-lg md:text-xl mb-1.5"
             style={{ background: bg, color: readableTextColor(bg) }}
             aria-hidden="true"
           >
             {group.name?.[0]?.toUpperCase() || "?"}
           </div>
         )}
-        <span className="font-serif text-base md:text-lg text-ink leading-snug break-words">{group.name}</span>
+        <span className="font-serif text-sm md:text-lg text-ink leading-snug break-words">{group.name}</span>
         <span className="hidden md:block text-xs text-inkfaint break-words mt-0.5">{meta}</span>
-        <span aria-hidden="true" className="mt-auto pt-2 text-xs font-medium text-accent">
+        <span aria-hidden="true" className="hidden md:block mt-auto pt-2 text-xs font-medium text-accent">
           Open ›
         </span>
       </div>
@@ -210,6 +210,88 @@ function AnnouncementsPreview({ onSeeAll }) {
   );
 }
 
+// "From your ministries": the newest announcements across every ministry you
+// belong to, newest first, each tagged with its ministry. Tapping one opens
+// that ministry on its News tab. The data comes with the events request Home
+// already makes (/api/events/mine?include=news) -- no extra call -- and it
+// follows the same rules as each ministry's News tab (published only;
+// leader-only posts only for that ministry's leaders).
+const SHOW_FIRST = 3;
+function timeAgo(iso) {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function MinistryAnnouncements({ me, groups, onOpenGroup }) {
+  const { data: mine } = useResource(HOME_EVENTS.key, HOME_EVENTS.fetcher, { staleMs: HOME_EVENTS.staleMs });
+  const [showAll, setShowAll] = useState(false);
+  const byId = useMemo(() => Object.fromEntries((groups || []).map((g) => [g.id, g])), [groups]);
+  const roleOf = useMemo(
+    () => Object.fromEntries(me.memberships.filter((m) => m.status === "active").map((m) => [m.group_id, m.role])),
+    [me.memberships]
+  );
+
+  const posts = (mine?.group_news || []).filter((n) => byId[n.group_id]);
+  if (posts.length === 0) return null;
+  const shown = showAll ? posts : posts.slice(0, SHOW_FIRST);
+
+  return (
+    <div className="mb-6">
+      <div className="flex justify-between items-center mb-2">
+        <p className="text-xs uppercase tracking-wide text-inkfaint">From your ministries</p>
+        {posts.length > SHOW_FIRST && (
+          <button onClick={() => setShowAll((v) => !v)} className="text-xs text-accent underline py-2 -my-2 px-2 -mx-2">
+            {showAll ? "Show less" : `Show ${posts.length - SHOW_FIRST} more`}
+          </button>
+        )}
+      </div>
+      <div className="sp-card p-0 divide-y divide-linesoft overflow-hidden">
+        {shown.map((n) => {
+          const g = byId[n.group_id];
+          const bg = g.tile_color || DEFAULT_TILE_COLOR;
+          return (
+            <button
+              type="button"
+              key={n.id}
+              onClick={() => onOpenGroup(g.id, g.name, roleOf[g.id], g.features, { initialTab: "news" })}
+              className="w-full text-left flex items-start gap-3 px-3 py-2.5 hover:bg-paper"
+              aria-label={`${n.title}, from ${g.name}, ${timeAgo(n.created_at)}`}
+            >
+              {g.image_url ? (
+                <img src={g.image_url} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0 mt-0.5" />
+              ) : (
+                <span
+                  className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center font-serif text-sm mt-0.5"
+                  style={{ background: bg, color: readableTextColor(bg) }}
+                  aria-hidden="true"
+                >
+                  {g.name?.[0]?.toUpperCase() || "?"}
+                </span>
+              )}
+              <span className="flex-1 min-w-0">
+                <span className="flex items-baseline gap-2">
+                  <span className="text-[0.6875rem] font-semibold uppercase tracking-wide truncate text-inksoft">
+                    {g.name}
+                  </span>
+                  <span className="text-[0.6875rem] text-inkfaint flex-shrink-0 ml-auto">{timeAgo(n.created_at)}</span>
+                </span>
+                <span className="block font-medium text-ink text-sm leading-snug">{n.title}</span>
+                {n.body && <span className="text-xs text-inksoft line-clamp-1 break-words">{n.body}</span>}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // Home: the church-wide dashboard. Previews upcoming events and
 // announcements, then shows every ministry as a tile (icon, tile color,
 // leader names) -- yours to Launch into, others to request joining.
@@ -270,22 +352,23 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
 
       <UpcomingEventsPreview me={me} onSeeAll={() => onGoToTab("calendar")} />
       <AnnouncementsPreview onSeeAll={() => onGoToTab("news")} />
+      <MinistryAnnouncements me={me} groups={groupsData} onOpenGroup={onOpenGroup} />
 
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs uppercase tracking-wide text-inkfaint">Your ministries</p>
         <button onClick={onOpenDirectory} className="text-xs text-accent underline py-2 -my-2 px-2 -mx-2">Directory</button>
       </div>
       {groupsLoading && (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(10rem,12rem))] gap-3 mb-2" aria-hidden="true">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(10rem,12rem))] gap-2.5 md:gap-3 mb-2" aria-hidden="true">
           {[0, 1].map((i) => (
-            <div key={i} className="h-28 rounded-xl bg-line/60 animate-pulse motion-reduce:animate-none" />
+            <div key={i} className="h-24 rounded-xl bg-line/60 animate-pulse motion-reduce:animate-none" />
           ))}
         </div>
       )}
       {!groupsLoading && groupsData && myGroups.length === 0 && (
         <p className="text-sm text-inkfaint mb-2">You're not in any ministries yet — request to join one below.</p>
       )}
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(8rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(10rem,12rem))] gap-3 mb-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] md:grid-cols-[repeat(auto-fill,minmax(10rem,12rem))] gap-2.5 md:gap-3 mb-2">
         {myGroups.map((g) => (
           <MinistryTile
             key={g.id}

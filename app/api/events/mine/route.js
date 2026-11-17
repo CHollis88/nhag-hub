@@ -16,6 +16,14 @@ import { withNoStore } from "@/lib/cacheHeaders";
 // Response shape: { global: [...], groups: { [groupId]: [...] } } -- each
 // event has the same fields the per-ministry / church-wide routes return,
 // so the existing cards keep working unchanged.
+//
+// ?include=news also returns `group_news`: the latest published
+// announcements across all of my ministries, for Home's "From your
+// ministries". It rides along on this request (which Home already makes)
+// instead of being a separate call. Same visibility as each ministry's News
+// tab: published only, and leader-only posts only for that ministry's
+// leaders (or an admin).
+const RECENT_NEWS_LIMIT = 6;
 export async function GET(req) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -29,7 +37,12 @@ export async function GET(req) {
 
   const supabase = supabaseServer();
 
-  const [globalRes, groupRes] = await Promise.all([
+  const wantNews = req.nextUrl.searchParams.get("include") === "news";
+  const leaderOf = new Set(
+    (user.memberships || []).filter((m) => m.role === "leader").map((m) => m.group_id)
+  );
+
+  const [globalRes, groupRes, newsRes] = await Promise.all([
     supabase
       .from("global_events")
       .select("id, title, event_date, event_time, location, notes, volunteers_needed, allow_rsvp, recurrence_group_id")
@@ -40,6 +53,15 @@ export async function GET(req) {
           .select("id, group_id, title, event_date, event_time, location, notes, volunteers_needed, allow_replies, allow_rsvp, recurrence_group_id")
           .in("group_id", groupIds)
           .order("event_date", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+    wantNews && groupIds.length
+      ? supabase
+          .from("group_news")
+          .select("id, group_id, title, body, kind, created_at, users(display_name)")
+          .in("group_id", groupIds)
+          .eq("status", "published")
+          .order("created_at", { ascending: false })
+          .limit(RECENT_NEWS_LIMIT * 3) // room to drop leader-only posts and still fill the list
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -92,8 +114,26 @@ export async function GET(req) {
     groups[ev.group_id].push(decorate(ev, grRsvps, grVols));
   }
 
-  return withNoStore({
+  const body = {
     global: globalEvents.map((ev) => decorate(ev, gRsvps, gVols)),
     groups,
-  });
+  };
+  if (wantNews) {
+    // A news hiccup must never break Home's events or the Calendar.
+    body.group_news = newsRes?.error
+      ? []
+      : (newsRes?.data || [])
+          .filter((n) => n.kind !== "leader" || user.is_church_admin || leaderOf.has(n.group_id))
+          .slice(0, RECENT_NEWS_LIMIT)
+          .map((n) => ({
+            id: n.id,
+            group_id: n.group_id,
+            title: n.title,
+            body: (n.body || "").slice(0, 280), // a preview; the full post is in the ministry
+            kind: n.kind,
+            created_at: n.created_at,
+            author: n.users?.display_name || null,
+          }));
+  }
+  return withNoStore(body);
 }

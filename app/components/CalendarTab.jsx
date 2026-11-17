@@ -8,6 +8,8 @@ import WeekCalendarView from "./WeekCalendarView";
 import { SkeletonList } from "./Skeleton";
 import { readableTextColor } from "@/lib/colorContrast";
 import { formatTime12h } from "@/lib/formatTime";
+import { useResource } from "@/lib/useResource";
+import { HOME_EVENTS } from "@/lib/homeData";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 const CHURCH_WIDE_COLOR = "#16296B"; // the app's own brand navy, distinct from any ministry's tile color
@@ -19,7 +21,6 @@ const CHURCH_WIDE_COLOR = "#16296B"; // the app's own brand navy, distinct from 
 // of, color-coded by that ministry's own tile color, with a toggle to
 // show/hide each source -- same pattern as Canvas's academic calendar.
 export default function CalendarTab({ me }) {
-  const [rawEvents, setRawEvents] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [hiddenSources, setHiddenSources] = useState(new Set());
   const [viewMode, setViewMode] = useState(null); // null until measured, then "month" | "week"
@@ -49,9 +50,12 @@ export default function CalendarTab({ me }) {
     [me]
   );
 
-  const load = useCallback(async () => {
-    // One request for church-wide + all my ministries' events (v71 #1).
-    const mine = await fetch("/api/events/mine").then((r) => r.json());
+  // One request for church-wide + all my ministries' events (v71 #1), through
+  // the same cache entry Home's "Your next event" uses -- so the Calendar
+  // usually opens with nothing to download.
+  const { data: mine } = useResource(HOME_EVENTS.key, HOME_EVENTS.fetcher, { staleMs: HOME_EVENTS.staleMs });
+  const rawEvents = useMemo(() => {
+    if (!mine) return null;
 
     const globalEvents = (mine.global || []).map((ev) => ({
       ...ev,
@@ -68,12 +72,8 @@ export default function CalendarTab({ me }) {
       }))
     );
 
-    setRawEvents([...globalEvents, ...groupEvents]);
-  }, [me]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+    return [...globalEvents, ...groupEvents];
+  }, [mine, me]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleSource = (id) => {
     setHiddenSources((prev) => {

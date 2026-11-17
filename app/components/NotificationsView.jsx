@@ -6,6 +6,13 @@ import EmptyState from "./EmptyState";
 import { SkeletonRowList } from "./Skeleton";
 import Modal from "./Modal";
 import { requestJson } from "@/lib/request";
+import { fetchResource, mutateResource, peek } from "@/lib/resourceCache";
+import { NOTIFICATIONS_FIRST_PAGE } from "@/lib/screenData";
+
+// The newest page is kept in the shared screen cache: reopening shows it at
+// once (and it is refreshed behind it once ~15 s old). Older pages loaded
+// with "Load more" live only on screen.
+const FIRST_PAGE = NOTIFICATIONS_FIRST_PAGE.key;
 import { useAction } from "./useAction";
 
 function timeAgo(dateStr) {
@@ -21,9 +28,9 @@ function timeAgo(dateStr) {
 }
 
 export default function NotificationsView({ onClose, onNavigate }) {
-  const [notifications, setNotifications] = useState(null);
+  const [notifications, setNotifications] = useState(() => peek(FIRST_PAGE)?.data?.notifications ?? null);
   // v71 #44: 50 at a time. `hasMore` = older ones exist beyond what's shown.
-  const [hasMore, setHasMore] = useState(false);
+  const [hasMore, setHasMore] = useState(() => Boolean(peek(FIRST_PAGE)?.data?.has_more));
   const [loadingMore, setLoadingMore] = useState(false);
 
   const [loadFailed, setLoadFailed] = useState(false);
@@ -31,7 +38,7 @@ export default function NotificationsView({ onClose, onNavigate }) {
 
   const load = useCallback(async () => {
     try {
-      const data = await requestJson("/api/notifications");
+      const data = await fetchResource(FIRST_PAGE, NOTIFICATIONS_FIRST_PAGE.fetcher, { staleMs: NOTIFICATIONS_FIRST_PAGE.staleMs });
       setNotifications(data.notifications);
       setHasMore(Boolean(data.has_more));
       setLoadFailed(false);
@@ -61,6 +68,7 @@ export default function NotificationsView({ onClose, onNavigate }) {
 
   const markRead = async (id) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    mutateResource(FIRST_PAGE, (d) => d && { ...d, notifications: d.notifications.map((n) => (n.id === id ? { ...n, read: true } : n)) });
     try {
       await requestJson(`/api/notifications/${id}`, { method: "PATCH" });
     } catch {
@@ -73,6 +81,7 @@ export default function NotificationsView({ onClose, onNavigate }) {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     const { ok } = await run(() => requestJson("/api/notifications/mark-all-read", { method: "POST" }));
     if (!ok) setNotifications(before); // they're still unread -- show that
+    else mutateResource(FIRST_PAGE, (d) => d && { ...d, notifications: d.notifications.map((n) => ({ ...n, read: true })) });
   };
 
   const unreadCount = notifications?.filter((n) => !n.read).length || 0;

@@ -144,7 +144,9 @@ export default function GroupNewsTab({ groupId, canManage, showClassOption = tru
     { staleMs: STALE.list }
   );
   const loadFailed = Boolean(newsError);
-  const load = () => invalidate(`${newsPrefix}*`);
+  // After a post/edit/delete: this ministry's news, and Home's "From your
+  // ministries" (marked out of date, so it refreshes when you're back on Home).
+  const load = () => invalidate((k) => k.startsWith(newsPrefix) || k === "home:events-mine");
   const scrollAnchor = useScrollMemory(`news:${groupId}`, news !== null);
 
   // Only clears/closes the form on success; on failure everything typed

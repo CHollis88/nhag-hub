@@ -7,6 +7,10 @@ import { readableTextColor } from "@/lib/colorContrast";
 import EmptyState from "./EmptyState";
 import { SkeletonList } from "./Skeleton";
 import MemberProfileModal from "./MemberProfileModal";
+import { useResource } from "@/lib/useResource";
+import { fetchResource, peek, STALE } from "@/lib/resourceCache";
+import { requestJson } from "@/lib/request";
+import { HOME_GROUPS } from "@/lib/homeData";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 
@@ -23,10 +27,18 @@ function DirectoryEntry({ group, leaders, isMember }) {
     // members endpoint itself would 403 otherwise, same privacy rule as
     // everywhere else in the app. For ministries you're not in, the
     // leaders already shown (from /api/groups) are all that's shown.
+    // Same cache entry as that ministry's Roster tab, so a roster you've
+    // already seen opens instantly.
     if (next && isMember && members === null) {
-      const res = await fetch(`/api/groups/${group.id}/members`);
-      const data = await res.json();
-      if (res.ok) setMembers(data.active);
+      const key = `group:${group.id}:members`;
+      const cached = peek(key)?.data;
+      if (cached?.active) setMembers(cached.active);
+      try {
+        const data = await fetchResource(key, () => requestJson(`/api/groups/${group.id}/members`), { staleMs: STALE.live });
+        if (data?.active) setMembers(data.active);
+      } catch {
+        // keep whatever is showing
+      }
     }
   };
 
@@ -94,18 +106,9 @@ function DirectoryEntry({ group, leaders, isMember }) {
 // optional and only used if something still wants to render this in a
 // modal context (kept for that flexibility, unused by the tab itself).
 export default function DirectoryView({ me, onClose }) {
-  const [groups, setGroups] = useState(null);
+  // Same cache entry as Home's ministry list -- usually nothing to download.
+  const { data: groups } = useResource(HOME_GROUPS.key, HOME_GROUPS.fetcher, { staleMs: HOME_GROUPS.staleMs });
   const [query, setQuery] = useState("");
-
-  const load = useCallback(async () => {
-    const res = await fetch("/api/groups");
-    const data = await res.json();
-    if (res.ok) setGroups(data.groups);
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const myGroupIds = new Set(me.memberships.filter((m) => m.status === "active").map((m) => m.group_id));
 

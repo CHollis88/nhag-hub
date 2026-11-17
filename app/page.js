@@ -4,7 +4,8 @@ import HeaderButton from "./components/HeaderButton";
 import { useSimpleMode } from "@/lib/useSimpleMode";
 import { setCacheUser, clearResourceCache, forget, invalidate, fetchResource } from "@/lib/resourceCache";
 import { HOME_RESOURCES } from "@/lib/homeData";
-import { useEffect, useState, useCallback, useRef, Suspense } from "react";
+import { warmSettings, warmNotifications, warmAdminToolbox } from "@/lib/screenData";
+import { useEffect, useState, useCallback, useRef, Suspense, useSyncExternalStore } from "react";
 import { OPEN_ORIGIN_EVENT } from "@/lib/nowWhere";
 import { OPEN_BIBLE_EVENT } from "./components/ReadAloudBar";
 import Image from "next/image";
@@ -22,34 +23,61 @@ import NotifyBanner, { shouldShowNotifyBanner } from "./components/NotifyBanner"
 // Everything below here is only ever shown after a tab switch or an explicit
 // open action, so it's a code-splitting candidate: keeps it out of the initial
 // JS bundle and loads it the first time it's actually needed.
-const NewsTab = dynamic(() => import("./components/NewsTab"), { loading: () => <TabSkeleton /> });
-const EventsTab = dynamic(() => import("./components/EventsTab"), { loading: () => <TabSkeleton /> });
-const BibleTab = dynamic(() => import("./components/BibleTab"), { loading: () => <TabSkeleton /> });
-const SermonsTab = dynamic(() => import("./components/SermonsTab"), { loading: () => <TabSkeleton /> });
-const CalendarTab = dynamic(() => import("./components/CalendarTab"), { loading: () => <TabSkeleton /> });
+// `Lazy` is the normal next/dynamic version of the same screen (Next needs
+// each dynamic() written out literally), used until the code is here.
+function preloadable(importer, Lazy) {
+  let Loaded = null;
+  const load = () =>
+    importer().then((m) => {
+      Loaded = m.default;
+      return m;
+    });
+  function Screen(props) {
+    // Chosen once per opening: if the background download finishes while
+    // this screen is already open, it must NOT be swapped for the other
+    // version (that would restart it and lose what you were doing).
+    const [Component] = useState(() => Loaded || Lazy);
+    return <Component {...props} />;
+  }
+  Screen.preload = () => load().catch(() => {});
+  return Screen;
+}
+const NewsTab = preloadable(() => import("./components/NewsTab"), dynamic(() => import("./components/NewsTab"), { loading: () => <TabSkeleton /> }));
+const EventsTab = preloadable(() => import("./components/EventsTab"), dynamic(() => import("./components/EventsTab"), { loading: () => <TabSkeleton /> }));
+const BibleTab = preloadable(() => import("./components/BibleTab"), dynamic(() => import("./components/BibleTab"), { loading: () => <TabSkeleton /> }));
+const SermonsTab = preloadable(() => import("./components/SermonsTab"), dynamic(() => import("./components/SermonsTab"), { loading: () => <TabSkeleton /> }));
+const CalendarTab = preloadable(() => import("./components/CalendarTab"), dynamic(() => import("./components/CalendarTab"), { loading: () => <TabSkeleton /> }));
 // While the ministry screen's code is still downloading, show the same navy
 // cover the opening transition uses, so tapping a ministry is seamless.
 // Once the code has been fetched (it is, quietly, right after sign-in), the
 // screen is rendered directly instead of through the lazy loader -- the lazy
 // path always shows its placeholder for ~0.3s first, even when the code is
 // already here, which made opening a ministry feel sluggish.
-let LoadedGroupShell = null;
-const loadGroupShell = () =>
-  import("./components/GroupShell").then((m) => {
-    LoadedGroupShell = m.default;
-    return m;
-  });
-const LazyGroupShell = dynamic(loadGroupShell, {
+//
+// The same goes for every other screen below: right after launch their code
+// is fetched quietly in the background (preloadScreens), so Settings, Help,
+// Notifications, the tabs, etc. open instantly instead of downloading their
+// code -- and showing a placeholder -- the first time each is opened.
+// (Static files from the CDN, kept by the phone: no server functions.)
+const GroupShellScreen = preloadable(() => import("./components/GroupShell"), dynamic(() => import("./components/GroupShell"), {
   loading: () => <div className="nhag-welcome fixed inset-0 z-[70]" aria-hidden="true" />,
-});
-const SettingsView = dynamic(() => import("./components/SettingsView"));
-const HelpView = dynamic(() => import("./components/HelpView"));
-const PatchNotesView = dynamic(() => import("./components/PatchNotesView"));
-const AttributionView = dynamic(() => import("./components/AttributionView"));
-const AdminToolboxView = dynamic(() => import("./components/AdminToolboxView"));
-const DirectoryView = dynamic(() => import("./components/DirectoryView"));
-const NotificationsView = dynamic(() => import("./components/NotificationsView"));
-const ProfileView = dynamic(() => import("./components/ProfileView"));
+}));
+const SettingsView = preloadable(() => import("./components/SettingsView"), dynamic(() => import("./components/SettingsView")));
+const HelpView = preloadable(() => import("./components/HelpView"), dynamic(() => import("./components/HelpView")));
+const PatchNotesView = preloadable(() => import("./components/PatchNotesView"), dynamic(() => import("./components/PatchNotesView")));
+const AttributionView = preloadable(() => import("./components/AttributionView"), dynamic(() => import("./components/AttributionView")));
+const AdminToolboxView = preloadable(() => import("./components/AdminToolboxView"), dynamic(() => import("./components/AdminToolboxView")));
+const DirectoryView = preloadable(() => import("./components/DirectoryView"), dynamic(() => import("./components/DirectoryView")));
+const NotificationsView = preloadable(() => import("./components/NotificationsView"), dynamic(() => import("./components/NotificationsView")));
+const ProfileView = preloadable(() => import("./components/ProfileView"), dynamic(() => import("./components/ProfileView")));
+
+let screensPreloaded = false;
+function preloadScreens(isAdmin) {
+  // One after another, so this never competes with what the person is doing.
+  const screens = [GroupShellScreen, BibleTab, EventsTab, NewsTab, CalendarTab, SermonsTab, SettingsView, NotificationsView, DirectoryView, ProfileView, HelpView, PatchNotesView, AttributionView];
+  if (isAdmin) screens.push(AdminToolboxView);
+  screens.reduce((chain, screen) => chain.then(() => screen.preload()), Promise.resolve());
+}
 import { Bell, Settings, Wrench, UserCircle, LogOut, KeyRound, HelpCircle, RotateCw, Menu } from "lucide-react";
 import { hasNewContent, markSeen } from "@/lib/lastSeen";
 import { PATCH_NOTES } from "@/lib/patchNotes";
@@ -64,9 +92,47 @@ import { useToast } from "./components/ToastProvider";
 // fallback below), so there's never a blank screen at launch, and it stays up
 // while the app checks who you are and loads Home -- so Home appears complete
 // instead of popping in piece by piece.
-function GroupShellScreen(props) {
-  const Shell = LoadedGroupShell || LazyGroupShell;
-  return <Shell {...props} />;
+// Launch state for the welcome screen. The welcome screen is ONE element that
+// is on screen from the very first HTML until the app is ready: it sits
+// OUTSIDE the Suspense boundary below, so it is never swapped for a second
+// copy partway through launch (that swap restarted its animation and made
+// the app look like it loaded twice).
+const boot = { visible: true, failed: false, retry: null };
+const bootListeners = new Set();
+function setBoot(patch) {
+  Object.assign(boot, patch);
+  bootListeners.forEach((fn) => fn());
+}
+let bootSnapshot = { ...boot };
+function subscribeBoot(fn) {
+  bootListeners.add(fn);
+  return () => bootListeners.delete(fn);
+}
+function getBootSnapshot() {
+  if (bootSnapshot.visible !== boot.visible || bootSnapshot.failed !== boot.failed || bootSnapshot.retry !== boot.retry) {
+    bootSnapshot = { ...boot };
+  }
+  return bootSnapshot;
+}
+const SERVER_BOOT = { visible: true, failed: false, retry: null };
+
+function BootSplash() {
+  const state = useSyncExternalStore(subscribeBoot, getBootSnapshot, () => SERVER_BOOT);
+  const [gone, setGone] = useState(false);
+  useEffect(() => {
+    if (state.visible) {
+      setGone(false);
+      return undefined;
+    }
+    const t = setTimeout(() => setGone(true), 260); // after the fade-out
+    return () => clearTimeout(t);
+  }, [state.visible]);
+  if (gone) return null;
+  return (
+    <div className={`fixed inset-0 z-[80] nhag-boot ${state.visible ? "" : "is-out"}`}>
+      <WelcomeScreen failed={state.failed} onRetry={() => state.retry?.()} />
+    </div>
+  );
 }
 
 function WelcomeScreen({ failed = false, onRetry }) {
@@ -75,8 +141,8 @@ function WelcomeScreen({ failed = false, onRetry }) {
       <img
         src="/splash-emblem.webp"
         alt=""
-        width={239}
-        height={439}
+        width={467}
+        height={841}
         fetchPriority="high"
         className="nhag-welcome-emblem w-[5.5rem] h-auto mb-6"
       />
@@ -303,7 +369,11 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     const hadController = Boolean(navigator.serviceWorker.controller);
     let reloaded = false;
     const onControllerChange = () => {
-      if (!hadController || reloaded) return;
+      // Also not during launch: a page that has just opened was fetched
+      // fresh from the network (pages are network-first), so it IS the new
+      // version already -- reloading it again was the "loads twice" right
+      // after an update. Only a screen left open across an update reloads.
+      if (!hadController || reloaded || performance.now() < 15000) return;
       reloaded = true;
       // Loop guard: never auto-reload more than once a minute, whatever the
       // service worker does. A device that kept reloading made the app flash
@@ -341,11 +411,24 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   // v71 #1: ONE call returns both the "new content" timestamps and the
   // unread count (it used to be two calls -- /latest and the full 50-row
   // notifications list -- every 45 seconds).
+  // Anything newly posted must show up right away, whatever the screen cache
+  // holds. This cheap "what's newest?" check already runs on a timer, when
+  // the app comes back to the front, and when a push arrives; if it sees
+  // something newer than last time (a post, an event, a sermon, or a new
+  // notification), every cached screen is marked out of date and whatever is
+  // on screen reloads now. A tapped push opens the app fresh anyway.
+  const lastLatestRef = useRef(null);
   const refreshNotifications = useCallback(() => {
     fetch("/api/notifications/latest")
       .then((r) => r.json())
       .then((data) => {
         if (data.error) return;
+        const prev = lastLatestRef.current;
+        lastLatestRef.current = data;
+        const newer = (k) => data[k] && (!prev?.[k] || data[k] > prev[k]);
+        if (prev && (newer("news") || newer("events") || newer("sermons") || (data.unread_count ?? 0) > (prev.unread_count ?? 0))) {
+          invalidate(() => true);
+        }
         setLatestContent(data);
         if (typeof data.unread_count === "number") setUnreadCount(data.unread_count);
         // Present only for an effective admin (v71 #22); absent otherwise.
@@ -367,7 +450,12 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     const onSwMessage = (event) => {
-      if (event.data?.type === "NEW_NOTIFICATION") refreshNotifications();
+      if (event.data?.type === "NEW_NOTIFICATION") {
+        // A push just arrived while the app is open: refresh what's on screen
+        // and mark everything else out of date, so the new post shows at once.
+        invalidate(() => true);
+        refreshNotifications();
+      }
     };
     navigator.serviceWorker?.addEventListener?.("message", onSwMessage);
 
@@ -662,6 +750,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
               ariaLabel={adminAttention > 0 ? `Admin Toolbox, ${adminAttention} need attention` : "Admin Toolbox"}
               title="Admin Toolbox"
               icon={Wrench}
+              onPress={warmAdminToolbox}
               onClick={() => setAdminToolboxOpen(true)}
               badge={
                 adminAttention > 0 && (
@@ -683,6 +772,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             ariaLabel="Notifications"
             title="Notifications"
             icon={Bell}
+            onPress={warmNotifications}
             onClick={() => setNotificationsOpen(true)}
             badge={unreadCount > 0 && <span className="absolute top-0.5 right-0.5 w-2.5 h-2.5 rounded-full bg-white" />}
           />
@@ -694,7 +784,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
             icon={HelpCircle}
             onClick={() => setHelpOpen(true)}
           />
-          {!simple && <HeaderButton simple={simple} label="Settings" icon={Settings} onClick={() => setSettingsOpen(true)} />}
+          {!simple && <HeaderButton simple={simple} label="Settings" icon={Settings} onPress={warmSettings} onClick={() => setSettingsOpen(true)} />}
           <HeaderButton
             simple={simple}
             label={simple ? "Menu" : "Me"}
@@ -951,12 +1041,24 @@ function HomeInner() {
     // Once signed in, fetch the ministry screen's code in the background so
     // the first ministry you open starts instantly. (A static file from the
     // CDN, cached by the phone -- not a server function.)
-    if (next) setTimeout(() => loadGroupShell().catch(() => {}), 1500);
+    if (next && !screensPreloaded) {
+      screensPreloaded = true;
+      setTimeout(() => preloadScreens(next.user.is_church_admin || next.user.has_admin_role), 1200);
+    }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Tell the welcome screen what's happening: lift it once there's something
+  // to show (Home, or the sign-in screen); say so if the server can't be
+  // reached. A brand-new account heading to /setup keeps it up until that
+  // page loads, instead of flashing a blank screen.
+  useEffect(() => {
+    if (me === undefined) setBoot({ failed: loadFailed, retry: () => load() });
+    else if (me === null || me.user.username) setBoot({ visible: false, failed: false });
+  }, [me, loadFailed, load]);
 
   // First load failed (bad Wi-Fi, server hiccup): keep trying quietly instead of
   // sitting blank. Gentle backoff: 3s, 6s, 12s ... capped at 20s.
@@ -993,7 +1095,9 @@ function HomeInner() {
     setMe(null);
   };
 
-  if (me === undefined) return <WelcomeScreen failed={loadFailed} onRetry={() => load()} />;
+  // Still starting up: the welcome screen (BootSplash, above everything) is
+  // showing; nothing to draw underneath yet.
+  if (me === undefined) return null;
   if (me === null) return <SignInScreen authError={searchParams.get("authError")} />;
   if (!me.user.username) return null; // redirecting to /setup
 
@@ -1023,8 +1127,11 @@ function HomeInner() {
 
 export default function Home() {
   return (
-    <Suspense fallback={<WelcomeScreen />}>
-      <HomeInner />
-    </Suspense>
+    <>
+      <BootSplash />
+      <Suspense fallback={null}>
+        <HomeInner />
+      </Suspense>
+    </>
   );
 }

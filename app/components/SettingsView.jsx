@@ -8,6 +8,8 @@ import FeedbackModal from "./FeedbackModal";
 import packageJson from "../../package.json";
 import Modal from "./Modal";
 import { requestJson } from "@/lib/request";
+import { useResource } from "@/lib/useResource";
+import { SETTINGS_PREFS } from "@/lib/screenData";
 import { useAction } from "./useAction";
 import { useToast } from "./ToastProvider";
 import { usePinPrompt } from "./PinPrompt";
@@ -44,18 +46,16 @@ export default function SettingsView({ onClose, onOpenAttribution, onOpenPatchNo
   const [miniPlayer, setMiniPlayerState] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
-  const [prefs, setPrefs] = useState(null); // null = loading
-  const [prefsFailed, setPrefsFailed] = useState(false);
+  // Notification topics come through the shared screen cache: opening
+  // Settings again shows them at once instead of re-downloading each time.
+  const {
+    data: prefs,
+    error: prefsError,
+    refresh: loadPrefs,
+    setData: setPrefs,
+  } = useResource(SETTINGS_PREFS.key, SETTINGS_PREFS.fetcher, { staleMs: SETTINGS_PREFS.staleMs });
+  const prefsFailed = Boolean(prefsError);
   const [adminBusy, setAdminBusy] = useState(false);
-
-  const loadPrefs = useCallback(async () => {
-    setPrefsFailed(false);
-    try {
-      setPrefs(await requestJson("/api/notifications/preferences"));
-    } catch {
-      setPrefsFailed(true);
-    }
-  }, []);
 
   useEffect(() => {
     setTheme(getStoredPreference());
@@ -63,8 +63,7 @@ export default function SettingsView({ onClose, onOpenAttribution, onOpenPatchNo
     setDesktopLayoutState(getDesktopMode());
     setMiniPlayerState(getMiniPlayerEnabled());
     isSubscribedToPush().then(setPushSubscribed);
-    loadPrefs();
-  }, [loadPrefs]);
+  }, []);
 
   const chooseTheme = (id) => {
     setTheme(id);
@@ -271,7 +270,8 @@ export default function SettingsView({ onClose, onOpenAttribution, onOpenPatchNo
           ? "Topics are paused because push notifications are off on this device. Turn them on above to choose what you're notified about."
           : "Choose what you're notified about:"}
       </p>
-      {prefs === null && !prefsFailed && <p className="text-xs text-inkfaint mb-3">Loading your topics…</p>}
+      {/* No "Loading…" line: the topics simply appear (usually before you've
+          scrolled to them), and on later opens they're already here. */}
       {prefsFailed && (
         <p className="text-sm text-red-600 dark:text-red-400 mb-3" role="alert">
           Couldn't load your notification topics.{" "}

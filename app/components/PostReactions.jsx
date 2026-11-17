@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { requestJson } from "@/lib/request";
+import { loadReactions, reactionsKey } from "@/lib/reactionsBatch";
+import { peek, mutateResource } from "@/lib/resourceCache";
 import { useToast } from "./ToastProvider";
 import ReactorsModal from "./ReactorsModal";
 
@@ -12,24 +14,34 @@ import ReactorsModal from "./ReactorsModal";
 const ALLOWED_EMOJI = ["👍", "❤️", "🙏", "😂", "😢"];
 
 export default function PostReactions({ postType, postId, children }) {
-  const [reactions, setReactions] = useState(null);
+  const [reactions, setReactions] = useState(() => peek(reactionsKey(postType, postId))?.data ?? null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [whoOpen, setWhoOpen] = useState(false);
   const busyRef = useRef(false);
   const toast = useToast();
 
-  const load = useCallback(async () => {
-    try {
-      const data = await requestJson(`/api/posts/${postType}/${postId}/reactions`);
-      setReactions(data.reactions);
-    } catch {
-      // Reactions are decoration; a failed load just shows none.
-    }
+  // Opening a list: every post's reactions come in ONE batched request (and
+  // from the cache when you come back) -- see lib/reactionsBatch.js.
+  useEffect(() => {
+    let alive = true;
+    loadReactions(postType, postId)
+      .then((list) => alive && setReactions(list))
+      .catch(() => {}); // Reactions are decoration; a failed load just shows none.
+    return () => {
+      alive = false;
+    };
   }, [postType, postId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // After your own tap: re-read just this post, and keep the cache in step.
+  const load = useCallback(async () => {
+    try {
+      const data = await requestJson(`/api/posts/${postType}/${postId}/reactions`, { cache: "no-store" });
+      setReactions(data.reactions);
+      mutateResource(reactionsKey(postType, postId), () => data.reactions);
+    } catch {
+      // Keeps what's showing.
+    }
+  }, [postType, postId]);
 
   const toggle = async (emoji) => {
     // Ignore a second tap while one is in flight -- two toggles in a row

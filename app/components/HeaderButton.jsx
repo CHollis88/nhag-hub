@@ -7,12 +7,16 @@
 //
 //   <HeaderButton simple={simple} label="Alerts" ariaLabel="Notifications" icon={Bell} onClick={...}
 //                 badge={<span .../>} />
-export default function HeaderButton({ simple, label, ariaLabel, title, icon: Icon, onClick, badge, iconSize = 22 }) {
+// `onPress` (optional) runs the moment a finger/mouse goes down -- used to
+// start loading what the button opens a split second before the tap
+// completes, so the screen opens already filled in.
+export default function HeaderButton({ simple, label, ariaLabel, title, icon: Icon, onClick, onPress, badge, iconSize = 22 }) {
   if (simple) {
     return (
       <button
         type="button"
         onClick={onClick}
+        onPointerDown={onPress}
         aria-label={ariaLabel || label}
         title={title || label}
         className="relative flex flex-col items-center justify-center gap-0.5 min-w-[52px] min-h-[44px] px-1 text-white"
@@ -29,6 +33,7 @@ export default function HeaderButton({ simple, label, ariaLabel, title, icon: Ic
     <button
       type="button"
       onClick={onClick}
+        onPointerDown={onPress}
       aria-label={ariaLabel || label}
       title={title || label}
       className="relative text-white/90 p-1"
