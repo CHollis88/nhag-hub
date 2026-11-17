@@ -12,7 +12,13 @@ const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
 // to show, etc.) only — every mutating route re-checks authority itself and
 // never trusts anything the client infers from this response.
 export async function GET(req) {
-  const user = await getCurrentUser(req);
+  let user;
+  try {
+    user = await getCurrentUser(req);
+  } catch (err) {
+    // Couldn't check the session (database hiccup). NOT the same as signed out.
+    return NextResponse.json({ error: "Couldn't load your account. Retrying…", retry: true }, { status: 503 });
+  }
   if (!user) {
     return NextResponse.json({ user: null }, { status: 200 });
   }

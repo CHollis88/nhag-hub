@@ -2,7 +2,7 @@
 // Handles: push notifications, notification click routing, and a light
 // offline cache for the app shell so it still opens with no connection.
 
-const CACHE_NAME = "nhag-hub-v4";
+const CACHE_NAME = "nhag-hub-v5";
 const APP_SHELL = ["/", "/manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
@@ -35,7 +35,8 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   if (request.url.includes("/api/")) {
-    event.respondWith(fetch(request).catch(() => caches.match(request)));
+    // Straight to the network. (The old fallback looked in a cache that never
+    // held API data, so it only ever returned "nothing".)
     return;
   }
 
@@ -46,14 +47,30 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Only real page loads (and the shell files) are worth keeping for offline,
+  // and only when the server actually answered OK. Caching error pages, a
+  // Wi-Fi login/filter page, or Next's internal data requests could replay a
+  // broken page later.
+  const cacheable = request.mode === "navigate" || APP_SHELL.some((p) => request.url.endsWith(p));
   event.respondWith(
     fetch(request)
       .then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        if (cacheable && response.ok && response.type === "basic") {
+          // Store pages by path only: "/?group=3&tab=news" and "/" are the same
+          // app shell, and keeping one copy stops the cache growing forever.
+          const url = new URL(request.url);
+          const key = request.mode === "navigate" ? url.origin + url.pathname : request;
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(key, clone));
+        }
         return response;
       })
-      .catch(() => caches.match(request))
+      .catch(() =>
+        caches
+          .match(request, { ignoreSearch: request.mode === "navigate" })
+          .then((hit) => hit || (request.mode === "navigate" ? caches.match("/") : null))
+          .then((hit) => hit || Response.error())
+      )
   );
 });
 

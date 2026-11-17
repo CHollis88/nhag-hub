@@ -148,7 +148,8 @@ function UpcomingEventsPreview({ me, onSeeAll }) {
         .slice(0, 1);
 
       setEvents(combined);
-    });
+    })
+      .catch(() => {}); // bad connection or non-JSON reply: just show nothing for this card
   }, [me]);
 
   if (events === null || events.length === 0) return null;
@@ -192,7 +193,8 @@ function AnnouncementsPreview({ onSeeAll }) {
   useEffect(() => {
     fetch("/api/global/news")
       .then((r) => r.json())
-      .then((data) => setNews((data.news || []).slice(0, 1)));
+      .then((data) => setNews((data.news || []).slice(0, 1)))
+      .catch(() => {});
   }, []);
 
   if (news === null || news.length === 0) return null;
@@ -232,9 +234,13 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
     // time the refresh button remounts it -- a refresh has to be a real
     // network hit, not risk being served from a 30s browser cache of a
     // slightly-earlier response.
-    const res = await fetch("/api/groups", { cache: "no-store" });
-    const data = await res.json();
-    if (res.ok) setGroups(data.groups);
+    try {
+      const res = await fetch("/api/groups", { cache: "no-store" });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.groups)) setGroups(data.groups);
+    } catch {
+      // Bad connection or a non-JSON reply: keep what's on screen.
+    }
   }, []);
 
   useEffect(() => {

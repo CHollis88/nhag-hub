@@ -243,6 +243,14 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     const onControllerChange = () => {
       if (reloaded) return;
       reloaded = true;
+      // Loop guard: never auto-reload more than once a minute, whatever the
+      // service worker does. A device that kept reloading made the app flash
+      // and become unusable.
+      try {
+        const last = Number(sessionStorage.getItem("nhag_sw_reload_at") || 0);
+        if (Date.now() - last < 60000) return;
+        sessionStorage.setItem("nhag_sw_reload_at", String(Date.now()));
+      } catch {}
       window.location.reload();
     };
     navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
@@ -813,6 +821,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
 function HomeInner() {
   const searchParams = useSearchParams();
   const [me, setMe] = useState(undefined); // undefined = loading, null = signed out
+  const [loadFailed, setLoadFailed] = useState(false); // couldn't reach the server for /api/me
   const toast = useToast();
   const lastPrivileges = useRef(null);
   const lastGroupIds = useRef(new Set());
@@ -822,8 +831,28 @@ function HomeInner() {
     // load path (also reused by the refresh button via refreshMe), and
     // a refresh must always hit the network for real, never be silently
     // served from the browser's cache of a previous /api/me response.
-    const res = await fetch("/api/me", { cache: "no-store" });
-    const data = await res.json();
+    // ONLY a clean answer of "no user" means signed out. A timeout, a network
+    // problem, a Wi-Fi filter/login page, or a server error is "couldn't
+    // check" -- the app keeps whatever it has and tries again, instead of
+    // flashing to the sign-in screen or sitting blank.
+    let data = null;
+    let ok = false;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    try {
+      const res = await fetch("/api/me", { cache: "no-store", signal: controller.signal });
+      try { data = await res.json(); } catch { data = null; }
+      ok = res.ok && data !== null && typeof data === "object" && "user" in data;
+    } catch {
+      ok = false;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!ok) {
+      setLoadFailed(true);
+      return;
+    }
+    setLoadFailed(false);
     const next = data.user ? data : null;
 
     // v71 #42: tell the request cache WHO is signed in before anything on screen
@@ -851,6 +880,16 @@ function HomeInner() {
     load();
   }, [load]);
 
+  // First load failed (bad Wi-Fi, server hiccup): keep trying quietly instead of
+  // sitting blank. Gentle backoff: 3s, 6s, 12s ... capped at 20s.
+  const retryCount = useRef(0);
+  useEffect(() => {
+    if (me !== undefined || !loadFailed) { retryCount.current = 0; return undefined; }
+    const wait = Math.min(3000 * 2 ** retryCount.current, 20000);
+    const t = setTimeout(() => { retryCount.current += 1; load(); }, wait);
+    return () => clearTimeout(t);
+  }, [me, loadFailed, load]);
+
   useEffect(() => {
     if (me && !me.user.username && typeof window !== "undefined") {
       try { sessionStorage.setItem("nhag_setup_debug", JSON.stringify({ at: new Date().toISOString(), page: location.href, me })); } catch {}
@@ -876,7 +915,25 @@ function HomeInner() {
     setMe(null);
   };
 
-  if (me === undefined) return null; // brief load
+  if (me === undefined) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-navydeep">
+        <div className="text-center text-white/80 max-w-xs">
+          {loadFailed ? (
+            <>
+              <p className="font-serif text-lg mb-1">Having trouble connecting</p>
+              <p className="text-sm mb-4 opacity-80">
+                Trying again… If you're on Wi-Fi (especially a public one), try switching to cellular.
+              </p>
+              <button onClick={() => load()} className="sp-btn-secondary text-sm">Try now</button>
+            </>
+          ) : (
+            <p className="text-sm opacity-80">Loading…</p>
+          )}
+        </div>
+      </div>
+    );
+  }
   if (me === null) return <SignInScreen authError={searchParams.get("authError")} />;
   if (!me.user.username) return null; // redirecting to /setup
 
