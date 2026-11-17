@@ -31,7 +31,9 @@ import { hasNewContent, markSeen } from "@/lib/lastSeen";
 import { requestJson } from "@/lib/request";
 import { useToast } from "./ToastProvider";
 import EmptyState from "./EmptyState";
-import { invalidate } from "@/lib/resourceCache";
+import { invalidate, peek } from "@/lib/resourceCache";
+import MinistryIntro from "./MinistryIntro";
+import { prefetchGroup } from "@/lib/groupBundle";
 import { setWhere } from "@/lib/nowWhere";
 
 // Tabs that append after the shared News/Events/Prayer/Roster set.
@@ -105,6 +107,17 @@ export default function GroupShell({
   const [refreshNonce, setRefreshNonce] = useState(0);
   const effectiveRole = group.isAdmin ? "admin" : myRole;
   const canManage = effectiveRole === "leader" || effectiveRole === "admin";
+  // Opening the ministry loads all its main tabs in one request, so moving
+  // between them is instant. Runs once, as the ministry opens (BEFORE its
+  // first tab asks for its own data, so that tab waits for this one request
+  // instead of sending a second). Anything still fresh isn't asked for again.
+  const [openingLoad] = useState(() => prefetchGroup(group.id, features));
+  // The ministry's icon for the opening transition, from the ministry list
+  // Home already has (no extra request). No icon set = its first letter.
+  const [introLook] = useState(() => {
+    const listed = (peek("home:groups")?.data || []).find((g) => g.id === group.id);
+    return { imageUrl: listed?.image_url || null };
+  });
   // Hides the bottom tab bar while an on-screen keyboard is open (see
   // the hook for why) -- most noticeable in Messages/Chat, where a
   // compose bar sits right above where the nav normally is, but this
@@ -283,7 +296,8 @@ export default function GroupShell({
   };
 
   return (
-    <div className="flex flex-col bg-paper overflow-hidden" style={{ height: viewportHeight }}>
+    <div className="nhag-ministry-enter flex flex-col bg-paper overflow-hidden" style={{ height: viewportHeight }}>
+      <MinistryIntro name={displayName} imageUrl={introLook.imageUrl} ready={openingLoad} />
       <header
         className="sticky top-0 z-30 flex justify-between items-center px-4 py-3 bg-[#132560] text-white"
         style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
@@ -313,6 +327,11 @@ export default function GroupShell({
               // depends on.
               // Also mark the shared screen cache stale, or the remounted tab
               // would just show its cached copy for up to 2 more minutes.
+              // This ministry's tabs are re-fetched together in ONE request
+              // first, so the tab you're on (and every other tab here) gets
+              // fresh data; the invalidate below then joins that request
+              // instead of sending its own.
+              prefetchGroup(group.id, features, { force: true });
               invalidate(() => true);
               setRefreshNonce((n) => n + 1);
               loadLatestContentRef.current?.();

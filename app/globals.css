@@ -344,3 +344,43 @@ select.sp-input {
   .nhag-welcome-emblem { animation: none; }
   .nhag-welcome-bar::after { animation: none; left: 30%; }
 }
+
+/* Opening a ministry when it loads quickly: a short, light slide-in. */
+.nhag-ministry-enter {
+  animation: nhag-ministry-enter 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+@keyframes nhag-ministry-enter {
+  from { opacity: 0.4; transform: translateX(14px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nhag-ministry-enter { animation: none; }
+}
+
+/* Opening a ministry when it's SLOW: church navy (shares .nhag-welcome's background), the
+   ministry's icon in a white tile with a red church-color ring, its name, a
+   loading bar; then it lifts away to reveal the ministry. */
+.nhag-ministry-intro {
+  /* Solid from the first frame (no fade-in), so the ministry never shows
+     through half-loaded; only the card pops in. */
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.nhag-ministry-intro.is-out {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none;
+}
+.nhag-ministry-intro-icon {
+  box-shadow: 0 0 0 3px #C41E28, 0 0 0 7px rgba(255, 255, 255, 0.9), 0 14px 40px rgba(0, 0, 0, 0.45), 0 0 40px rgba(120, 170, 255, 0.35);
+}
+.nhag-ministry-intro-card {
+  animation: nhag-intro-pop 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+@keyframes nhag-intro-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.86); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nhag-ministry-intro-card { animation: none; }
+  .nhag-ministry-intro.is-out { transform: none; }
+}

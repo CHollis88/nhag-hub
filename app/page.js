@@ -27,7 +27,21 @@ const EventsTab = dynamic(() => import("./components/EventsTab"), { loading: () 
 const BibleTab = dynamic(() => import("./components/BibleTab"), { loading: () => <TabSkeleton /> });
 const SermonsTab = dynamic(() => import("./components/SermonsTab"), { loading: () => <TabSkeleton /> });
 const CalendarTab = dynamic(() => import("./components/CalendarTab"), { loading: () => <TabSkeleton /> });
-const GroupShell = dynamic(() => import("./components/GroupShell"), { loading: () => <TabSkeleton /> });
+// While the ministry screen's code is still downloading, show the same navy
+// cover the opening transition uses, so tapping a ministry is seamless.
+// Once the code has been fetched (it is, quietly, right after sign-in), the
+// screen is rendered directly instead of through the lazy loader -- the lazy
+// path always shows its placeholder for ~0.3s first, even when the code is
+// already here, which made opening a ministry feel sluggish.
+let LoadedGroupShell = null;
+const loadGroupShell = () =>
+  import("./components/GroupShell").then((m) => {
+    LoadedGroupShell = m.default;
+    return m;
+  });
+const LazyGroupShell = dynamic(loadGroupShell, {
+  loading: () => <div className="nhag-welcome fixed inset-0 z-[70]" aria-hidden="true" />,
+});
 const SettingsView = dynamic(() => import("./components/SettingsView"));
 const HelpView = dynamic(() => import("./components/HelpView"));
 const PatchNotesView = dynamic(() => import("./components/PatchNotesView"));
@@ -50,6 +64,11 @@ import { useToast } from "./components/ToastProvider";
 // fallback below), so there's never a blank screen at launch, and it stays up
 // while the app checks who you are and loads Home -- so Home appears complete
 // instead of popping in piece by piece.
+function GroupShellScreen(props) {
+  const Shell = LoadedGroupShell || LazyGroupShell;
+  return <Shell {...props} />;
+}
+
 function WelcomeScreen({ failed = false, onRetry }) {
   return (
     <div className="nhag-welcome min-h-screen flex flex-col items-center justify-center p-6 text-center">
@@ -592,7 +611,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
 
   if (activeGroup) {
     return (
-      <GroupShell
+      <GroupShellScreen
         group={{ ...activeGroup, isAdmin: me.user.is_church_admin }}
         hasAdminRole={me.user.has_admin_role}
         adminMode={me.user.admin_mode}
@@ -929,6 +948,10 @@ function HomeInner() {
     }
     bootedRef.current = true;
     setMe(next);
+    // Once signed in, fetch the ministry screen's code in the background so
+    // the first ministry you open starts instantly. (A static file from the
+    // CDN, cached by the phone -- not a server function.)
+    if (next) setTimeout(() => loadGroupShell().catch(() => {}), 1500);
   }, []);
 
   useEffect(() => {
