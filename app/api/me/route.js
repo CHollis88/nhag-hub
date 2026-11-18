@@ -96,7 +96,8 @@ export async function GET(req) {
         // v72 onboarding: when the account was made (the setup walkthrough
         // is for new accounts) and which setup items they've turned down.
         created_at: extra.created_at || null,
-        onboarding: extra.onboarding || {},
+        // null = migration_041 not run yet (the phone keeps its own copy then).
+        onboarding: extra.onboarding === undefined ? null : extra.onboarding || {},
       },
       memberships: visibleMemberships.map((m) => ({
         group_id: m.group_id,
