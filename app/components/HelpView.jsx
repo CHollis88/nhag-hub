@@ -245,7 +245,7 @@ const CATEGORIES = [
       },
       {
         q: "What's the \"Finish setting up\" list on Home?",
-        a: "A short checklist of things that make the app work best for you: a profile photo, putting the app on your home screen, notifications, joining a ministry, and picking your Bible. Each button takes you straight to the spot, and items check themselves off when you've done them. Don't want one, like a photo? Tap its X and it's gone for good (on every device you use). When everything's done or dismissed, the list disappears.",
+        a: "A short checklist of things that make the app work best for you: a profile photo, putting the app on your home screen, notifications, joining a ministry, and picking your Bible. Each button takes you straight to the spot, and items check themselves off when you've done them. Don't want one, like a photo? Tap its X and it's gone for good (on every device you use). When everything's done or dismissed, the list disappears. Your Bible translation also follows your account, so it's the same on every device. To see the \"What's new\" tour again, open What's New and tap \"Take the tour of what's new\".",
       },
     ],
   },

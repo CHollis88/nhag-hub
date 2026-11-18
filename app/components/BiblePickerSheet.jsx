@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { TRANSLATIONS, DEFAULT_TRANSLATION } from "@/lib/bibleTranslations";
-import { markItemDone } from "@/lib/onboarding";
+import { saveTranslation } from "@/lib/onboarding";
 import { markFeatureSeen } from "@/lib/newFeatures";
 import NewPill from "./NewPill";
 
@@ -21,13 +21,8 @@ export function BibleChoices({ onPicked }) {
     }
   });
   const pick = (id) => {
-    try {
-      localStorage.setItem(PREF_KEY, id);
-    } catch {
-      // ignore
-    }
+    saveTranslation(id); // this device + the account
     setCurrent(id);
-    markItemDone("bible");
     if (id === "nkjv" || id === "amp") markFeatureSeen("translations");
     onPicked?.(id);
   };

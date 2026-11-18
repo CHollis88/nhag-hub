@@ -42,7 +42,7 @@ import { ReaderSkeleton, PopupSkeleton } from "./Skeleton";
 import { reportFums } from "@/lib/fums";
 import NewPill from "./NewPill";
 import { markFeatureSeen } from "@/lib/newFeatures";
-import { noteBiblePicked } from "@/lib/onboarding";
+import { saveTranslation } from "@/lib/onboarding";
 
 const FONT_OPTIONS = [
   { id: "sans", label: "Sans-serif", className: "font-bible-sans" },
@@ -1421,7 +1421,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     setPref("sp_bible_translation", id);
     setTranslationPickerOpen(false);
     if (id === "nkjv" || id === "amp") markFeatureSeen("translations");
-    noteBiblePicked(); // ticks "Pick your Bible" on the Home checklist
+    saveTranslation(id); // saved to the account (follows you to every device)
   };
 
   const chooseCommentarySource = (source) => {

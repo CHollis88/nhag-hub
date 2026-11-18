@@ -30,9 +30,15 @@ function Entry({ entry, defaultOpen }) {
   );
 }
 
-export default function PatchNotesView({ onClose }) {
+export default function PatchNotesView({ onClose, onTakeTour }) {
   return (
     <Modal title="What's New" onClose={onClose} z={60} maxHeight="85vh">
+      {/* v72: rerun the "What's new" tour any time (it shows once per device). */}
+      {onTakeTour && (
+        <button type="button" onClick={onTakeTour} className="w-full mb-4 bg-accent text-white rounded-xl py-3 text-sm font-semibold">
+          Take the tour of what&apos;s new
+        </button>
+      )}
       {PATCH_NOTES.map((entry, i) => (
         <Entry key={entry.date} entry={entry} defaultOpen={i === 0} />
       ))}

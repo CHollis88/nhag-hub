@@ -24,7 +24,7 @@ import DesktopInstallTip from "./components/DesktopInstallTip";
 import SetupWalkthrough from "./components/SetupWalkthrough";
 import WhatsNewTour from "./components/WhatsNewTour";
 import BiblePickerSheet from "./components/BiblePickerSheet";
-import { shouldShowWalkthrough, shouldShowTour } from "@/lib/onboarding";
+import { shouldShowWalkthrough, shouldShowTour, syncTranslationFromAccount } from "@/lib/onboarding";
 import { subscribeToPush } from "@/lib/pushClient";
 import { shouldAutoShowInstallGuide, detectDevice, isStandalone } from "@/lib/installDetect";
 
@@ -359,6 +359,10 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     else if (shouldShowTour(me)) setIntro("tour");
   }, [installOpen, me]);
   const [biblePickerOpen, setBiblePickerOpen] = useState(false);
+  // v72: the Bible translation follows the account to every device.
+  useEffect(() => {
+    syncTranslationFromAccount(me);
+  }, [me]);
   // The tour's "Try it now" pauses it on that card; it comes back once the
   // screen it opened (Church Prayer, Edit Profile, the Bible picker) closes.
   const [tourPausedAt, setTourPausedAt] = useState(null);
@@ -1050,7 +1054,16 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
           hasNewPatchNotes={hasNewContent("whats-new", PATCH_NOTES[0]?.date)}
         />
       )}
-      {patchNotesOpen && <PatchNotesView onClose={() => setPatchNotesOpen(false)} />}
+      {patchNotesOpen && (
+        <PatchNotesView
+          onClose={() => setPatchNotesOpen(false)}
+          onTakeTour={() => {
+            setPatchNotesOpen(false);
+            setTourPausedAt(null);
+            setIntro("tour");
+          }}
+        />
+      )}
       {intro === "walkthrough" && (
         <SetupWalkthrough me={me} refreshMe={refreshMe} onClose={() => setIntro(null)} onOpenInstall={() => setInstallOpen(true)} />
       )}

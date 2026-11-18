@@ -67,7 +67,12 @@ export async function GET(req) {
   // Photo (v71.29), account age and onboarding choices (v72) in ONE small
   // lookup. Columns added by migrations 040/041 -- tolerated if missing.
   let extra = {};
-  for (const cols of ["avatar_url, created_at, onboarding", "avatar_url, created_at", "created_at"]) {
+  for (const cols of [
+    "avatar_url, created_at, onboarding, preferred_translation",
+    "avatar_url, created_at, onboarding",
+    "avatar_url, created_at",
+    "created_at",
+  ]) {
     const { data, error } = await supabase.from("users").select(cols).eq("id", user.id).maybeSingle();
     if (!error) {
       extra = data || {};
@@ -98,6 +103,8 @@ export async function GET(req) {
         created_at: extra.created_at || null,
         // null = migration_041 not run yet (the phone keeps its own copy then).
         onboarding: extra.onboarding === undefined ? null : extra.onboarding || {},
+        // v72: the account's Bible translation (follows them to every device).
+        preferred_translation: extra.preferred_translation || null,
       },
       memberships: visibleMemberships.map((m) => ({
         group_id: m.group_id,
