@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BookOpen, ChevronRight, Clock, Heart, PlayCircle, Share2, Sparkles } from "lucide-react";
+import { BookOpen, ChevronRight, Clock, Heart, Share2, Sparkles } from "lucide-react";
 import { useResource } from "@/lib/useResource";
 import { STALE } from "@/lib/resourceCache";
 import { requestJson } from "@/lib/request";
@@ -10,6 +10,7 @@ import { todayLocal } from "@/lib/localDate";
 import { shareText } from "@/lib/share";
 import { hasNewContent } from "@/lib/lastSeen";
 import { useToast } from "./ToastProvider";
+import { formatTime12h } from "@/lib/formatTime";
 
 // Home's extra cards (v71.29). The Church prayer and This Sunday cards read
 // the events request Home already makes (/api/events/mine?include=news,home),
@@ -50,18 +51,20 @@ export function VerseOfDayCard({ onOpenPassage }) {
     if (result === "copied") toast.success("Verse copied");
   };
 
+  // Compact (v71.29): the label sits inside the card and long verses stop at
+  // three lines -- the whole verse is one tap away in the reader.
   return (
-    <div className="mb-6">
-      <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">Verse of the day</p>
-      <div className="sp-card relative overflow-hidden">
+    <div className="mb-4">
+      <div className="sp-card relative overflow-hidden py-3">
         <button
           type="button"
           onClick={() => onOpenPassage?.(verse.book, verse.chapter)}
-          className="w-full text-left"
+          className="w-full text-left pr-8"
           aria-label={`Verse of the day, ${verse.reference}. Tap to read the chapter.`}
         >
-          <p className="font-serif text-[1.0625rem] leading-relaxed text-ink">“{verse.text}”</p>
-          <p className="text-xs font-semibold text-accent mt-2 flex items-center gap-1">
+          <p className="text-[0.6875rem] uppercase tracking-wide text-inkfaint mb-1">Verse of the day</p>
+          <p className="font-serif text-[0.9375rem] leading-snug text-ink line-clamp-3">“{verse.text}”</p>
+          <p className="text-xs font-semibold text-accent mt-1.5 flex items-center gap-1">
             <BookOpen size={12} aria-hidden="true" />
             {verse.reference} · {verse.translation.toUpperCase()}
           </p>
@@ -69,7 +72,7 @@ export function VerseOfDayCard({ onOpenPassage }) {
         <button
           type="button"
           onClick={share}
-          className="absolute bottom-2.5 right-2.5 p-2 text-inkfaint"
+          className="absolute top-1.5 right-1.5 p-2 text-inkfaint"
           aria-label="Share this verse"
           title="Share"
         >
@@ -81,43 +84,44 @@ export function VerseOfDayCard({ onOpenPassage }) {
 }
 
 // ---------------------------------------------------------------------------
-// This Sunday: the service times an admin types in the Admin Toolbox, and the
-// latest sermon. Hidden when neither exists.
-export function ThisSundayCard({ onOpenSermons }) {
+// This Sunday + your next event, side by side in one compact card (v71.29).
+// Either half takes the full width when the other has nothing to show.
+export function ThisSundayCard({ nextEvent = null, onOpenEvents }) {
   const extras = useHomeExtras();
   const times = (extras?.service_times || "").trim();
-  const sermon = extras?.latest_sermon || null;
-  if (!times && !sermon) return null;
+  if (!times && !nextEvent) return null;
 
   return (
-    <div className="mb-6">
-      <p className="text-xs uppercase tracking-wide text-inkfaint mb-2">This Sunday</p>
-      <div className="sp-card p-0 overflow-hidden divide-y divide-linesoft">
+    <div className="mb-4">
+      <div className="sp-card p-0 overflow-hidden flex divide-x divide-linesoft">
         {times && (
-          <div className="flex items-start gap-3 px-3 py-3">
-            <Clock size={18} className="text-accent flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <p className="text-sm text-ink whitespace-pre-line leading-relaxed">{times}</p>
+          <div className={`px-3 py-2.5 min-w-0 ${nextEvent ? "w-[57%] flex-shrink-0" : "flex-1"}`}>
+            <p className="text-[0.6875rem] uppercase tracking-wide text-inkfaint mb-0.5 flex items-center gap-1">
+              <Clock size={11} className="text-accent flex-shrink-0" aria-hidden="true" /> This Sunday
+            </p>
+            <p className="text-[0.8125rem] text-ink whitespace-pre-line leading-snug">{times}</p>
           </div>
         )}
-        {sermon && (
-          <button type="button" onClick={onOpenSermons} className="w-full text-left flex items-center gap-3 px-3 py-3">
-            <PlayCircle size={18} className="text-accent flex-shrink-0" aria-hidden="true" />
+        {nextEvent && (
+          <button
+            type="button"
+            onClick={onOpenEvents}
+            className="text-left px-3 py-2.5 min-w-0 flex items-start gap-1 flex-1"
+            aria-label={`Your next event: ${nextEvent.title}. Open the calendar.`}
+          >
             <span className="flex-1 min-w-0">
-              <span className="block text-[0.6875rem] uppercase tracking-wide text-inkfaint">Latest message</span>
-              <span className="block text-sm font-medium text-ink truncate">{sermon.title}</span>
-              {(sermon.speaker || sermon.sermon_date) && (
-                <span className="block text-xs text-inksoft truncate">
-                  {[
-                    sermon.speaker,
-                    sermon.sermon_date &&
-                      new Date(sermon.sermon_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </span>
-              )}
+              <span className="text-[0.6875rem] uppercase tracking-wide text-inkfaint mb-0.5 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: nextEvent.color }} aria-hidden="true" />
+                <span className="truncate">Next event</span>
+              </span>
+              <span className="block text-[0.8125rem] font-medium text-ink leading-snug line-clamp-2">{nextEvent.title}</span>
+              <span className="block text-xs text-inksoft truncate">
+                {new Date(nextEvent.event_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                {nextEvent.event_time && ` · ${formatTime12h(nextEvent.event_time)}`}
+              </span>
+              <span className="block text-[0.625rem] text-inkfaint truncate">{nextEvent.sourceName}</span>
             </span>
-            <ChevronRight size={16} className="text-inkfaint flex-shrink-0" aria-hidden="true" />
+            <ChevronRight size={14} className="text-inkfaint flex-shrink-0 mt-4" aria-hidden="true" />
           </button>
         )}
       </div>

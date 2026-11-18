@@ -117,7 +117,9 @@ function BrowseMinistryRow({ group, leaders, isPending, onRequestJoin, onPreview
   );
 }
 
-function UpcomingEventsPreview({ me, onSeeAll }) {
+// Your next event (church-wide or from a ministry you're in). Shown beside
+// the service times in the This Sunday card (v71.29) to save room on Home.
+function useNextEvent(me) {
   // Through the shared screen cache: coming back to Home shows this at once
   // and only asks the server again once it's a couple of minutes old.
   const { data: mine } = useResource(HOME_EVENTS.key, HOME_EVENTS.fetcher, { staleMs: HOME_EVENTS.staleMs });
@@ -147,39 +149,7 @@ function UpcomingEventsPreview({ me, onSeeAll }) {
       .slice(0, 1);
   }, [mine, me]);
 
-  if (events === null || events.length === 0) return null;
-
-  return (
-    <div className="mb-6">
-      <div className="flex justify-between items-center mb-2">
-        <p className="text-xs uppercase tracking-wide text-inkfaint">Your Next Event</p>
-        <button onClick={onSeeAll} className="text-xs text-accent underline py-2 -my-2 px-2 -mx-2">See all</button>
-      </div>
-      <div className="space-y-2">
-        {events.map((ev) => (
-          <button
-            type="button"
-            onClick={onSeeAll}
-            key={`${ev.sourceName}-${ev.id}`}
-            className="w-full text-left flex items-center gap-3 bg-card border border-line rounded-lg pl-0 pr-3 py-2.5 overflow-hidden"
-          >
-            <span className="w-1.5 self-stretch flex-shrink-0" style={{ background: ev.color }} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-medium text-ink text-sm truncate">{ev.title}</p>
-                <span className="text-[0.625rem] text-inkfaint flex-shrink-0">{ev.sourceName}</span>
-              </div>
-              <p className="text-xs text-inkfaint">
-                {new Date(ev.event_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                {ev.event_time && ` · ${formatTime12h(ev.event_time)}`}
-              </p>
-            </div>
-            <ChevronRight size={16} className="text-inkfaint flex-shrink-0" aria-hidden="true" />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+  return events && events.length ? events[0] : null;
 }
 
 function AnnouncementsPreview({ onSeeAll }) {
@@ -345,9 +315,13 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
     .map((m) => m.group?.name)
     .filter(Boolean);
 
+  const nextEvent = useNextEvent(me);
+
   return (
     <div className="px-5 pt-4 pb-6">
-      <h2 className="font-serif text-2xl text-ink mb-4">Home</h2>
+      {/* No page title: the highlighted Home button already says where you are,
+          and the room lets your ministries show without scrolling. */}
+      <h2 className="sr-only">Home</h2>
 
       {/* Not in any ministry yet: the ministries come first, to ask to join. */}
       {groupsData && myGroupIds.size === 0 && (
@@ -357,8 +331,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
       <HomeGetStartedCard onGoToTab={onGoToTab} onOpenSettings={onOpenSettings} />
 
       <VerseOfDayCard onOpenPassage={onOpenPassage} />
-      <ThisSundayCard onOpenSermons={() => onGoToTab("sermons")} />
-      <UpcomingEventsPreview me={me} onSeeAll={() => onGoToTab("calendar")} />
+      <ThisSundayCard nextEvent={nextEvent} onOpenEvents={() => onGoToTab("calendar")} />
       <AnnouncementsPreview onSeeAll={() => onGoToTab("news")} />
       <MinistryAnnouncements me={me} groups={groupsData} onOpenGroup={onOpenGroup} />
       <ChurchPrayerCard onOpen={onOpenChurchPrayer} />

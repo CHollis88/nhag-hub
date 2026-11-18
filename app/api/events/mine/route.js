@@ -27,8 +27,8 @@ import { getAppSettings } from "@/lib/appSettings";
 const RECENT_NEWS_LIMIT = 6;
 //
 // ?include=...,home also returns what Home's cards need -- the Church prayer
-// card (`church_prayer`), the This Sunday card (`service_times`,
-// `latest_sermon`) -- again on this same request instead of new calls.
+// card (`church_prayer`) and the This Sunday card (`service_times`) -- again
+// on this same request instead of new calls.
 export async function GET(req) {
   const user = await getCurrentUser(req);
   if (!user) return NextResponse.json({ error: "You must be signed in." }, { status: 401 });
@@ -147,15 +147,7 @@ export async function GET(req) {
     // never breaks the events.
     const settings = await getAppSettings();
     body.service_times = settings.service_times || "";
-    const [sermonRes, openRes, latestRes] = await Promise.all([
-      supabase
-        .from("sermons")
-        .select("id, title, speaker, sermon_date, link_url")
-        .eq("status", "published")
-        .order("sermon_date", { ascending: false, nullsFirst: false })
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+    const [openRes, latestRes] = await Promise.all([
       settings.church_prayer_enabled
         ? supabase.from("global_prayer").select("id", { count: "exact", head: true }).neq("status", "answered")
         : Promise.resolve({ count: 0 }),
@@ -163,7 +155,6 @@ export async function GET(req) {
         ? supabase.from("global_prayer").select("body, created_at").order("created_at", { ascending: false }).limit(1).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
-    body.latest_sermon = sermonRes?.error ? null : sermonRes?.data || null;
     body.church_prayer = settings.church_prayer_enabled
       ? {
           enabled: true,

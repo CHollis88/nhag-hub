@@ -45,7 +45,7 @@ const CATEGORIES = [
       },
       {
         q: "What do the tabs at the bottom do?",
-        a: "Home is your starting place: the Verse of the Day, \"This Sunday\" (service times and the latest message), your next event, the newest announcements from church and from your ministries, Church Prayer, and the ministries you're part of — plus others you can ask to join. Bible is the full study suite. News, Events, Calendar, and Sermons show church-wide content — Calendar pulls together everything from church-wide Events plus every ministry you're actually in, color-coded so you can tell at a glance where each thing is coming from. Want fewer buttons? Turn on Simple mode in Settings: the bar then shows just Home, Bible, News, Events, and Sermons, with bigger labels (Calendar and Directory are still reachable from Home).",
+        a: "Home is your starting place: the Verse of the Day, \"This Sunday\" (service times and your next event), the newest announcements from church and from your ministries, Church Prayer, and the ministries you're part of — plus others you can ask to join. Bible is the full study suite. News, Events, Calendar, and Sermons show church-wide content — Calendar pulls together everything from church-wide Events plus every ministry you're actually in, color-coded so you can tell at a glance where each thing is coming from. Want fewer buttons? Turn on Simple mode in Settings: the bar then shows just Home, Bible, News, Events, and Sermons, with bigger labels (Calendar and Directory are still reachable from Home).",
       },
       {
         q: "How do I join a ministry?",
@@ -302,7 +302,7 @@ const LEADER_SUBFOLDERS = [
       },
       {
         q: "How do I turn Church Prayer off, or change the service times on Home?",
-        a: "Both are under \"Church settings\" in the Admin Toolbox. The Church Prayer switch hides the Home card and the prayer page for everyone; every request is kept, so turning it back on brings them all back. Service times are a few lines of plain text (like \"Sunday School 9:45 AM\") shown in the \"This Sunday\" card on Home along with the latest sermon — tap \"Save service times\" when you're done. Leave the box empty to hide the times.",
+        a: "Both are under \"Church settings\" in the Admin Toolbox. The Church Prayer switch hides the Home card and the prayer page for everyone; every request is kept, so turning it back on brings them all back. Service times are a few lines of plain text (like \"Sunday School 9:45 AM\") shown in the \"This Sunday\" card on Home — tap \"Save service times\" when you're done. Leave the box empty to hide the times.",
       },
       {
         q: "How do I hide a ministry, or block it for one specific person?",
