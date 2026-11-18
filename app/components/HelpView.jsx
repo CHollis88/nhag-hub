@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
 import Modal from "./Modal";
+import { TIPS } from "@/lib/tips";
 
 // General-member-facing categories, roughly in the order a new member
 // would actually need them: getting the app on their phone first, then
@@ -242,7 +243,16 @@ const CATEGORIES = [
         q: "Can I edit my name, photo, username, or PIN?",
         a: "Yes — tap the profile icon in the header (or \"Menu\" in Simple mode) and choose \"Edit Profile\" to change your display name, username, or short bio. At the top you can add a profile photo (it's trimmed to a square for you), change it, or remove it; it shows next to your name in the Directory, rosters, and on your posts and prayer requests. A Church Admin can also remove someone else's photo if needed: tap the person in the Directory and choose \"Remove photo (admin)\". To change your PIN, scroll to \"Security\" at the bottom of your profile and tap \"Change PIN\". Usernames still need to be unique, same as when you first signed up.",
       },
+      {
+        q: "What's the \"Finish setting up\" list on Home?",
+        a: "A short checklist of things that make the app work best for you: a profile photo, putting the app on your home screen, notifications, joining a ministry, and picking your Bible. Each button takes you straight to the spot, and items check themselves off when you've done them. Don't want one, like a photo? Tap its X and it's gone for good (on every device you use). When everything's done or dismissed, the list disappears.",
+      },
     ],
+  },
+  {
+    // v72: the "Did you know?" tips from Home, all in one place.
+    title: "Tips",
+    items: TIPS.map((t) => ({ q: t.title, a: t.body })),
   },
 ];
 

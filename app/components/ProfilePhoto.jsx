@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Camera } from "lucide-react";
 import Avatar from "./Avatar";
+import NewPill from "./NewPill";
+import { markFeatureSeen } from "@/lib/newFeatures";
 import { useToast } from "./ToastProvider";
 import { requestJson } from "@/lib/request";
 
@@ -37,7 +39,9 @@ async function shrinkToSquare(file) {
 }
 
 // Profile > photo: add, change or remove your own.
-export default function ProfilePhoto({ me, refreshMe }) {
+export default function ProfilePhoto({ me, refreshMe, onUploaded, big = false }) {
+  // The "New" pill shows while they're looking; seen once they leave.
+  useEffect(() => () => markFeatureSeen("photo"), []);
   const toast = useToast();
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -59,6 +63,7 @@ export default function ProfilePhoto({ me, refreshMe }) {
       setUrl(data.avatar_url);
       toast.success("Photo saved");
       refreshMe?.();
+      onUploaded?.();
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -83,14 +88,15 @@ export default function ProfilePhoto({ me, refreshMe }) {
   return (
     <div className="flex items-center gap-4 mb-5">
       <div className="relative">
-        <Avatar url={url} name={name} size={72} />
+        <Avatar url={url} name={name} size={big ? 112 : 72} />
         {busy && <span className="absolute inset-0 rounded-full bg-black/30 animate-pulse motion-reduce:animate-none" aria-hidden="true" />}
       </div>
       <div className="flex flex-col items-start gap-1.5">
         <input ref={inputRef} type="file" accept="image/*" onChange={pick} className="hidden" aria-hidden="true" tabIndex={-1} />
-        <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className="sp-btn-secondary text-sm flex items-center gap-1.5 disabled:opacity-60">
-          <Camera size={14} aria-hidden="true" /> {url ? "Change photo" : "Add a photo"}
+        <button type="button" onClick={() => inputRef.current?.click()} disabled={busy} className={`${big ? "bg-accent text-white rounded-xl px-5 py-3 text-base font-semibold" : "sp-btn-secondary text-sm"} flex items-center gap-1.5 disabled:opacity-60`}>
+          <Camera size={big ? 18 : 14} aria-hidden="true" /> {url ? "Change photo" : "Add a photo"}
         </button>
+        {!url && <NewPill id="photo" />}
         {url && (
           <button type="button" onClick={remove} disabled={busy} className="text-xs text-inkfaint underline disabled:opacity-60">
             Remove photo

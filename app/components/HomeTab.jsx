@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { ChevronRight } from "lucide-react";
-import HomeGetStartedCard from "./HomeGetStartedCard";
+import SetupChecklistCard from "./SetupChecklistCard";
+import DidYouKnowCard from "./DidYouKnowCard";
 import MinistryPreview from "./MinistryPreview";
 import { readableTextColor } from "@/lib/colorContrast";
 import { formatTime12h } from "@/lib/formatTime";
@@ -267,7 +268,7 @@ function MinistryAnnouncements({ me, groups, onOpenGroup }) {
 // announcements, then shows every ministry as a tile (icon, tile color,
 // leader names) -- yours to Launch into, others to request joining.
 // Everything admin-only lives in the separate Admin Toolbox below.
-export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenSettings, onOpenDirectory, onOpenChurchPrayer, onOpenPassage }) {
+export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenSettings, onOpenDirectory, onOpenChurchPrayer, onOpenPassage, onOnboardingAction, onGoTo }) {
   const toast = useToast();
   const [previewGroup, setPreviewGroup] = useState(null);
 
@@ -328,7 +329,8 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
         <WelcomeCard me={me} groups={groupsData} pendingGroupIds={pendingGroupIds} onRequestJoin={requestJoin} />
       )}
 
-      <HomeGetStartedCard onGoToTab={onGoToTab} onOpenSettings={onOpenSettings} />
+      {/* v72: setup checklist (replaces the old Get Started tips list). */}
+      <SetupChecklistCard me={me} onAction={onOnboardingAction} />
 
       <VerseOfDayCard onOpenPassage={onOpenPassage} />
       <ThisSundayCard nextEvent={nextEvent} onOpenEvents={() => onGoToTab("calendar")} />
@@ -369,9 +371,14 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
         <p className="text-xs text-inkfaint mb-4">{pendingNotListed.join(", ")} — request pending approval.</p>
       )}
 
+      {/* v72: one helpful feature at a time, below your ministries. */}
+      <div className="mt-4">
+        <DidYouKnowCard onGo={onGoTo} />
+      </div>
+
       {otherGroups.length > 0 && myGroupIds.size > 0 && (
         <>
-          <p className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2">Other ministries</p>
+          <p id="other-ministries" className="text-xs uppercase tracking-wide text-inkfaint mt-6 mb-2 scroll-mt-20">Other ministries</p>
           <div className="space-y-1.5">
             {otherGroups.map((g) => (
               <BrowseMinistryRow

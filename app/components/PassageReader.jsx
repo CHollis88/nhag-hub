@@ -40,6 +40,8 @@ import { useAction } from "./useAction";
 import { shareText } from "@/lib/share";
 import { ReaderSkeleton, PopupSkeleton } from "./Skeleton";
 import { reportFums } from "@/lib/fums";
+import NewPill from "./NewPill";
+import { markFeatureSeen } from "@/lib/newFeatures";
 
 const FONT_OPTIONS = [
   { id: "sans", label: "Sans-serif", className: "font-bible-sans" },
@@ -1417,6 +1419,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
     setTranslationState(id);
     setPref("sp_bible_translation", id);
     setTranslationPickerOpen(false);
+    if (id === "nkjv" || id === "amp") markFeatureSeen("translations");
   };
 
   const chooseCommentarySource = (source) => {
@@ -2179,6 +2182,7 @@ export default function PassageReader({ initialBook = "Gen", initialChapter = 1,
             <span className="flex items-baseline gap-2">
               <span className="text-sm font-semibold text-ink">{t.label}</span>
               <span className="text-xs text-inkfaint truncate">{t.fullName}</span>
+              {(t.id === "nkjv" || t.id === "amp") && <NewPill id="translations" className="ml-auto flex-shrink-0" />}
             </span>
             <span className="block text-[0.6875rem] text-inkfaint mt-0.5">
               {translationCapabilityText(t)}

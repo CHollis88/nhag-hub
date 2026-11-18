@@ -21,7 +21,12 @@ import TabTransition from "./components/TabTransition";
 import NotifyBanner, { shouldShowNotifyBanner } from "./components/NotifyBanner";
 import InstallGuide from "./components/InstallGuide";
 import DesktopInstallTip from "./components/DesktopInstallTip";
-import { shouldAutoShowInstallGuide } from "@/lib/installDetect";
+import SetupWalkthrough from "./components/SetupWalkthrough";
+import WhatsNewTour from "./components/WhatsNewTour";
+import BiblePickerSheet from "./components/BiblePickerSheet";
+import { shouldShowWalkthrough, shouldShowTour } from "@/lib/onboarding";
+import { subscribeToPush } from "@/lib/pushClient";
+import { shouldAutoShowInstallGuide, detectDevice, isStandalone } from "@/lib/installDetect";
 
 // Everything below here is only ever shown after a tab switch or an explicit
 // open action, so it's a code-splitting candidate: keeps it out of the initial
@@ -336,10 +341,24 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [showNotifyBanner, setShowNotifyBanner] = useState(false);
   // v71.29: the "Install on your Home Screen" guide is the first thing anyone
   // using the app in a phone's browser sees (never in the installed app).
-  const [installOpen, setInstallOpen] = useState(false);
+  // (AppShell only ever renders in the browser, after sign-in, so these can
+  // be decided right away instead of in an effect.)
+  const [installOpen, setInstallOpenRaw] = useState(() => shouldAutoShowInstallGuide());
+  const setInstallOpen = (v) => {
+    setInstallOpenRaw(v);
+    if (!v) window.dispatchEvent(new Event("nhag-onboarding-changed")); // checklist re-checks
+  };
+  // v72: after the install guide (if any), a brand-new account gets the
+  // setup walkthrough; everyone else gets the "What's new" tour, once.
+  const [intro, setIntro] = useState(null); // null | "walkthrough" | "tour"
+  const introDecided = useRef(false);
   useEffect(() => {
-    if (shouldAutoShowInstallGuide()) setInstallOpen(true);
-  }, []);
+    if (installOpen || introDecided.current) return;
+    introDecided.current = true;
+    if (shouldShowWalkthrough(me)) setIntro("walkthrough");
+    else if (shouldShowTour(me)) setIntro("tour");
+  }, [installOpen, me]);
+  const [biblePickerOpen, setBiblePickerOpen] = useState(false);
   const [profileViewOpen, setProfileViewOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   // A screen clearing its own notifications updates the bell badge.
@@ -503,6 +522,44 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     markSeen(nextTab);
     setTab(nextTab);
   };
+  // v72: where "Show me" / "Try it" buttons go (Did-you-know tips, the
+  // What's-new tour).
+  const goTo = (where) => {
+    if (!where) return;
+    if (where === "church-prayer") setChurchPrayerOpen(true);
+    else if (where === "profile") setProfileViewOpen(true);
+    else if (where === "bible-picker") setBiblePickerOpen(true);
+    else if (where === "settings") setSettingsOpen(true);
+    else if (where === "help") setHelpOpen(true);
+    else if (where === "install") setInstallOpen(true);
+    else if (where === "home") {
+      switchTab("hub");
+      document.querySelector("main")?.scrollTo({ top: 0, behavior: "smooth" });
+    } else switchTab(where);
+  };
+
+  // The "Finish setting up" checklist's buttons: each goes straight to the spot.
+  const onboardingAction = async (id) => {
+    if (id === "photo") setProfileViewOpen(true);
+    else if (id === "install") setInstallOpen(true);
+    else if (id === "bible") setBiblePickerOpen(true);
+    else if (id === "ministry") {
+      const el = document.getElementById("other-ministries") || document.getElementById("welcome-card");
+      el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (id === "notifications") {
+      // iPhone in a browser: notifications need the home-screen app first.
+      if (detectDevice().os === "ios" && !isStandalone()) {
+        setInstallOpen(true);
+        return;
+      }
+      const r = await subscribeToPush();
+      if (r.ok) toast.success("Notifications on. Choose what you hear about in Settings.");
+      else if (r.reason === "denied") toast.error("Notifications are blocked for this app. You can allow them in your phone's settings.");
+      else toast.error("This browser can't turn on notifications.");
+      window.dispatchEvent(new Event("nhag-onboarding-changed"));
+    }
+  };
+
 
   const [activeGroup, setActiveGroup] = useState(null); // { id, name, role, features } | null
   const [bibleOverlay, setBibleOverlay] = useState(null); // { book, chapter } | null
@@ -921,7 +978,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
         </div>
       </header>
 
-      {showNotifyBanner && !installOpen && <NotifyBanner onDone={() => setShowNotifyBanner(false)} onInstallHelp={() => setInstallOpen(true)} />}
+      {showNotifyBanner && !installOpen && !intro && <NotifyBanner onDone={() => setShowNotifyBanner(false)} onInstallHelp={() => setInstallOpen(true)} />}
 
       <div className="flex flex-1 min-h-0">
         <Sidebar tab={tab} setTab={switchTab} badges={badges} />
@@ -946,6 +1003,8 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
                 onOpenDirectory={() => switchTab("directory")}
                 onOpenChurchPrayer={() => setChurchPrayerOpen(true)}
                 onOpenPassage={openBiblePassage}
+                onOnboardingAction={onboardingAction}
+                onGoTo={goTo}
               />
             )}
             {tab === "bible" && <BibleTab deviceId={me.user.id} />}
@@ -979,6 +1038,19 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
         />
       )}
       {patchNotesOpen && <PatchNotesView onClose={() => setPatchNotesOpen(false)} />}
+      {intro === "walkthrough" && (
+        <SetupWalkthrough me={me} refreshMe={refreshMe} onClose={() => setIntro(null)} onOpenInstall={() => setInstallOpen(true)} />
+      )}
+      {intro === "tour" && (
+        <WhatsNewTour
+          onClose={() => setIntro(null)}
+          onGo={(where) => {
+            setIntro(null);
+            goTo(where);
+          }}
+        />
+      )}
+      {biblePickerOpen && <BiblePickerSheet onClose={() => setBiblePickerOpen(false)} />}
       {installOpen && <InstallGuide onClose={() => setInstallOpen(false)} />}
       <DesktopInstallTip />
       {churchPrayerOpen && <ChurchPrayerView isAdmin={isAdmin} onClose={() => setChurchPrayerOpen(false)} />}

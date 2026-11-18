@@ -11,6 +11,8 @@ import { shareText } from "@/lib/share";
 import { hasNewContent } from "@/lib/lastSeen";
 import { useToast } from "./ToastProvider";
 import { formatTime12h } from "@/lib/formatTime";
+import NewPill from "./NewPill";
+import { markFeatureSeen } from "@/lib/newFeatures";
 
 // Home's extra cards (v71.29). The Church prayer and This Sunday cards read
 // the events request Home already makes (/api/events/mine?include=news,home),
@@ -186,7 +188,10 @@ export function ChurchPrayerTile({ onOpen }) {
   return (
     <button
       type="button"
-      onClick={onOpen}
+      onClick={() => {
+        markFeatureSeen("church-prayer");
+        onOpen?.();
+      }}
       aria-label={`Open Church Prayer${count ? `, ${count} ${count === 1 ? "request" : "requests"}` : ""}${isNew ? ", new requests" : ""}`}
       className="sp-card p-0 overflow-hidden flex flex-col h-full w-full text-left"
     >
@@ -197,6 +202,7 @@ export function ChurchPrayerTile({ onOpen }) {
           {isNew && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-accent border-2 border-card" aria-hidden="true" />}
         </span>
         <span className="font-serif text-sm md:text-lg text-ink leading-snug break-words">Church Prayer</span>
+        <NewPill id="church-prayer" className="mt-1" />
         <span className="text-[0.625rem] md:text-xs text-inkfaint mt-0.5">
           {count === 0 ? "Share a request" : `${count} ${count === 1 ? "request" : "requests"}`}
         </span>
@@ -213,7 +219,7 @@ export function WelcomeCard({ me, groups, pendingGroupIds, onRequestJoin }) {
   if (options.length === 0) return null;
   const first = (me?.user?.display_name || "").split(" ")[0];
   return (
-    <div className="sp-card mb-6 border-accent/30">
+    <div id="welcome-card" className="sp-card mb-6 border-accent/30">
       <p className="font-serif text-xl text-ink flex items-center gap-2">
         <Sparkles size={18} className="text-accent" aria-hidden="true" />
         Welcome{first ? `, ${first}` : ""}!
