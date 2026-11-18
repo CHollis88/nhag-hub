@@ -170,6 +170,41 @@ export function ChurchPrayerCard({ onOpen }) {
   );
 }
 
+// Church Prayer as a tile among "Your ministries" (v71.29): opens the prayer
+// page like a ministry tile opens a ministry. Red dot = new since you last
+// looked. Hidden while an admin has church prayer switched off.
+export function ChurchPrayerTile({ onOpen }) {
+  const extras = useHomeExtras();
+  const cp = extras?.church_prayer;
+  const [isNew, setIsNew] = useState(false);
+  useEffect(() => {
+    setIsNew(Boolean(cp?.latest?.created_at) && hasNewContent(CHURCH_PRAYER_SEEN, cp.latest.created_at));
+  }, [cp?.latest?.created_at]);
+  if (!cp?.enabled) return null;
+  const count = cp.open_count || 0;
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={`Open Church Prayer${count ? `, ${count} ${count === 1 ? "request" : "requests"}` : ""}${isNew ? ", new requests" : ""}`}
+      className="sp-card p-0 overflow-hidden flex flex-col h-full w-full text-left"
+    >
+      <div className="h-1 flex-shrink-0 w-full bg-accent" />
+      <div className="px-2 py-2.5 md:p-4 flex flex-col items-center text-center flex-1 w-full">
+        <span className="relative w-11 h-11 md:w-14 md:h-14 rounded-xl bg-accent/10 text-accent flex items-center justify-center flex-shrink-0 mb-1.5">
+          <Heart size={22} aria-hidden="true" />
+          {isNew && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-accent border-2 border-card" aria-hidden="true" />}
+        </span>
+        <span className="font-serif text-sm md:text-lg text-ink leading-snug break-words">Church Prayer</span>
+        <span className="text-[0.625rem] md:text-xs text-inkfaint mt-0.5">
+          {count === 0 ? "Share a request" : `${count} ${count === 1 ? "request" : "requests"}`}
+        </span>
+      </div>
+    </button>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Welcome: someone who isn't in any ministry yet sees the ministries right at
 // the top, with a Request to join button on each.

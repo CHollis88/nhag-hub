@@ -387,4 +387,20 @@ select.sp-input {
 
 /* The launch welcome screen lifting away once the app is ready. */
 .nhag-boot { transition: opacity 0.25s ease; }
+/* While the welcome screen is up, the page behind it is navy too -- including
+   the strip behind the phone's clock and battery, which shows the page's own
+   background, not the welcome screen. Without this it showed light gray. */
+html:has(.nhag-boot:not(.is-out)),
+html:has(.nhag-boot:not(.is-out)) body {
+  background: #0B1A3D;
+}
 .nhag-boot.is-out { opacity: 0; pointer-events: none; }
+
+/* Ministry tab bar: the "more tabs this way" arrow nudges sideways a few
+   times when it first appears, so it's noticed. */
+.nhag-more-tabs { animation: nhag-more-tabs 0.9s ease-in-out 0.4s 3; }
+@keyframes nhag-more-tabs {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) { .nhag-more-tabs { animation: none; } }

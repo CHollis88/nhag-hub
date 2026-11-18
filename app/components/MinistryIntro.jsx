@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 // Opening a ministry.
 //   Fast (its tabs load within ~a quarter second -- the usual case): nothing
@@ -56,8 +57,12 @@ export default function MinistryIntro({ name, imageUrl, ready }) {
   }, [ready]);
 
   if (phase === "waiting" || phase === "gone") return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  // Drawn straight into <body>: inside the ministry's slide-in animation a
+  // "fixed" screen is boxed into the ministry's own area (a CSS rule about
+  // animated parents), which left a gray strip at the top on phones.
+  return createPortal(
     <div
       className={`nhag-welcome nhag-ministry-intro fixed inset-0 z-[70] flex flex-col items-center justify-center p-6 text-center text-white ${phase === "out" ? "is-out" : ""}`}
       role="status"
@@ -77,6 +82,7 @@ export default function MinistryIntro({ name, imageUrl, ready }) {
         <p className="font-serif text-2xl mt-5 leading-tight max-w-xs break-words">{name}</p>
         <div className="nhag-welcome-bar mt-7" aria-hidden="true" />
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

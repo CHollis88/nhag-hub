@@ -66,7 +66,7 @@ const CATEGORIES = [
     items: [
       {
         q: "What happens when I tap a ministry to open it?",
-        a: "Tap a ministry's card on Home and you enter that ministry's own space, with its own News, Events, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: Prayer requests, a Song library and Setlists, a Programs tab for organizing things like a seasonal cantata or special production, Messages for private conversation with that ministry's leaders, Chat for a shared conversation with the whole ministry, or a Bible Plan bolt-on with Today, Plan, and Journal. Tap \"← Home\" at the top to leave and go back.",
+        a: "Tap a ministry's card on Home and you enter that ministry's own space, with its own News, Events, and Roster — separate from the church-wide ones. Some ministries have extra tabs too: Prayer requests, a Song library and Setlists, a Programs tab for organizing things like a seasonal cantata or special production, Messages for private conversation with that ministry's leaders, Chat for a shared conversation with the whole ministry, or a Bible Plan bolt-on with Today, Plan, and Journal. If a ministry has more tabs than fit across the bottom, a red arrow at the edge shows how many more there are — tap it or swipe the bar sideways. Tap \"← Home\" at the top to leave and go back.",
       },
       {
         q: "Can I leave a ministry?",
@@ -99,7 +99,7 @@ const CATEGORIES = [
       },
       {
         q: "What is Church Prayer?",
-        a: "A prayer page for the whole church, opened from the Church Prayer card on Home. Anyone can share a request (anonymously if you like), tap \"I'm praying\", and react — tap a reaction to see who added it. Only the person who posted it, or a Church Admin, can mark it Answered or Still Praying, or remove it. Church Prayer never sends notifications, so nobody's phone buzzes for every request; instead, a small dot on the Home card tells you there's something new since you last looked.",
+        a: "A prayer page for the whole church, opened from the Church Prayer tile next to your ministries on Home. Anyone can share a request (anonymously if you like), tap \"I'm praying\", and react — tap a reaction to see who added it. Only the person who posted it, or a Church Admin, can mark it Answered or Still Praying, or remove it. Church Prayer never sends notifications, so nobody's phone buzzes for every request; instead, a red dot on the tile tells you there's something new since you last looked.",
       },
       {
         q: "Do events always have RSVP or replies?",
@@ -302,7 +302,7 @@ const LEADER_SUBFOLDERS = [
       },
       {
         q: "How do I turn Church Prayer off, or change the service times on Home?",
-        a: "Both are under \"Church settings\" in the Admin Toolbox. The Church Prayer switch hides the Home card and the prayer page for everyone; every request is kept, so turning it back on brings them all back. Service times are a few lines of plain text (like \"Sunday School 9:45 AM\") shown in the \"This Sunday\" card on Home — tap \"Save service times\" when you're done. Leave the box empty to hide the times.",
+        a: "Both are under \"Church settings\" in the Admin Toolbox. The Church Prayer switch hides the Home tile and the prayer page for everyone; every request is kept, so turning it back on brings them all back. Service times are a few lines of plain text (like \"Sunday School 9:45 AM\") shown in the \"This Sunday\" card on Home — tap \"Save service times\" when you're done. Leave the box empty to hide the times.",
       },
       {
         q: "How do I hide a ministry, or block it for one specific person?",

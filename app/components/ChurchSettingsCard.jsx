@@ -7,7 +7,7 @@ import { invalidate } from "@/lib/resourceCache";
 import { useToast } from "./ToastProvider";
 
 // Admin Toolbox > Church settings (v71.29):
-//   * Church prayer On/Off -- off hides the Home card and the prayer page,
+//   * Church prayer On/Off -- off hides the Home tile and the prayer page,
 //     and keeps every request (switch it back on and they're all there).
 //   * Service times -- shown on Home's "This Sunday" card. Leave empty to hide.
 export default function ChurchSettingsCard() {

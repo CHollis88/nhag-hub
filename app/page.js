@@ -132,7 +132,7 @@ function BootSplash() {
   }, [state.visible]);
   if (gone) return null;
   return (
-    <div className={`fixed inset-0 z-[80] nhag-boot ${state.visible ? "" : "is-out"}`}>
+    <div className={`fixed inset-0 z-[80] nhag-boot nhag-welcome ${state.visible ? "" : "is-out"}`}>
       <WelcomeScreen failed={state.failed} onRetry={() => state.retry?.()} />
     </div>
   );
@@ -140,7 +140,7 @@ function BootSplash() {
 
 function WelcomeScreen({ failed = false, onRetry }) {
   return (
-    <div className="nhag-welcome min-h-screen flex flex-col items-center justify-center p-6 text-center">
+    <div className="nhag-welcome min-h-[100dvh] h-full flex flex-col items-center justify-center p-6 text-center">
       <img
         src="/splash-emblem.webp"
         alt=""

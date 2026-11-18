@@ -11,7 +11,7 @@ import { requestJson } from "@/lib/request";
 import { useResource } from "@/lib/useResource";
 import { HOME_GROUPS, HOME_EVENTS, HOME_NEWS } from "@/lib/homeData";
 import { useToast } from "./ToastProvider";
-import { VerseOfDayCard, ThisSundayCard, ChurchPrayerCard, WelcomeCard } from "./HomeCards";
+import { VerseOfDayCard, ThisSundayCard, ChurchPrayerCard, ChurchPrayerTile, WelcomeCard } from "./HomeCards";
 
 const DEFAULT_TILE_COLOR = "#4A5568";
 const CHURCH_WIDE_COLOR = "#16296B"; // same brand navy used for "Church-wide" everywhere else (Calendar)
@@ -334,7 +334,8 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
       <ThisSundayCard nextEvent={nextEvent} onOpenEvents={() => onGoToTab("calendar")} />
       <AnnouncementsPreview onSeeAll={() => onGoToTab("news")} />
       <MinistryAnnouncements me={me} groups={groupsData} onOpenGroup={onOpenGroup} />
-      <ChurchPrayerCard onOpen={onOpenChurchPrayer} />
+      {/* Not in a ministry yet: no tile grid, so Church Prayer keeps its card. */}
+      {groupsData && myGroupIds.size === 0 && <ChurchPrayerCard onOpen={onOpenChurchPrayer} />}
 
       <div className={`flex items-center justify-between mb-2 ${groupsData && myGroupIds.size === 0 ? "hidden" : ""}`}>
         <p className="text-xs uppercase tracking-wide text-inkfaint">Your ministries</p>
@@ -359,6 +360,7 @@ export default function HomeTab({ me, refreshMe, onOpenGroup, onGoToTab, onOpenS
             onOpen={() => onOpenGroup(g.id, g.name, membershipByGroupId[g.id]?.role, g.features)}
           />
         ))}
+        {myGroups.length > 0 && <ChurchPrayerTile onOpen={onOpenChurchPrayer} />}
       </div>
       {/* Pending requests already show on their row in "Other ministries"; this
           line only covers one that ISN'T listed there (e.g. a hidden ministry),
