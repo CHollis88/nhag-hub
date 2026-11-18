@@ -20,6 +20,7 @@ import TabSkeleton from "./components/TabSkeleton";
 import TabTransition from "./components/TabTransition";
 import NotifyBanner, { shouldShowNotifyBanner } from "./components/NotifyBanner";
 import InstallGuide from "./components/InstallGuide";
+import DesktopInstallTip from "./components/DesktopInstallTip";
 import { shouldAutoShowInstallGuide } from "@/lib/installDetect";
 
 // Everything below here is only ever shown after a tab switch or an explicit
@@ -979,6 +980,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
       )}
       {patchNotesOpen && <PatchNotesView onClose={() => setPatchNotesOpen(false)} />}
       {installOpen && <InstallGuide onClose={() => setInstallOpen(false)} />}
+      <DesktopInstallTip />
       {churchPrayerOpen && <ChurchPrayerView isAdmin={isAdmin} onClose={() => setChurchPrayerOpen(false)} />}
       {helpOpen && (
         <HelpView

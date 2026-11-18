@@ -425,3 +425,8 @@ html:has(.nhag-boot:not(.is-out)) body {
 @keyframes nhag-install-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
 @keyframes nhag-install-bounce-up { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @media (prefers-reduced-motion: reduce) { .nhag-install-arrow > span { animation: none; } }
+
+/* Desktop "Did you know?" install tip sliding up into the corner. */
+.nhag-tip-in { animation: nhag-tip-in 0.35s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+@keyframes nhag-tip-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .nhag-tip-in { animation: none; } }

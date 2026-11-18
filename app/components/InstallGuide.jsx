@@ -173,14 +173,8 @@ export default function InstallGuide({ onClose, variant = "auto" }) {
     } else setStatus("idle");
   };
 
-  const openBrowser = () => {
-    const url = openInBrowserUrl(device);
-    setStatus("opened");
-    window.location.href = url;
-  };
-
   const copyLink = async () => {
-    const href = window.location.origin + "/";
+    const href = window.location.origin + "/install";
     try {
       await navigator.clipboard.writeText(href);
     } catch {
@@ -229,37 +223,54 @@ export default function InstallGuide({ onClose, variant = "auto" }) {
         ) : p.kind === "open" ? (
           <div className="sp-card py-6">
             <p className="text-lg text-ink text-center">{p.intro}</p>
-            <button
-              type="button"
-              onClick={openBrowser}
+            {/* A real link the person taps (not a jump done by code): some
+                apps only let a tapped link out to Safari/Chrome. Facebook on
+                iPhone often blocks it anyway -- hence the steps below, shown
+                from the start. */}
+            <a
+              href={openInBrowserUrl(device)}
+              onClick={() => setStatus("opened")}
               className="mt-5 w-full bg-accent text-white rounded-xl py-4 text-xl font-semibold flex items-center justify-center gap-2"
             >
               <ExternalLink size={22} aria-hidden="true" /> Open in {p.browserName}
-            </button>
-            <p className="text-sm text-inksoft text-center mt-3">This page will open there with the steps to finish.</p>
+            </a>
 
-            {(status === "opened" || status === "copied") && (
-              <div className="mt-6 border-t border-linesoft pt-5">
-                <p className="text-base font-semibold text-ink mb-3">Didn&apos;t open? Do this instead:</p>
-                <ol className="space-y-3 text-base text-ink">
+            <div className="mt-6 border-t border-linesoft pt-5">
+              <p className="text-base font-semibold text-ink mb-3">
+                {status === "opened" ? "Didn't open? Do this instead:" : "If that button doesn't work:"}
+              </p>
+              {device.browser === "inapp" && (
+                <ol className="space-y-3 text-base text-ink mb-5">
                   <li className="flex gap-3">
                     <span className="nhag-step">1</span>
                     <span>
-                      <button type="button" onClick={copyLink} className="inline-flex items-center gap-1.5 bg-navy text-white rounded-lg px-3 py-1.5 text-sm font-semibold">
-                        <Copy size={15} aria-hidden="true" /> {status === "copied" ? "Link copied ✓" : "Copy the link"}
-                      </button>
+                      Tap <Icon as={device.os === "ios" ? Ellipsis : EllipsisVertical} label="menu" /> in a corner of this screen
+                      {device.os === "ios" ? " (top right or bottom right)" : " (top right)"}.
                     </span>
                   </li>
-                  <li className="flex gap-3"><span className="nhag-step">2</span><span>Open the <b>{p.browserName}</b> app.</span></li>
-                  <li className="flex gap-3"><span className="nhag-step">3</span><span>Tap the address bar, press and hold, and tap <b>Paste and Go</b>.</span></li>
+                  <li className="flex gap-3">
+                    <span className="nhag-step">2</span>
+                    <span>
+                      Tap <b>“Open in external browser”</b>
+                      {device.os === "ios" ? <> or <b>“Open in Safari”</b></> : <> or <b>“Open in Chrome”</b></>}.
+                    </span>
+                  </li>
                 </ol>
-                {device.browser === "inapp" && (
-                  <p className="text-sm text-inkfaint mt-4">
-                    Or look for <Icon as={device.os === "ios" ? Ellipsis : EllipsisVertical} label="menu" /> in a corner of this screen and choose <b>“Open in {p.browserName}”</b> or <b>“Open in browser”</b>.
-                  </p>
-                )}
-              </div>
-            )}
+              )}
+              <p className="text-sm text-inksoft mb-3">{device.browser === "inapp" ? "Still stuck? Copy the link instead:" : "Or copy the link:"}</p>
+              <ol className="space-y-3 text-base text-ink">
+                <li className="flex gap-3">
+                  <span className="nhag-step">1</span>
+                  <span>
+                    <button type="button" onClick={copyLink} className="inline-flex items-center gap-1.5 bg-navy text-white rounded-lg px-3 py-1.5 text-sm font-semibold">
+                      <Copy size={15} aria-hidden="true" /> {status === "copied" ? "Link copied ✓" : "Copy the link"}
+                    </button>
+                  </span>
+                </li>
+                <li className="flex gap-3"><span className="nhag-step">2</span><span>Open the <b>{p.browserName}</b> app.</span></li>
+                <li className="flex gap-3"><span className="nhag-step">3</span><span>Tap the address bar, press and hold, and tap <b>Paste and Go</b>.</span></li>
+              </ol>
+            </div>
           </div>
         ) : (
           <div className="sp-card py-5">
