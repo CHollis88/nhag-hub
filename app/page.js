@@ -19,6 +19,8 @@ import HomeTab from "./components/HomeTab";
 import TabSkeleton from "./components/TabSkeleton";
 import TabTransition from "./components/TabTransition";
 import NotifyBanner, { shouldShowNotifyBanner } from "./components/NotifyBanner";
+import InstallGuide from "./components/InstallGuide";
+import { shouldAutoShowInstallGuide } from "@/lib/installDetect";
 
 // Everything below here is only ever shown after a tab switch or an explicit
 // open action, so it's a code-splitting candidate: keeps it out of the initial
@@ -331,6 +333,12 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [showNotifyBanner, setShowNotifyBanner] = useState(false);
+  // v71.29: the "Install on your Home Screen" guide is the first thing anyone
+  // using the app in a phone's browser sees (never in the installed app).
+  const [installOpen, setInstallOpen] = useState(false);
+  useEffect(() => {
+    if (shouldAutoShowInstallGuide()) setInstallOpen(true);
+  }, []);
   const [profileViewOpen, setProfileViewOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   // A screen clearing its own notifications updates the bell badge.
@@ -912,7 +920,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
         </div>
       </header>
 
-      {showNotifyBanner && <NotifyBanner onDone={() => setShowNotifyBanner(false)} />}
+      {showNotifyBanner && !installOpen && <NotifyBanner onDone={() => setShowNotifyBanner(false)} onInstallHelp={() => setInstallOpen(true)} />}
 
       <div className="flex flex-1 min-h-0">
         <Sidebar tab={tab} setTab={switchTab} badges={badges} />
@@ -970,6 +978,7 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
         />
       )}
       {patchNotesOpen && <PatchNotesView onClose={() => setPatchNotesOpen(false)} />}
+      {installOpen && <InstallGuide onClose={() => setInstallOpen(false)} />}
       {churchPrayerOpen && <ChurchPrayerView isAdmin={isAdmin} onClose={() => setChurchPrayerOpen(false)} />}
       {helpOpen && (
         <HelpView
@@ -1013,6 +1022,12 @@ function HomeInner() {
   const lastPrivileges = useRef(null);
   const lastGroupIds = useRef(new Set());
   const bootedRef = useRef(false); // the first /api/me answer has been handled
+  // Install guide over the sign-in screen (v71.29). "New here?" closes it so
+  // they can set up their account; it comes back once they're signed in.
+  const [signInInstallOpen, setSignInInstallOpen] = useState(false);
+  useEffect(() => {
+    if (shouldAutoShowInstallGuide()) setSignInInstallOpen(true);
+  }, []);
 
   const load = useCallback(async () => {
     // cache: "no-store" here specifically -- this is the manual/initial
@@ -1132,7 +1147,14 @@ function HomeInner() {
   // Still starting up: the welcome screen (BootSplash, above everything) is
   // showing; nothing to draw underneath yet.
   if (me === undefined) return null;
-  if (me === null) return <SignInScreen authError={searchParams.get("authError")} />;
+  if (me === null) {
+    return (
+      <>
+        <SignInScreen authError={searchParams.get("authError")} />
+        {signInInstallOpen && <InstallGuide variant="signin" onClose={() => setSignInInstallOpen(false)} />}
+      </>
+    );
+  }
   if (!me.user.username) return null; // redirecting to /setup
 
   // Built once per load from whatever query params got us here -- a

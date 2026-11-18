@@ -1,5 +1,6 @@
 import "./globals.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import { INSTALL_CAPTURE_SCRIPT } from "@/lib/installDetect";
 import UiProviders from "./components/UiProviders";
 
 export const metadata = {
@@ -32,6 +33,7 @@ export default function RootLayout({ children }) {
       <head>
         <meta name="viewport" content={VIEWPORT_CONTENT} />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: INSTALL_CAPTURE_SCRIPT }} />
       </head>
       <body>
         <UiProviders>{children}</UiProviders>

@@ -6,7 +6,7 @@ import { subscribeToPush } from "@/lib/pushClient";
 
 const DISMISS_KEY = "sp_push_dismissed";
 
-export default function NotifyBanner({ onDone }) {
+export default function NotifyBanner({ onDone, onInstallHelp }) {
   const [status, setStatus] = useState("idle"); // idle | asking | done | denied | unsupported
 
   const enable = async () => {
@@ -15,7 +15,7 @@ export default function NotifyBanner({ onDone }) {
     if (result.ok) setStatus("done");
     else if (result.reason === "denied") setStatus("denied");
     else setStatus("unsupported");
-    setTimeout(onDone, result.ok ? 1200 : 2200);
+    if (result.ok || result.reason === "denied" || !onInstallHelp) setTimeout(onDone, result.ok ? 1200 : 2200);
   };
 
   const dismiss = () => {
@@ -48,9 +48,14 @@ export default function NotifyBanner({ onDone }) {
           </p>
         )}
         {status === "unsupported" && (
-          <p className="text-sm">
-            Notifications need this app added to your home screen first (Share → Add to Home Screen).
-          </p>
+          <div>
+            <p className="text-sm">Notifications need the app on your home screen first.</p>
+            {onInstallHelp && (
+              <button onClick={() => { onDone(); onInstallHelp(); }} className="mt-2 bg-white text-navy rounded-full px-3.5 py-1.5 text-xs font-semibold">
+                Show me how
+              </button>
+            )}
+          </div>
         )}
       </div>
       <button onClick={dismiss} className="text-[#b9c3e6] flex-shrink-0">

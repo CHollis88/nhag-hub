@@ -22,23 +22,48 @@ const CATEGORIES = [
       },
       {
         q: "How do I add this app to my Home Screen?",
+        a: "The easiest way: open the app in your phone's browser and the install guide pops up with the exact steps for your phone. (Anyone can also open app.nhagchurch.org/install, or scan the QR code a leader shows from the Admin Toolbox.) If you're inside Facebook, Messenger, or another app, the guide's first button opens the app in Safari or Chrome, because those built-in browsers can't add apps to your home screen. On an iPhone or iPad with the text size turned all the way up, \"Add to Home Screen\" can get pushed out of the Share menu: scroll all the way down, or turn the text size down for a moment (Settings → Display & Brightness → Text Size; if you use Larger Text, it's under Accessibility → Display & Text Size), add the app, then turn it back up. Here are the steps too:",
         sections: [
           {
-            platform: "iPhone or iPad (Safari)",
+            platform: "iPhone or iPad on iOS 26 or newer (Safari)",
             steps: [
-              "Open the app in Safari (not another browser — this only works from Safari on iOS)",
-              "Tap the Share icon at the bottom of the screen (a square with an arrow pointing up)",
+              "Tap the ⋯ button next to the address bar (don't see it? tap the Share icon instead and skip to step 3)",
+              "Tap Share",
+              "Scroll down and tap \"Add to Home Screen\"",
+              "Make sure \"Open as Web App\" is on, then tap \"Add\"",
+            ],
+          },
+          {
+            platform: "iPhone or iPad on an older iOS (Safari)",
+            steps: [
+              "Tap the Share icon at the bottom of the screen (a square with an arrow pointing up; on iPad it's at the top right)",
               "Scroll down the menu that appears and tap \"Add to Home Screen\"",
               "Tap \"Add\" in the top right",
             ],
           },
           {
+            platform: "iPhone with Chrome",
+            steps: [
+              "Tap the Share icon in the address bar at the top",
+              "Tap \"Add to Home Screen\" (you may need to tap More or scroll)",
+              "Tap \"Add\"",
+            ],
+          },
+          {
             platform: "Android (Chrome)",
             steps: [
-              "Open the app in Chrome",
-              "Tap the three-dot menu icon in the top right",
+              "Open the app in Chrome — the install guide shows an \"Install NHAG\" button; tap it, then tap Install",
+              "No button? Tap the three-dot menu icon in the top right",
               "Tap \"Add to Home screen\" (some phones show this as \"Install app\")",
-              "Tap \"Add\" or \"Install\" to confirm",
+              "Tap \"Install\" or \"Add\" to confirm",
+            ],
+          },
+          {
+            platform: "Android (Samsung Internet)",
+            steps: [
+              "Tap the menu (three lines) at the bottom right",
+              "Tap \"Add page to\", then \"Home screen\"",
+              "Tap \"Add\"",
             ],
           },
         ],
