@@ -6,8 +6,8 @@ import { markTourSeen } from "@/lib/onboarding";
 
 // v72: a one-time "What's new" tour the first time each person opens
 // 72.0 -- it covers the 71.29 features too, since most people won't have
-// noticed them yet. Swipe or tap through; every card has "Try it", which
-// goes straight there. Brand-new accounts get the setup walkthrough instead.
+// noticed them yet. Swipe or tap through; "Try it now" goes straight
+// there, and the tour comes back on that card when you close it. Brand-new accounts get the setup walkthrough instead.
 
 const CARDS = [
   { icon: Heart, title: "Church Prayer", body: "A prayer page for the whole church. Share a request (anonymously if you like), and tap “I'm praying” on others'. It's the heart tile next to your ministries.", go: "church-prayer" },
@@ -17,8 +17,8 @@ const CARDS = [
   { icon: Sparkles, title: "Did you know?", body: "Every few days, Home shows one helpful feature you might not have found yet. Tap “Show me” to try it.", go: null },
 ];
 
-export default function WhatsNewTour({ onClose, onGo }) {
-  const [i, setI] = useState(0);
+export default function WhatsNewTour({ onClose, onGo, startAt = 0 }) {
+  const [i, setI] = useState(startAt);
   const [touchX, setTouchX] = useState(null);
   const card = CARDS[i];
   const last = i === CARDS.length - 1;
@@ -27,10 +27,9 @@ export default function WhatsNewTour({ onClose, onGo }) {
     markTourSeen();
     onClose?.();
   };
-  const go = (where) => {
-    markTourSeen();
-    onGo?.(where);
-  };
+  // "Try it now" pauses the tour (it isn't marked as seen): closing what it
+  // opened brings the tour back on this same card.
+  const go = (where) => onGo?.(where, i);
   const onTouchEnd = (e) => {
     if (touchX === null) return;
     const dx = e.changedTouches[0].clientX - touchX;

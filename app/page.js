@@ -359,6 +359,10 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
     else if (shouldShowTour(me)) setIntro("tour");
   }, [installOpen, me]);
   const [biblePickerOpen, setBiblePickerOpen] = useState(false);
+  // The tour's "Try it now" pauses it on that card; it comes back once the
+  // screen it opened (Church Prayer, Edit Profile, the Bible picker) closes.
+  const [tourPausedAt, setTourPausedAt] = useState(null);
+  const tourTargetOpened = useRef(false);
   const [profileViewOpen, setProfileViewOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   // A screen clearing its own notifications updates the bell badge.
@@ -564,6 +568,15 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
   const [activeGroup, setActiveGroup] = useState(null); // { id, name, role, features } | null
   const [bibleOverlay, setBibleOverlay] = useState(null); // { book, chapter } | null
   const [churchPrayerOpen, setChurchPrayerOpen] = useState(false);
+  useEffect(() => {
+    if (tourPausedAt === null || intro) return;
+    const targetOpen = churchPrayerOpen || profileViewOpen || biblePickerOpen;
+    if (targetOpen) tourTargetOpened.current = true;
+    else if (tourTargetOpened.current) {
+      tourTargetOpened.current = false;
+      setIntro("tour");
+    }
+  }, [tourPausedAt, intro, churchPrayerOpen, profileViewOpen, biblePickerOpen]);
   // The header's Profile button shows your photo once you've added one.
   const myPhotoUrl = me?.user?.avatar_url || null;
   const myPhotoIcon = useMemo(
@@ -1043,9 +1056,15 @@ function AppShell({ me, refreshMe, onSignOut, deepLink }) {
       )}
       {intro === "tour" && (
         <WhatsNewTour
-          onClose={() => setIntro(null)}
-          onGo={(where) => {
+          startAt={tourPausedAt ?? 0}
+          onClose={() => {
             setIntro(null);
+            setTourPausedAt(null);
+          }}
+          onGo={(where, index) => {
+            setIntro(null);
+            tourTargetOpened.current = false;
+            setTourPausedAt(index);
             goTo(where);
           }}
         />
